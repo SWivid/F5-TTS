@@ -153,9 +153,11 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
 def convert_char_to_pinyin(text_list, polyphone = True):
     final_text_list = []
     god_knows_why_en_testset_contains_zh_quote = str.maketrans({'“': '"', '”': '"', '‘': "'", '’': "'"})  # in case librispeech (orig no-pc) test-clean
+    custom_trans = str.maketrans({';': ','})  # add custom trans here, to address oov
     for text in text_list:
         char_list = []
         text = text.translate(god_knows_why_en_testset_contains_zh_quote)
+        text = text.translate(custom_trans)
         for seg in jieba.cut(text):
             seg_byte_len = len(bytes(seg, 'UTF-8'))
             if seg_byte_len == len(seg):  # if pure alphabets and symbols

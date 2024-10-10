@@ -142,7 +142,10 @@ class CFM(nn.Module):
         cond_mask = rearrange(cond_mask, '... -> ... 1')
         step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))  # allow direct control (cut cond audio) with lens passed in
 
-        mask = lens_to_mask(duration)
+        if batch > 1:
+            mask = lens_to_mask(duration)
+        else:  # save memory and speed up, as single inference need no mask currently
+            mask = None
 
         # test for no ref audio
         if no_ref_audio:
