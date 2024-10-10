@@ -1,6 +1,6 @@
 
 # F5-TTS
-### <a href="https://swivid.github.io/F5-TTS/">Demo</a>
+### <a href="https://swivid.github.io/F5-TTS/">Demo</a>; <a href="https://arxiv.org/abs/2410.06885">Paper</a>
 Official code for "A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching"
 
 ## Installation
