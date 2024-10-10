@@ -31,6 +31,11 @@ accelerate launch test_train.py
 Pretrained model ckpts. https://huggingface.co/SWivid/F5-TTS
 ```bash
 # single test inference
+# modify the config up to your need,
+# e.g. fix_duration (the total length of prompt + to_generate, currently support up to 30s)
+#      nfe_step     (larger takes more time to do more precise inference ode)
+#      ode_method   (switch to 'midpoint' for better compatibility with small nfe_step, )
+#                   ( though 'midpoint' is 2nd-order ode solver, slower compared to 1st-order 'Euler')
 python test_infer_single.py
 ```
 
