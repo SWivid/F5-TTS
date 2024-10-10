@@ -95,6 +95,7 @@ class CFM(nn.Module):
         no_ref_audio = False,
         duplicate_test = False,
         t_inter = 0.1,
+        edit_mask = None,
     ):
         self.eval()
 
@@ -125,6 +126,8 @@ class CFM(nn.Module):
         # duration
 
         cond_mask = lens_to_mask(lens)
+        if edit_mask is not None:
+            cond_mask = cond_mask & edit_mask
 
         if isinstance(duration, int):
             duration = torch.full((batch,), duration, device = device, dtype = torch.long)

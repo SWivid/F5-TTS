@@ -30,13 +30,16 @@ accelerate launch test_train.py
 ## Inference
 Pretrained model ckpts. https://huggingface.co/SWivid/F5-TTS
 ```bash
-# single test inference
+# test single inference
 # modify the config up to your need,
 # e.g. fix_duration (the total length of prompt + to_generate, currently support up to 30s)
 #      nfe_step     (larger takes more time to do more precise inference ode)
 #      ode_method   (switch to 'midpoint' for better compatibility with small nfe_step, )
 #                   ( though 'midpoint' is 2nd-order ode solver, slower compared to 1st-order 'Euler')
 python test_infer_single.py
+
+# test speech edit
+python test_infer_single_edit.py
 ```
 
 
@@ -77,3 +80,4 @@ python scripts/eval_librispeech_test_clean.py
 - <a href="https://arxiv.org/abs/2403.03206">SD3</a> & <a href="https://github.com/huggingface/diffusers">Huggingface diffusers</a> DiT and MMDiT code structure
 - <a href="https://github.com/modelscope/FunASR">FunASR</a>, <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a> & <a href="https://github.com/microsoft/UniSpeech">UniSpeech</a> for evaluation tools
 - <a href="https://github.com/rtqichen/torchdiffeq">torchdiffeq</a> as ODE solver, <a href="https://huggingface.co/charactr/vocos-mel-24khz">Vocos</a> as vocoder
+- <a href="https://github.com/MahmoudAshraf97/ctc-forced-aligner">ctc-forced-aligner</a> for speech edit test
