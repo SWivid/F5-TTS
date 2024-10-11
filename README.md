@@ -1,5 +1,5 @@
 
-## F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
+# F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
 ### <a href="https://swivid.github.io/F5-TTS/">Demo</a>; <a href="https://arxiv.org/abs/2410.06885">Paper</a>; <a href="https://huggingface.co/SWivid/F5-TTS">Checkpoints</a>. 
 F5-TTS, a fully non-autoregressive text-to-speech system based on flow matching with Diffusion Transformer (DiT). Without requiring complex designs such as duration model, text encoder, and phoneme alignment, the text input is simply padded with filler tokens to the same length as input speech, and then the denoising is performed for speech generation, which was originally proved feasible by E2 TTS.
