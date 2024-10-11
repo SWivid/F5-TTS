@@ -1,10 +1,12 @@
 
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
-### <a href="https://swivid.github.io/F5-TTS/">Demo</a>; <a href="https://arxiv.org/abs/2410.06885">Paper</a>; <a href="https://huggingface.co/SWivid/F5-TTS">Checkpoints</a>. 
-F5-TTS, a fully non-autoregressive text-to-speech system based on flow matching with Diffusion Transformer (DiT). Without requiring complex designs such as duration model, text encoder, and phoneme alignment, the text input is simply padded with filler tokens to the same length as input speech, and then the denoising is performed for speech generation, which was originally proved feasible by E2 TTS.
-
-![image](https://github.com/user-attachments/assets/6194b82e-fe90-4b86-9d45-82ade478fb49)
+[![arXiv](https://img.shields.io/badge/arXiv-2410.06885-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2410.06885)
+[![demo](https://img.shields.io/badge/GitHub-Demo%20page-blue.svg)](https://swivid.github.io/F5-TTS/)
+[![space](https://img.shields.io/badge/🤗-Space%20demo-yellow)](https://huggingface.co/spaces/mrfakename/E2-F5-TTS) \
+**F5-TTS**: Diffusion Transformer with ConvNeXt V2, faster trained and inference. \
+**E2 TTS**: Flat-UNet Transformer, closest reproduction.\
+**Sway Sampling**: Inference-time flow step sampling strategy, greatly improves performance
 
 ## Installation
 Clone this repository.
@@ -18,7 +20,7 @@ pip install -r requirements.txt
 ```
 
 ## Prepare Dataset
-We provide data processing scripts for Wenetspeech4TTS and Emilia and you just need to update your data paths in the scripts.
+Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
 ```bash
 # prepare custom dataset up to your need
 # download corresponding dataset first, and fill in the path in scripts
@@ -31,7 +33,7 @@ python scripts/prepare_wenetspeech4tts.py
 ```
 
 ## Training
-Once your datasets are prepared, you can start the training process. Here’s how to set it up:
+Once your datasets are prepared, you can start the training process.
 ```bash
 # setup accelerate config, e.g. use multi-gpu ddp, fp16
 # will be to: ~/.cache/huggingface/accelerate/default_config.yaml     
@@ -40,7 +42,7 @@ accelerate launch test_train.py
 ```
 
 ## Inference
-To perform inference with the pretrained model, you can download the model checkpoints from [F5-TTS Pretrained Model](https://huggingface.co/SWivid/F5-TTS)
+To inference with pretrained models, download the checkpoints from [🤗](https://huggingface.co/SWivid/F5-TTS).
 
 ### Single Inference
 You can test single inference using the following command. Before running the command, modify the config up to your need.
@@ -61,33 +63,32 @@ python test_infer_single_edit.py
 ## Evaluation
 ### Prepare Test Datasets
 1. Seed-TTS test set: Download from [seed-tts-eval](https://github.com/BytedanceSpeech/seed-tts-eval).
-2. LibriSpeech test clean: Download from [OpenSLR](http://www.openslr.org/12/).
+2. LibriSpeech test-clean: Download from [OpenSLR](http://www.openslr.org/12/).
 3. Unzip the downloaded datasets and place them in the data/ directory.
-4. Update the path for the test clean data in `test_infer_batch.py`
-5. our librispeech-pc 4-10s subset is already under data/ in this repo
-### Download Evaluation Model Checkpoints
-1. Chinese ASR Model: [Paraformer-zh](https://huggingface.co/funasr/paraformer-zh)
-2. English ASR Model: [Faster-Whisper](https://huggingface.co/Systran/faster-whisper-large-v3)
-3. WavLM Model: Download from [Google Drive](https://drive.google.com/file/d/1-aE1NfzpRCLxA4GUxX9ITI3F9LlbtEGP/view).
+4. Update the path for the test-clean data in `test_infer_batch.py`
+5. Our filtered LibriSpeech-PC 4-10s subset is already under data/ in this repo
 
-Ensure you update the path for the checkpoints in test_infer_batch.py.
-### Batch inference
+### Batch Inference for Test Set
 To run batch inference for evaluations, execute the following commands:
 ```bash
 # batch inference for evaluations
 accelerate config  # if not set before
 bash test_infer_batch.sh
 ```
-**Installation Notes**
-For Faster-Whisper with CUDA 11:
-```bash
-pip install --force-reinstall ctranslate2==3.24.0
-pip install faster-whisper==0.10.1 # recommended
-```
-This will help avoid ASR failures, such as abnormal repetitions in output.
 
-### Evaluation
-Run the following commands to evaluate the model's performance:
+### Download Evaluation Model Checkpoints
+1. Chinese ASR Model: [Paraformer-zh](https://huggingface.co/funasr/paraformer-zh)
+2. English ASR Model: [Faster-Whisper](https://huggingface.co/Systran/faster-whisper-large-v3)
+3. WavLM Model: Download from [Google Drive](https://drive.google.com/file/d/1-aE1NfzpRCLxA4GUxX9ITI3F9LlbtEGP/view).
+
+### Objective Evaluation
+**Some Notes**\
+For faster-whisper with CUDA 11: \
+`pip install --force-reinstall ctranslate2==3.24.0`\
+(Recommended) To avoid possible ASR failures, such as abnormal repetitions in output:\
+`pip install faster-whisper==0.10.1`
+
+Update the path with your batch-inferenced results, and carry out WER / SIM evaluations:
 ```bash
 # Evaluation for Seed-TTS test set
 python scripts/eval_seedtts_testset.py
@@ -102,20 +103,18 @@ python scripts/eval_librispeech_test_clean.py
 - <a href="https://arxiv.org/abs/2407.05361">Emilia</a>, <a href="https://arxiv.org/abs/2406.05763">WenetSpeech4TTS</a> valuable datasets
 - <a href="https://github.com/lucidrains/e2-tts-pytorch">lucidrains</a> initial CFM structure</a> with also <a href="https://github.com/bfs18">bfs18</a> for discussion</a>
 - <a href="https://arxiv.org/abs/2403.03206">SD3</a> & <a href="https://github.com/huggingface/diffusers">Huggingface diffusers</a> DiT and MMDiT code structure
-- <a href="https://github.com/modelscope/FunASR">FunASR</a>, <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a> & <a href="https://github.com/microsoft/UniSpeech">UniSpeech</a> for evaluation tools
 - <a href="https://github.com/rtqichen/torchdiffeq">torchdiffeq</a> as ODE solver, <a href="https://huggingface.co/charactr/vocos-mel-24khz">Vocos</a> as vocoder
+- <a href="https://x.com/realmrfakename">mrfakename</a> huggingface space demo ~
+- <a href="https://github.com/modelscope/FunASR">FunASR</a>, <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a> & <a href="https://github.com/microsoft/UniSpeech">UniSpeech</a> for evaluation tools
 - <a href="https://github.com/MahmoudAshraf97/ctc-forced-aligner">ctc-forced-aligner</a> for speech edit test
 
 ## Citation
 ```
-@misc{chen2024f5ttsfairytalerfakesfluent,
+@article{chen-etal-2024-f5tts,
       title={F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching}, 
       author={Yushen Chen and Zhikang Niu and Ziyang Ma and Keqi Deng and Chunhui Wang and Jian Zhao and Kai Yu and Xie Chen},
+      journal={arXiv preprint arXiv:2410.06885},
       year={2024},
-      eprint={2410.06885},
-      archivePrefix={arXiv},
-      primaryClass={eess.AS},
-      url={https://arxiv.org/abs/2410.06885}, 
 }
 ```
 ## LICENSE
