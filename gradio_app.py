@@ -318,7 +318,7 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_s
         gr.Info("Using custom reference text...")
 
     # Split the input text into batches
-    if len(ref_text.encode('utf-8')) == len(ref_text):
+    if len(ref_text.encode('utf-8')) == len(ref_text) and len(gen_text.encode('utf-8')) == len(gen_text):
         max_chars = 400-len(ref_text.encode('utf-8'))
     else:
         max_chars = 300-len(ref_text.encode('utf-8'))
@@ -386,7 +386,7 @@ with gr.Blocks() as app:
 This is a local web UI for F5 TTS with advanced batch processing support, based on the unofficial [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS). This app supports the following TTS models:
 
 * [F5-TTS](https://arxiv.org/abs/2410.06885) (A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching)
-* [E2-TTS](https://arxiv.org/abs/2406.18009) (Embarrassingly Easy Fully Non-Autoregressive Zero-Shot TTS)
+* [E2 TTS](https://arxiv.org/abs/2406.18009) (Embarrassingly Easy Fully Non-Autoregressive Zero-Shot TTS)
 
 The checkpoints support English and Chinese.
 
