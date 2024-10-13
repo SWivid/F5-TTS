@@ -25,6 +25,13 @@ Install packages:
 pip install -r requirements.txt
 ```
 
+Install torch with your CUDA version, e.g. :
+
+```bash
+pip install torch==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+pip install torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+```
+
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
