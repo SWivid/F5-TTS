@@ -11,7 +11,7 @@
 ## Installation
 Clone this repository.
 ```bash
-git clone git@github.com:SWivid/F5-TTS.git
+git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
 ```
 Install packages.
