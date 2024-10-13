@@ -100,6 +100,11 @@ E2TTS_ema_model = load_model(
 )
 
 def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
+    if len(text.encode('utf-8')) <= max_chars:
+        return [text]
+    if text[-1] not in ['。', '.', '!', '！', '?', '？']:
+        text += '.'
+        
     sentences = re.split('([。.!?！？])', text)
     sentences = [''.join(i) for i in zip(sentences[0::2], sentences[1::2])]
     
