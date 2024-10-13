@@ -4,11 +4,11 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 from einops import rearrange
-from ema_pytorch import EMA
 from vocos import Vocos
 
 from model import CFM, UNetT, DiT, MMDiT
 from model.utils import (
+    load_checkpoint,
     get_tokenizer, 
     convert_char_to_pinyin, 
     save_spectrogram,
@@ -49,7 +49,7 @@ elif exp_name == "E2TTS_Base":
     model_cls = UNetT
     model_cfg = dict(dim = 1024, depth = 24, heads = 16, ff_mult = 4)
 
-checkpoint = torch.load(f"ckpts/{exp_name}/model_{ckpt_step}.pt", map_location=device)
+ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"
 output_dir = "tests"
 
 # [leverage https://github.com/MahmoudAshraf97/ctc-forced-aligner to get char level alignment]
@@ -112,12 +112,7 @@ model = CFM(
     vocab_char_map = vocab_char_map,
 ).to(device)
 
-if use_ema == True:
-    ema_model = EMA(model, include_online_model = False).to(device)
-    ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
-    ema_model.copy_params_from_ema_to_model()
-else:
-    model.load_state_dict(checkpoint['model_state_dict'])
+model = load_checkpoint(model, ckpt_path, device, use_ema = use_ema)
 
 # Audio
 audio, sr = torchaudio.load(audio_to_edit)

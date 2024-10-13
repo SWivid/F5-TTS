@@ -8,11 +8,11 @@ import torch
 import torchaudio
 from accelerate import Accelerator
 from einops import rearrange
-from ema_pytorch import EMA
 from vocos import Vocos
 
 from model import CFM, UNetT, DiT
 from model.utils import (
+    load_checkpoint,
     get_tokenizer, 
     get_seedtts_testset_metainfo, 
     get_librispeech_test_clean_metainfo, 
@@ -55,7 +55,7 @@ seed = args.seed
 dataset_name = args.dataset
 exp_name = args.expname
 ckpt_step = args.ckptstep
-checkpoint = torch.load(f"ckpts/{exp_name}/model_{ckpt_step}.pt", map_location=device)
+ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"
 
 nfe_step = args.nfestep
 ode_method = args.odemethod
@@ -152,12 +152,7 @@ model = CFM(
     vocab_char_map = vocab_char_map,
 ).to(device)
 
-if use_ema == True:
-    ema_model = EMA(model, include_online_model = False).to(device)
-    ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
-    ema_model.copy_params_from_ema_to_model()
-else:
-    model.load_state_dict(checkpoint['model_state_dict'])
+model = load_checkpoint(model, ckpt_path, device, use_ema = use_ema)
 
 if not os.path.exists(output_dir) and accelerator.is_main_process:
     os.makedirs(output_dir)
