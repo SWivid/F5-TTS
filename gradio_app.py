@@ -6,12 +6,12 @@ import gradio as gr
 import numpy as np
 import tempfile
 from einops import rearrange
-from ema_pytorch import EMA
 from vocos import Vocos
 from pydub import AudioSegment
 from model import CFM, UNetT, DiT, MMDiT
 from cached_path import cached_path
 from model.utils import (
+    load_checkpoint,
     get_tokenizer,
     convert_char_to_pinyin,
     save_spectrogram,
@@ -51,10 +51,8 @@ fix_duration = None
 
 
 def load_model(exp_name, model_cls, model_cfg, ckpt_step):
-    checkpoint = torch.load(
-        str(cached_path(f"hf://SWivid/F5-TTS/{exp_name}/model_{ckpt_step}.pt")),
-        map_location=device,
-    )
+    ckpt_path = str(cached_path(f"hf://SWivid/F5-TTS/{exp_name}/model_{ckpt_step}.safetensors"))
+    # ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors
     vocab_char_map, vocab_size = get_tokenizer("Emilia_ZH_EN", "pinyin")
     model = CFM(
         transformer=model_cls(
@@ -71,11 +69,9 @@ def load_model(exp_name, model_cls, model_cfg, ckpt_step):
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    ema_model = EMA(model, include_online_model=False).to(device)
-    ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
-    ema_model.copy_params_from_ema_to_model()
+    model = load_checkpoint(model, ckpt_path, device, use_ema = True)
 
-    return ema_model, model
+    return model
 
 
 # load models
@@ -84,10 +80,10 @@ F5TTS_model_cfg = dict(
 )
 E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
 
-F5TTS_ema_model, F5TTS_base_model = load_model(
+F5TTS_ema_model = load_model(
     "F5TTS_Base", DiT, F5TTS_model_cfg, 1200000
 )
-E2TTS_ema_model, E2TTS_base_model = load_model(
+E2TTS_ema_model = load_model(
     "E2TTS_Base", UNetT, E2TTS_model_cfg, 1200000
 )
 
@@ -107,10 +103,8 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence):
         ref_audio = f.name
     if exp_name == "F5-TTS":
         ema_model = F5TTS_ema_model
-        base_model = F5TTS_base_model
     elif exp_name == "E2-TTS":
         ema_model = E2TTS_ema_model
-        base_model = E2TTS_base_model
 
     if not ref_text.strip():
         gr.Info("No reference text provided, transcribing reference audio...")
@@ -151,7 +145,7 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence):
     # inference
     gr.Info(f"Generating audio using {exp_name}")
     with torch.inference_mode():
-        generated, _ = base_model.sample(
+        generated, _ = ema_model.sample(
             cond=audio,
             text=final_text_list,
             duration=duration,
@@ -243,7 +237,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 
 
 @click.command()
-@click.option("--port", "-p", default=None, help="Port to run the app on")
+@click.option("--port", "-p", default=None, type=int, help="Port to run the app on")
 @click.option("--host", "-H", default=None, help="Host to run the app on")
 @click.option(
     "--share",
