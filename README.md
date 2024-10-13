@@ -92,7 +92,7 @@ First, make sure you have the dependencies installed (`pip install -r requiremen
 pip install -r requirements_gradio.txt
 ```
 
-After installing the dependencies, launch the app:
+After installing the dependencies, launch the app (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`):
 
 ```bash
 python gradio_app.py
