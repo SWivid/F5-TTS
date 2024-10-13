@@ -172,7 +172,7 @@ class Trainer:
             train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, num_workers=num_workers, pin_memory=True,
                                           batch_sampler=batch_sampler)
         else:
-            raise ValueError(f"batch_size_type must be either 'sample' or 'frame', but recieved {self.batch_size_type}")
+            raise ValueError(f"batch_size_type must be either 'sample' or 'frame', but received {self.batch_size_type}")
         
         #  accelerator.prepare() dispatches batches to devices;
         #  which means the length of dataloader calculated before, should consider the number of devices
