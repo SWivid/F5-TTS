@@ -138,7 +138,7 @@ class Trainer:
         if "model_last.pt" in os.listdir(self.checkpoint_path):
             latest_checkpoint = "model_last.pt"
         else:
-            latest_checkpoint = sorted(os.listdir(self.checkpoint_path), key=lambda x: int(''.join(filter(str.isdigit, x))))[-1]
+            latest_checkpoint = sorted([f for f in os.listdir(self.checkpoint_path) if f.endswith('.pt')], key=lambda x: int(''.join(filter(str.isdigit, x))))[-1]
         # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
         checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location="cpu")
 
@@ -152,7 +152,7 @@ class Trainer:
                 self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             step = checkpoint['step']
         else:
-            checkpoint['model_state_dict'] = {k.replace("ema_model", "model"): v for k, v in checkpoint['ema_model_state_dict'].items()}
+            checkpoint['model_state_dict'] = {k.replace("ema_model.", ""): v for k, v in checkpoint['ema_model_state_dict'].items() if k not in ["initted", "step"]}
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint['model_state_dict'])
             step = 0
 
