@@ -7,7 +7,7 @@ import numpy as np
 import tempfile
 from einops import rearrange
 from vocos import Vocos
-from pydub import AudioSegment
+from pydub import AudioSegment, silence
 from model import CFM, UNetT, DiT, MMDiT
 from cached_path import cached_path
 from model.utils import (
@@ -111,7 +111,7 @@ def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
         current_word_part = ""
         word_batches = []
         for word in words:
-            if len(current_word_part) + len(word) + 1 <= max_chars:
+            if len(current_word_part.encode('utf-8')) + len(word.encode('utf-8')) + 1 <= max_chars:
                 current_word_part += word + ' '
             else:
                 if current_word_part:
@@ -132,7 +132,7 @@ def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
         return word_batches
 
     for sentence in sentences:
-        if len(current_batch) + len(sentence) <= max_chars:
+        if len(current_batch.encode('utf-8')) + len(sentence.encode('utf-8')) <= max_chars:
             current_batch += sentence
         else:
             # If adding this sentence would exceed the limit
@@ -141,20 +141,20 @@ def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
                 current_batch = ""
             
             # If the sentence itself is longer than max_chars, split it
-            if len(sentence) > max_chars:
+            if len(sentence.encode('utf-8')) > max_chars:
                 # First, try to split by colon
                 colon_parts = sentence.split(':')
                 if len(colon_parts) > 1:
                     for part in colon_parts:
-                        if len(part) <= max_chars:
+                        if len(part.encode('utf-8')) <= max_chars:
                             batches.append(part)
                         else:
                             # If colon part is still too long, split by comma
-                            comma_parts = part.split(',')
+                            comma_parts = re.split('[,，]', part)
                             if len(comma_parts) > 1:
                                 current_comma_part = ""
                                 for comma_part in comma_parts:
-                                    if len(current_comma_part) + len(comma_part) <= max_chars:
+                                    if len(current_comma_part.encode('utf-8')) + len(comma_part.encode('utf-8')) <= max_chars:
                                         current_comma_part += comma_part + ','
                                     else:
                                         if current_comma_part:
@@ -167,11 +167,11 @@ def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
                                 batches.extend(split_by_words(part))
                 else:
                     # If no colon, split by comma
-                    comma_parts = sentence.split(',')
+                    comma_parts = re.split('[,，]', sentence)
                     if len(comma_parts) > 1:
                         current_comma_part = ""
                         for comma_part in comma_parts:
-                            if len(current_comma_part) + len(comma_part) <= max_chars:
+                            if len(current_comma_part.encode('utf-8')) + len(comma_part.encode('utf-8')) <= max_chars:
                                 current_comma_part += comma_part + ','
                             else:
                                 if current_comma_part:
@@ -219,8 +219,8 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
         # Calculate duration
         ref_audio_len = audio.shape[-1] // hop_length
         zh_pause_punc = r"。，、；：？！"
-        ref_text_len = len(ref_text) + len(re.findall(zh_pause_punc, ref_text))
-        gen_text_len = len(gen_text) + len(re.findall(zh_pause_punc, gen_text))
+        ref_text_len = len(ref_text.encode('utf-8')) + 3 * len(re.findall(zh_pause_punc, ref_text))
+        gen_text_len = len(gen_text.encode('utf-8')) + 3 * len(re.findall(zh_pause_punc, gen_text))
         duration = ref_audio_len + int(ref_audio_len / ref_text_len * gen_text_len / speed)
 
         # inference
@@ -244,22 +244,26 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
 
         # wav -> numpy
         generated_wave = generated_wave.squeeze().cpu().numpy()
-
-        if remove_silence:
-            non_silent_intervals = librosa.effects.split(generated_wave, top_db=30)
-            non_silent_wave = np.array([])
-            for interval in non_silent_intervals:
-                start, end = interval
-                non_silent_wave = np.concatenate(
-                    [non_silent_wave, generated_wave[start:end]]
-                )
-            generated_wave = non_silent_wave
-
+        
         generated_waves.append(generated_wave)
         spectrograms.append(generated_mel_spec[0].cpu().numpy())
 
     # Combine all generated waves
     final_wave = np.concatenate(generated_waves)
+
+    # Remove silence
+    if remove_silence:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+            sf.write(f.name, final_wave, target_sample_rate)
+            aseg = AudioSegment.from_file(f.name)
+            non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
+            non_silent_wave = AudioSegment.silent(duration=0)
+            for non_silent_seg in non_silent_segs:
+                non_silent_wave += non_silent_seg
+            aseg = non_silent_wave
+            aseg.export(f.name, format="wav")
+            final_wave, _ = torchaudio.load(f.name)
+        final_wave = final_wave.squeeze().cpu().numpy()
 
     # Create a combined spectrogram
     combined_spectrogram = np.concatenate(spectrograms, axis=1)
@@ -270,11 +274,24 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
 
     return (target_sample_rate, final_wave), spectrogram_path
 
-def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence):
+def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_split_words):
+    if not custom_split_words.strip():
+        custom_words = [word.strip() for word in custom_split_words.split(',')]
+        global SPLIT_WORDS
+        SPLIT_WORDS = custom_words
+
     print(gen_text)
+
     gr.Info("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
+
+        non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
+        non_silent_wave = AudioSegment.silent(duration=0)
+        for non_silent_seg in non_silent_segs:
+            non_silent_wave += non_silent_seg
+        aseg = non_silent_wave
+
         audio_duration = len(aseg)
         if audio_duration > 15000:
             gr.Warning("Audio is over 15s, clipping to only first 15s.")
@@ -296,7 +313,14 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence):
         gr.Info("Using custom reference text...")
 
     # Split the input text into batches
-    gen_text_batches = split_text_into_batches(gen_text)
+    if len(ref_text.encode('utf-8')) == len(ref_text):
+        max_chars = 400-len(ref_text.encode('utf-8'))
+    else:
+        max_chars = 300-len(ref_text.encode('utf-8'))
+    gen_text_batches = split_text_into_batches(gen_text, max_chars=max_chars)
+    print('ref_text', ref_text)
+    for i, gen_text in enumerate(gen_text_batches):
+        print(f'gen_text {i}', gen_text)
     
     gr.Info(f"Generating audio using {exp_name} in {len(gen_text_batches)} batches")
     return infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence)
@@ -393,15 +417,8 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
 
-    def infer_with_custom_split(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_split_words):
-        if custom_split_words:
-            custom_words = [word.strip() for word in custom_split_words.split(',')]
-            global SPLIT_WORDS
-            SPLIT_WORDS = custom_words
-        return infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence)
-
     generate_btn.click(
-        infer_with_custom_split,
+        infer,
         inputs=[
             ref_audio_input,
             ref_text_input,
@@ -411,6 +428,14 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             split_words_input,
         ],
         outputs=[audio_output, spectrogram_output],
+    )
+    
+    gr.Markdown(
+        """
+# Podcast Generation
+
+Supported by [RootingInLoad](https://github.com/RootingInLoad)
+"""
     )
     with gr.Tab("Podcast Generation"):
         speaker1_name = gr.Textbox(label="Speaker 1 Name")
