@@ -116,6 +116,8 @@ model = load_checkpoint(model, ckpt_path, device, use_ema = use_ema)
 
 # Audio
 audio, sr = torchaudio.load(audio_to_edit)
+if audio.shape[0] > 1:
+    audio = torch.mean(audio, dim=0, keepdim=True)
 rms = torch.sqrt(torch.mean(torch.square(audio)))
 if rms < target_rms:
     audio = audio * target_rms / rms
