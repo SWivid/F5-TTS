@@ -10,6 +10,7 @@ jiwer
 librosa
 matplotlib
 pypinyin
+safetensors
 # torch>=2.0
 # torchaudio>=2.3.0
 torchdiffeq

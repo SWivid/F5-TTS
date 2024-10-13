@@ -545,3 +545,28 @@ def repetition_found(text, length = 2, tolerance = 10):
         if count > tolerance:
             return True
     return False
+
+
+# load model checkpoint for inference
+
+def load_checkpoint(model, ckpt_path, device, use_ema = True):
+    from ema_pytorch import EMA
+
+    ckpt_type = ckpt_path.split(".")[-1]
+    if ckpt_type == "safetensors":
+        from safetensors.torch import load_file
+        checkpoint = load_file(ckpt_path, device=device)
+    else:
+        checkpoint = torch.load(ckpt_path, map_location=device)
+
+    if use_ema == True:
+        ema_model = EMA(model, include_online_model = False).to(device)
+        if ckpt_type == "safetensors":
+            ema_model.load_state_dict(checkpoint)
+        else:
+            ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
+        ema_model.copy_params_from_ema_to_model()
+    else:
+        model.load_state_dict(checkpoint['model_state_dict'])
+        
+    return model
