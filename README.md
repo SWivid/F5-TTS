@@ -20,17 +20,17 @@ git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
 ```
 
-Install packages:
-
-```bash
-pip install -r requirements.txt
-```
-
 Install torch with your CUDA version, e.g. :
 
 ```bash
 pip install torch==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 pip install torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+```
+
+Install other packages:
+
+```bash
+pip install -r requirements.txt
 ```
 
 **Note**: install numpy with version < 2.x, e.g. `pip install numpy==1.22.0`.
