@@ -385,7 +385,7 @@ with gr.Blocks() as app:
         """
 # E2/F5 TTS with Advanced Batch Processing
 
-This is a local web UI for F5 TTS with advanced batch processing support, based on the unofficial [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS). This app supports the following TTS models:
+This is a local web UI for F5 TTS with advanced batch processing support, based on the unofficial [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS) supported by [mrfakename](https://github.com/fakerybakery). This app supports the following TTS models:
 
 * [F5-TTS](https://arxiv.org/abs/2410.06885) (A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching)
 * [E2 TTS](https://arxiv.org/abs/2406.18009) (Embarrassingly Easy Fully Non-Autoregressive Zero-Shot TTS)
