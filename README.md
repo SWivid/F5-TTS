@@ -33,8 +33,6 @@ Install other packages:
 pip install -r requirements.txt
 ```
 
-**Note**: install numpy with version < 2.x, e.g. `pip install numpy==1.22.0`.
-
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
