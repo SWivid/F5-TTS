@@ -402,6 +402,11 @@ def parse_speechtypes_text(gen_text):
 
     return segments
 
+def update_speed(new_speed):
+    global speed
+    speed = new_speed
+    return f"Speed set to: {speed}"
+
 with gr.Blocks() as app:
     gr.Markdown(
         """
@@ -442,6 +447,15 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             info="Enter custom words to split on, separated by commas. Leave blank to use default list.",
             lines=2,
         )
+        speed_slider = gr.Slider(
+            label="Speed",
+            minimum=0.3,
+            maximum=2.0,
+            value=speed,
+            step=0.1,
+            info="Adjust the speed of the audio.",
+        )
+    speed_slider.change(update_speed, inputs=speed_slider)
 
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
