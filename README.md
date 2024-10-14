@@ -77,22 +77,22 @@ Currently support 30s for a single generation, which is the **TOTAL** length of 
 Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_path` in `inference-cli.py`
 
 ```bash
-python inference-cli.py --model "F5-TTS" --ref_audio "tests/ref_audio/test_en_1_ref_short.wav" --ref_text "Some call me nature, others call me mother nature." --gen_text "I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences."
+python inference-cli.py \
+--model "F5-TTS" \
+--ref_audio "tests/ref_audio/test_en_1_ref_short.wav" \
+--ref_text "Some call me nature, others call me mother nature." \
+--gen_text "I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences."
 
-python inference-cli.py --model "E2-TTS" --ref_audio "tests/ref_audio/test_zh_1_ref_short.wav" --ref_text "对，这就是我，万人敬仰的太乙真人。" --gen_text "突然，身边一阵笑声。我看着他们，意气风发地挺直了胸膛，甩了甩那稍显肉感的双臂，轻笑道：\"我身上的肉，是为了掩饰我爆棚的魅力，否则，岂不吓坏了你们呢？\""
+python inference-cli.py \
+--model "E2-TTS" \
+--ref_audio "tests/ref_audio/test_zh_1_ref_short.wav" \
+--ref_text "对，这就是我，万人敬仰的太乙真人。" \
+--gen_text "突然，身边一阵笑声。我看着他们，意气风发地挺直了胸膛，甩了甩那稍显肉感的双臂，轻笑道：\"我身上的肉，是为了掩饰我爆棚的魅力，否则，岂不吓坏了你们呢？\""
 ```
 
 ### Gradio App
 
-You can launch a Gradio app (web interface) to launch a GUI for inference.
-
-First, make sure you have the dependencies installed (`pip install -r requirements.txt`). Then, install the Gradio app dependencies:
-
-```bash
-pip install -r requirements_gradio.txt
-```
-
-After installing the dependencies, launch the app (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
+You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
 ```bash
 python gradio_app.py
