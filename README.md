@@ -1,5 +1,6 @@
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
+[![python](https://img.shields.io/badge/Python-3.10-brightgreen)](https://github.com/SWivid/F5-TTS)
 [![arXiv](https://img.shields.io/badge/arXiv-2410.06885-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2410.06885)
 [![demo](https://img.shields.io/badge/GitHub-Demo%20page-blue.svg)](https://swivid.github.io/F5-TTS/)
 [![space](https://img.shields.io/badge/🤗-Space%20demo-yellow)](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
@@ -31,6 +32,8 @@ Install torch with your CUDA version, e.g. :
 pip install torch==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 pip install torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 ```
+
+**Note**: install numpy with version < 2.x, e.g. `pip install numpy==1.22.0`.
 
 ## Prepare Dataset
 
