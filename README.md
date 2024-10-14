@@ -89,6 +89,10 @@ python inference-cli.py \
 ```
 
 ### Gradio App
+Currently supported features:
+- Chunk inference
+- Podcast Generation
+- Multiple Speech-Type Generation
 
 You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
