@@ -62,8 +62,8 @@ speed = 1.0
 fix_duration = None
 
 
-def load_model(exp_name, model_cls, model_cfg, ckpt_step):
-    ckpt_path = str(cached_path(f"hf://SWivid/F5-TTS/{exp_name}/model_{ckpt_step}.safetensors"))
+def load_model(repo_name, exp_name, model_cls, model_cfg, ckpt_step):
+    ckpt_path = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
     # ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors
     vocab_char_map, vocab_size = get_tokenizer("Emilia_ZH_EN", "pinyin")
     model = CFM(
@@ -93,10 +93,10 @@ F5TTS_model_cfg = dict(
 E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
 
 F5TTS_ema_model = load_model(
-    "F5TTS_Base", DiT, F5TTS_model_cfg, 1200000
+    "F5-TTS", "F5TTS_Base", DiT, F5TTS_model_cfg, 1200000
 )
 E2TTS_ema_model = load_model(
-    "E2TTS_Base", UNetT, E2TTS_model_cfg, 1200000
+    "E2-TTS", "E2TTS_Base", UNetT, E2TTS_model_cfg, 1200000
 )
 
 def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
