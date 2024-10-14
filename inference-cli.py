@@ -366,7 +366,7 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_s
 
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
-    max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / 24000) * (30 - audio.shape[-1] / 24000))
+    max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / sr) * (30 - audio.shape[-1] / sr))
     gen_text_batches = split_text_into_batches(gen_text, max_chars=max_chars)
     print('ref_text', ref_text)
     for i, gen_text in enumerate(gen_text_batches):
