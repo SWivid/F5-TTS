@@ -116,6 +116,8 @@ if sr != target_sample_rate:
 audio = audio.to(device)
 
 # Text
+if len(ref_text[-1].encode('utf-8')) == 1:
+    ref_text = ref_text + " "
 text_list = [ref_text + gen_text]
 if tokenizer == "pinyin":
     final_text_list = convert_char_to_pinyin(text_list)

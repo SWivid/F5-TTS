@@ -57,10 +57,16 @@ Once your datasets are prepared, you can start the training process.
 accelerate config
 accelerate launch test_train.py
 ```
+An initial guidance on Finetuning #57.
 
 ## Inference
 
 To run inference with pretrained models, download the checkpoints from [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS).
+
+Currently support up to 30s generation, which is the **TOTAL** length of prompt audio and the generated. Batch inference with chunks is supported by Gradio APP now. 
+- To avoid inference failure, make sure you have seen through following instructions.
+- Uppercased letters will be uttered letter by letter, so use lowercased letter for normal words. 
+- Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses.
 
 ### Single Inference
 
