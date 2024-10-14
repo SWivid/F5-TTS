@@ -300,10 +300,10 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence)
     # Combine all generated waves
     final_wave = np.concatenate(generated_waves)
 
-    # Remove silence
-    if remove_silence:
-        with open(wave_path, "wb") as f:
-            sf.write(f.name, final_wave, target_sample_rate)
+    with open(wave_path, "wb") as f:
+        sf.write(f.name, final_wave, target_sample_rate)
+        # Remove silence
+        if remove_silence:
             aseg = AudioSegment.from_file(f.name)
             non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
             non_silent_wave = AudioSegment.silent(duration=0)
@@ -311,7 +311,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence)
                 non_silent_wave += non_silent_seg
             aseg = non_silent_wave
             aseg.export(f.name, format="wav")
-            print(f.name)
+        print(f.name)
 
     # Create a combined spectrogram
     combined_spectrogram = np.concatenate(spectrograms, axis=1)
