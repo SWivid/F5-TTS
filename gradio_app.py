@@ -280,7 +280,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
 
     return (target_sample_rate, final_wave), spectrogram_path
 
-def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_split_words):
+def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_split_words=''):
     if not custom_split_words.strip():
         custom_words = [word.strip() for word in custom_split_words.split(',')]
         global SPLIT_WORDS
