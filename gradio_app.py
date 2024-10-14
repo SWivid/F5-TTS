@@ -507,6 +507,30 @@ Supported by [RootingInLoad](https://github.com/RootingInLoad)
         outputs=podcast_output,
     )
 
+    def parse_emotional_text(gen_text):
+        # Pattern to find (Emotion)
+        pattern = r'\((.*?)\)'
+
+        # Split the text by the pattern
+        tokens = re.split(pattern, gen_text)
+
+        segments = []
+
+        current_emotion = 'Regular'
+
+        for i in range(len(tokens)):
+            if i % 2 == 0:
+                # This is text
+                text = tokens[i].strip()
+                if text:
+                    segments.append({'emotion': current_emotion, 'text': text})
+            else:
+                # This is emotion
+                emotion = tokens[i].strip()
+                current_emotion = emotion
+
+        return segments
+
     # New section for emotional generation
     gr.Markdown(
         """
