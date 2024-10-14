@@ -57,7 +57,7 @@ Once your datasets are prepared, you can start the training process.
 accelerate config
 accelerate launch test_train.py
 ```
-An initial guidance on Finetuning #57.
+An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discussions/57).
 
 ## Inference
 
