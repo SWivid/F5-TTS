@@ -1,6 +1,7 @@
 import json
 import random
 from tqdm import tqdm
+from typing import Union
 
 import torch
 import torch.nn.functional as F
@@ -188,7 +189,7 @@ def load_dataset(
         dataset_type: str = "CustomDataset", 
         audio_type: str = "raw", 
         mel_spec_kwargs: dict = dict()
-        ) -> CustomDataset | HFDataset:
+        ) -> Union[CustomDataset, HFDataset]:
     
     print("Loading dataset ...")
 
