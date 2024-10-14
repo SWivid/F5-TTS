@@ -47,6 +47,7 @@ parser.add_argument(
     "-s",
     "--ref_text",
     type=str,
+    default="666",
     help="Subtitle for the reference audio."
 )
 parser.add_argument(
@@ -70,7 +71,7 @@ args = parser.parse_args()
 config = tomli.load(open(args.config, "rb"))
 
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
-ref_text = args.ref_text if args.ref_text else config["ref_text"]
+ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
 exp_name = args.model if args.model else config["model"]
@@ -243,7 +244,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence)
     elif exp_name == "E2-TTS":
         ema_model = load_model("E2TTS_Base", UNetT, E2TTS_model_cfg, 1200000)
 
-    audio, sr = torchaudio.load(ref_audio)
+    audio, sr = ref_audio
     if audio.shape[0] > 1:
         audio = torch.mean(audio, dim=0, keepdim=True)
 
@@ -364,17 +365,15 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_s
         print("Using custom reference text...")
 
     # Split the input text into batches
-    if len(ref_text.encode('utf-8')) == len(ref_text) and len(gen_text.encode('utf-8')) == len(gen_text):
-        max_chars = 400-len(ref_text.encode('utf-8'))
-    else:
-        max_chars = 300-len(ref_text.encode('utf-8'))
+    audio, sr = torchaudio.load(ref_audio)
+    max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / 24000) * (30 - audio.shape[-1] / 24000))
     gen_text_batches = split_text_into_batches(gen_text, max_chars=max_chars)
     print('ref_text', ref_text)
     for i, gen_text in enumerate(gen_text_batches):
         print(f'gen_text {i}', gen_text)
     
-    print(f"Generating audio using {exp_name} in {len(gen_text_batches)} batches")
-    return infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence)
+    print(f"Generating audio using {exp_name} in {len(gen_text_batches)} batches, loading models...")
+    return infer_batch((audio, sr), ref_text, gen_text_batches, exp_name, remove_silence)
     
 
 infer(ref_audio, ref_text, gen_text, exp_name, remove_silence, ",".join(SPLIT_WORDS))
