@@ -64,9 +64,10 @@ An initial guidance on Finetuning #57.
 To run inference with pretrained models, download the checkpoints from [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS).
 
 Currently support up to 30s generation, which is the **TOTAL** length of prompt audio and the generated. Batch inference with chunks is supported by Gradio APP now. 
-- To avoid inference failure, make sure you have seen through following instructions.
-- Uppercased letters will be uttered letter by letter, so use lowercased letter for normal words. 
-- Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses.
+- To avoid possible inference failures, make sure you have seen through the following instructions.
+- A longer prompt audio allows shorter generated output. The part longer than 30s cannot be generated properly. Consider split your text and do several separate inferences or leverage the local Gradio APP which enables a batch inference with chunks.
+- Uppercased letters will be uttered letter by letter, so use lowercased letters for normal words. 
+- Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses. If first few words skipped in code-switched generation (cuz different speed with different languages), this might help.
 
 ### Single Inference
 
