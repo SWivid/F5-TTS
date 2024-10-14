@@ -275,6 +275,8 @@ def get_inference_prompt(
             ref_audio = resampler(ref_audio)
 
         # Text
+        if len(prompt_text[-1].encode('utf-8')) == 1:
+            prompt_text = prompt_text + " "
         text = [prompt_text + gt_text]
         if tokenizer == "pinyin":
             text_list = convert_char_to_pinyin(text, polyphone = polyphone)
