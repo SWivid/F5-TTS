@@ -201,7 +201,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
     elif exp_name == "E2-TTS":
         ema_model = E2TTS_ema_model
 
-    audio, sr = torchaudio.load(ref_audio)
+    audio, sr = ref_audio
     if audio.shape[0] > 1:
         audio = torch.mean(audio, dim=0, keepdim=True)
 
@@ -320,17 +320,15 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_s
         gr.Info("Using custom reference text...")
 
     # Split the input text into batches
-    if len(ref_text.encode('utf-8')) == len(ref_text) and len(gen_text.encode('utf-8')) == len(gen_text):
-        max_chars = 400-len(ref_text.encode('utf-8'))
-    else:
-        max_chars = 300-len(ref_text.encode('utf-8'))
+    audio, sr = torchaudio.load(ref_audio)
+    max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / 24000) * (30 - audio.shape[-1] / 24000))
     gen_text_batches = split_text_into_batches(gen_text, max_chars=max_chars)
     print('ref_text', ref_text)
     for i, gen_text in enumerate(gen_text_batches):
         print(f'gen_text {i}', gen_text)
     
     gr.Info(f"Generating audio using {exp_name} in {len(gen_text_batches)} batches")
-    return infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence)
+    return infer_batch((audio, sr), ref_text, gen_text_batches, exp_name, remove_silence)
     
 def generate_podcast(script, speaker1_name, ref_audio1, ref_text1, speaker2_name, ref_audio2, ref_text2, exp_name, remove_silence):
     # Split the script into speaker blocks
