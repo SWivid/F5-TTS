@@ -58,38 +58,28 @@ Once your datasets are prepared, you can start the training process.
 # setup accelerate config, e.g. use multi-gpu ddp, fp16
 # will be to: ~/.cache/huggingface/accelerate/default_config.yaml     
 accelerate config
-accelerate launch test_train.py
+accelerate launch train.py
 ```
 An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discussions/57).
 
 ## Inference
 
-To run inference with pretrained models, download the checkpoints from [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS).
+To run inference with pretrained models, download the checkpoints from [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS), or automatically downloaded with `inference-cli` and `gradio_app`.
 
-Currently support up to 30s generation, which is the **TOTAL** length of prompt audio and the generated. Batch inference with chunks is supported by Gradio APP now. 
+Currently support 30s for a single generation, which is the **TOTAL** length of prompt audio and the generated. Batch inference with chunks is supported by `inference-cli` and `gradio_app`. 
 - To avoid possible inference failures, make sure you have seen through the following instructions.
-- A longer prompt audio allows shorter generated output. The part longer than 30s cannot be generated properly. Consider split your text and do several separate inferences or leverage the local Gradio APP which enables a batch inference with chunks.
+- A longer prompt audio allows shorter generated output. The part longer than 30s cannot be generated properly. Consider using a prompt audio <15s.
 - Uppercased letters will be uttered letter by letter, so use lowercased letters for normal words. 
 - Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses. If first few words skipped in code-switched generation (cuz different speed with different languages), this might help.
 
-### Single Inference
+### CLI Inference
 
-You can test single inference using the following command. Before running the command, modify the config up to your need.
-
-```bash
-# modify the config up to your need,
-# e.g. fix_duration (the total length of prompt + to_generate, currently support up to 30s)
-#      nfe_step     (larger takes more time to do more precise inference ode)
-#      ode_method   (switch to 'midpoint' for better compatibility with small nfe_step, )
-#                   ( though 'midpoint' is 2nd-order ode solver, slower compared to 1st-order 'Euler')
-python test_infer_single.py
-```
-### Speech Editing
-
-To test speech editing capabilities, use the following command.
+Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_path` in `inference-cli.py`
 
 ```bash
-python test_infer_single_edit.py
+python inference-cli.py --model "F5-TTS" --ref_audio "tests/ref_audio/test_en_1_ref_short.wav" --ref_text "Some call me nature, others call me mother nature." --gen_text "I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences."
+
+python inference-cli.py --model "E2-TTS" --ref_audio "tests/ref_audio/test_zh_1_ref_short.wav" --ref_text "对，这就是我，万人敬仰的太乙真人。" --gen_text "突然，身边一阵笑声。我看着他们，意气风发地挺直了胸膛，甩了甩那稍显肉感的双臂，轻笑道：\"我身上的肉，是为了掩饰我爆棚的魅力，否则，岂不吓坏了你们呢？\""
 ```
 
 ### Gradio App
@@ -102,7 +92,7 @@ First, make sure you have the dependencies installed (`pip install -r requiremen
 pip install -r requirements_gradio.txt
 ```
 
-After installing the dependencies, launch the app (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`):
+After installing the dependencies, launch the app (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
 ```bash
 python gradio_app.py
@@ -120,6 +110,14 @@ Or launch a share link:
 python gradio_app.py --share
 ```
 
+### Speech Editing
+
+To test speech editing capabilities, use the following command.
+
+```bash
+python speech_edit.py
+```
+
 ## Evaluation
 
 ### Prepare Test Datasets
@@ -127,7 +125,7 @@ python gradio_app.py --share
 1. Seed-TTS test set: Download from [seed-tts-eval](https://github.com/BytedanceSpeech/seed-tts-eval).
 2. LibriSpeech test-clean: Download from [OpenSLR](http://www.openslr.org/12/).
 3. Unzip the downloaded datasets and place them in the data/ directory.
-4. Update the path for the test-clean data in `test_infer_batch.py`
+4. Update the path for the test-clean data in `scripts/eval_infer_batch.py`
 5. Our filtered LibriSpeech-PC 4-10s subset is already under data/ in this repo
 
 ### Batch Inference for Test Set
@@ -137,7 +135,7 @@ To run batch inference for evaluations, execute the following commands:
 ```bash
 # batch inference for evaluations
 accelerate config  # if not set before
-bash test_infer_batch.sh
+bash scripts/eval_infer_batch.sh
 ```
 
 ### Download Evaluation Model Checkpoints

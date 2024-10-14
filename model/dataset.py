@@ -188,7 +188,7 @@ def load_dataset(
         dataset_type: str = "CustomDataset", 
         audio_type: str = "raw", 
         mel_spec_kwargs: dict = dict()
-        ) -> CustomDataset | HFDataset:
+        ) -> CustomDataset:
     
     print("Loading dataset ...")
 

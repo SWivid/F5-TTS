@@ -1,4 +1,6 @@
-import os
+import sys, os
+sys.path.append(os.getcwd())
+
 import time
 import random
 from tqdm import tqdm
