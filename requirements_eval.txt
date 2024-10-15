@@ -1,0 +1,5 @@
+faster_whisper
+funasr
+jiwer
+zhconv
+zhon
