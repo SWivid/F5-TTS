@@ -127,7 +127,7 @@ local = False
 if local:
     vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
     vocos = Vocos.from_hparams(f"{vocos_local_path}/config.yaml")
-    state_dict = torch.load(f"{vocos_local_path}/pytorch_model.bin", map_location=device)
+    state_dict = torch.load(f"{vocos_local_path}/pytorch_model.bin", weights_only=True, map_location=device)
     vocos.load_state_dict(state_dict)
     vocos.eval()
 else:
