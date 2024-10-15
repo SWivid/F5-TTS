@@ -429,6 +429,7 @@ with gr.Blocks() as app_credits:
 
 * [mrfakename](https://github.com/fakerybakery) for the original [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
 * [RootingInLoad](https://github.com/RootingInLoad) for the podcast generation
+* [jpgallegoar](https://github.com/jpgallegoar) for multiple speech-type generation
 """)
 with gr.Blocks() as app_tts:
     gr.Markdown("# Batched TTS")
