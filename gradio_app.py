@@ -31,19 +31,6 @@ def gpu_decorator(func):
     else:
         return func
 
-
-
-SPLIT_WORDS = [
-    "but", "however", "nevertheless", "yet", "still",
-    "therefore", "thus", "hence", "consequently",
-    "moreover", "furthermore", "additionally",
-    "meanwhile", "alternatively", "otherwise",
-    "namely", "specifically", "for example", "such as",
-    "in fact", "indeed", "notably",
-    "in contrast", "on the other hand", "conversely",
-    "in conclusion", "to summarize", "finally"
-]
-
 device = (
     "cuda"
     if torch.cuda.is_available()
@@ -71,7 +58,6 @@ cfg_strength = 2.0
 ode_method = "euler"
 sway_sampling_coef = -1.0
 speed = 1.0
-# fix_duration = 27  # None or float (duration in seconds)
 fix_duration = None
 
 
@@ -142,7 +128,7 @@ def chunk_text(text, max_chars=135):
     return chunks
 
 @gpu_decorator
-def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence, progress=gr.Progress()):
+def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence, cross_fade_duration=0.15, progress=gr.Progress()):
     if exp_name == "F5-TTS":
         ema_model = F5TTS_ema_model
     elif exp_name == "E2-TTS":
@@ -200,8 +186,44 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
         generated_waves.append(generated_wave)
         spectrograms.append(generated_mel_spec[0].cpu().numpy())
 
-    # Combine all generated waves
-    final_wave = np.concatenate(generated_waves)
+    # Combine all generated waves with cross-fading
+    if cross_fade_duration <= 0:
+        # Simply concatenate
+        final_wave = np.concatenate(generated_waves)
+    else:
+        final_wave = generated_waves[0]
+        for i in range(1, len(generated_waves)):
+            prev_wave = final_wave
+            next_wave = generated_waves[i]
+
+            # Calculate cross-fade samples, ensuring it does not exceed wave lengths
+            cross_fade_samples = int(cross_fade_duration * target_sample_rate)
+            cross_fade_samples = min(cross_fade_samples, len(prev_wave), len(next_wave))
+
+            if cross_fade_samples <= 0:
+                # No overlap possible, concatenate
+                final_wave = np.concatenate([prev_wave, next_wave])
+                continue
+
+            # Overlapping parts
+            prev_overlap = prev_wave[-cross_fade_samples:]
+            next_overlap = next_wave[:cross_fade_samples]
+
+            # Fade out and fade in
+            fade_out = np.linspace(1, 0, cross_fade_samples)
+            fade_in = np.linspace(0, 1, cross_fade_samples)
+
+            # Cross-faded overlap
+            cross_faded_overlap = prev_overlap * fade_out + next_overlap * fade_in
+
+            # Combine
+            new_wave = np.concatenate([
+                prev_wave[:-cross_fade_samples],
+                cross_faded_overlap,
+                next_wave[cross_fade_samples:]
+            ])
+
+            final_wave = new_wave
 
     # Remove silence
     if remove_silence:
@@ -227,11 +249,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
     return (target_sample_rate, final_wave), spectrogram_path
 
 @gpu_decorator
-def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_split_words=''):
-    if not custom_split_words.strip():
-        custom_words = [word.strip() for word in custom_split_words.split(',')]
-        global SPLIT_WORDS
-        SPLIT_WORDS = custom_words
+def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, cross_fade_duration=0.15):
 
     print(gen_text)
 
@@ -283,7 +301,8 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, custom_s
         print(f'gen_text {i}', batch_text)
     
     gr.Info(f"Generating audio using {exp_name} in {len(gen_text_batches)} batches")
-    return infer_batch((audio, sr), ref_text, gen_text_batches, exp_name, remove_silence)
+    return infer_batch((audio, sr), ref_text, gen_text_batches, exp_name, remove_silence, cross_fade_duration)
+
 
 @gpu_decorator
 def generate_podcast(script, speaker1_name, ref_audio1, ref_text1, speaker2_name, ref_audio2, ref_text2, exp_name, remove_silence):
@@ -388,12 +407,7 @@ with gr.Blocks() as app_tts:
         remove_silence = gr.Checkbox(
             label="Remove Silences",
             info="The model tends to produce silences, especially on longer audio. We can manually remove silences if needed. Note that this is an experimental feature and may produce strange results. This will also increase generation time.",
-            value=True,
-        )
-        split_words_input = gr.Textbox(
-            label="Custom Split Words",
-            info="Enter custom words to split on, separated by commas. Leave blank to use default list.",
-            lines=2,
+            value=False,
         )
         speed_slider = gr.Slider(
             label="Speed",
@@ -402,6 +416,14 @@ with gr.Blocks() as app_tts:
             value=speed,
             step=0.1,
             info="Adjust the speed of the audio.",
+        )
+        cross_fade_duration_slider = gr.Slider(
+            label="Cross-Fade Duration (s)",
+            minimum=0.0,
+            maximum=1.0,
+            value=0.15,
+            step=0.01,
+            info="Set the duration of the cross-fade between audio clips.",
         )
     speed_slider.change(update_speed, inputs=speed_slider)
 
@@ -416,7 +438,7 @@ with gr.Blocks() as app_tts:
             gen_text_input,
             model_choice,
             remove_silence,
-            split_words_input,
+            cross_fade_duration_slider,
         ],
         outputs=[audio_output, spectrogram_output],
     )
@@ -664,7 +686,7 @@ with gr.Blocks() as app_emotional:
             ref_text = speech_types[current_emotion].get('ref_text', '')
 
             # Generate speech for this segment
-            audio, _ = infer(ref_audio, ref_text, text, model_choice, remove_silence, "")
+            audio, _ = infer(ref_audio, ref_text, text, model_choice, remove_silence, 0)
             sr, audio_data = audio
 
             generated_audio_segments.append(audio_data)
