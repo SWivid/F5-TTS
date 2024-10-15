@@ -5,6 +5,7 @@ import re
 import math
 import random
 import string
+import warnings
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -19,15 +20,6 @@ import torchaudio
 
 import einx
 from einops import rearrange, reduce
-
-import jieba
-from pypinyin import lazy_pinyin, Style
-import zhconv
-from zhon.hanzi import punctuation
-from jiwer import compute_measures
-
-from funasr import AutoModel
-from faster_whisper import WhisperModel
 
 from model.ecapa_tdnn import ECAPA_TDNN_SMALL
 from model.modules import MelSpec
@@ -162,34 +154,45 @@ def convert_char_to_pinyin(text_list, polyphone = True):
     god_knows_why_en_testset_contains_zh_quote = str.maketrans({'“': '"', '”': '"', '‘': "'", '’': "'"})  # in case librispeech (orig no-pc) test-clean
     custom_trans = str.maketrans({';': ','})  # add custom trans here, to address oov
     for text in text_list:
-        char_list = []
         text = text.translate(god_knows_why_en_testset_contains_zh_quote)
         text = text.translate(custom_trans)
-        for seg in jieba.cut(text):
-            seg_byte_len = len(bytes(seg, 'UTF-8'))
-            if seg_byte_len == len(seg):  # if pure alphabets and symbols
-                if char_list and seg_byte_len > 1 and char_list[-1] not in " :'\"":
-                    char_list.append(" ")
-                char_list.extend(seg)
-            elif polyphone and seg_byte_len == 3 * len(seg):  # if pure chinese characters
-                seg = lazy_pinyin(seg, style=Style.TONE3, tone_sandhi=True)
-                for c in seg:
-                    if c not in "。，、；：？！《》【】—…":
-                        char_list.append(" ")
-                    char_list.append(c)
-            else:  # if mixed chinese characters, alphabets and symbols
-                for c in seg:
-                    if ord(c) < 256:
-                        char_list.extend(c)
-                    else:
-                        if c not in "。，、；：？！《》【】—…":
-                            char_list.append(" ")
-                            char_list.extend(lazy_pinyin(c, style=Style.TONE3, tone_sandhi=True))
-                        else:  # if is zh punc
-                            char_list.append(c)
+        try:
+            char_list = _convert_text_piece(text, polyphone)
+        except ImportError:
+            warnings.warn("jieba and pypinyin not installed, falling back to char-wise tokenizer.")
+            char_list = list(text)
         final_text_list.append(char_list)
 
     return final_text_list
+
+
+def _convert_text_piece(text, polyphone=True):
+    import jieba
+    from pypinyin import lazy_pinyin, Style
+    char_list = []
+    for seg in jieba.cut(text):
+        seg_byte_len = len(bytes(seg, 'UTF-8'))
+        if seg_byte_len == len(seg):  # if pure alphabets and symbols
+            if char_list and seg_byte_len > 1 and char_list[-1] not in " :'\"":
+                char_list.append(" ")
+            char_list.extend(seg)
+        elif polyphone and seg_byte_len == 3 * len(seg):  # if pure chinese characters
+            seg = lazy_pinyin(seg, style=Style.TONE3, tone_sandhi=True)
+            for c in seg:
+                if c not in "。，、；：？！《》【】—…":
+                    char_list.append(" ")
+                char_list.append(c)
+        else:  # if mixed chinese characters, alphabets and symbols
+            for c in seg:
+                if ord(c) < 256:
+                    char_list.extend(c)
+                else:
+                    if c not in "。，、；：？！《》【】—…":
+                        char_list.append(" ")
+                        char_list.extend(lazy_pinyin(c, style=Style.TONE3, tone_sandhi=True))
+                    else:  # if is zh punc
+                        char_list.append(c)
+    return char_list
 
 
 # save spectrogram
@@ -432,6 +435,7 @@ def get_librispeech_test(metalst, gen_wav_dir, gpus, librispeech_test_clean_path
 
 def load_asr_model(lang, ckpt_dir = ""):
     if lang == "zh":
+        from funasr import AutoModel
         model = AutoModel(
             model = os.path.join(ckpt_dir, "paraformer-zh"), 
             # vad_model = os.path.join(ckpt_dir, "fsmn-vad"), 
@@ -440,6 +444,7 @@ def load_asr_model(lang, ckpt_dir = ""):
             disable_update=True,
             )  # following seed-tts setting
     elif lang == "en":
+        from faster_whisper import WhisperModel
         model_size = "large-v3" if ckpt_dir == "" else ckpt_dir
         model = WhisperModel(model_size, device="cuda", compute_type="float16")
     return model
@@ -448,6 +453,8 @@ def load_asr_model(lang, ckpt_dir = ""):
 # WER Evaluation, the way Seed-TTS does
 
 def run_asr_wer(args):
+    import jiwer
+    from zhon.hanzi import punctuation as hanzi_punctuation
     rank, lang, test_set, ckpt_dir = args
 
     if lang == "zh":
@@ -459,11 +466,12 @@ def run_asr_wer(args):
 
     asr_model = load_asr_model(lang, ckpt_dir = ckpt_dir)
 
-    punctuation_all = punctuation + string.punctuation
+    punctuation_all = hanzi_punctuation + string.punctuation
     wers = []
 
     for gen_wav, prompt_wav, truth in tqdm(test_set):
         if lang == "zh":
+            import zhconv
             res = asr_model.generate(input=gen_wav, batch_size_s=300, disable_pbar=True)
             hypo = res[0]["text"]
             hypo = zhconv.convert(hypo, 'zh-cn')
@@ -490,7 +498,7 @@ def run_asr_wer(args):
             truth = truth.lower()
             hypo = hypo.lower()
 
-        measures = compute_measures(truth, hypo)
+        measures = jiwer.compute_measures(truth, hypo)
         wer = measures["wer"]
 
         # ref_list = truth.split(" ")
