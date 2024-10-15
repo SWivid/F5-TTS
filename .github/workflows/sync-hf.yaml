@@ -1,0 +1,18 @@
+name: Sync to HF Space
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger_curl:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Send cURL POST request
+      run: |
+        curl -X POST https://mrfakename-sync-f5.hf.space/gradio_api/call/refresh \
+        -s \
+        -H "Content-Type: application/json" \
+        -d "{\"data\": [\"${{ secrets.REFRESH_PASSWORD }}\"]}"
