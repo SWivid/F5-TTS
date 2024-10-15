@@ -148,6 +148,12 @@ bash scripts/eval_infer_batch.sh
 
 ### Objective Evaluation
 
+Install packages for evaluation:
+
+```bash
+pip install -r requirements_eval.txt
+```
+
 **Some Notes**
 
 For faster-whisper with CUDA 11:
