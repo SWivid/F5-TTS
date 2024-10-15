@@ -10,7 +10,6 @@ funasr
 gradio
 jieba
 jiwer
-librosa
 matplotlib
 numpy<=1.26.4
 pydub

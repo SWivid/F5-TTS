@@ -17,7 +17,6 @@ from model.utils import (
     save_spectrogram,
 )
 from transformers import pipeline
-import librosa
 import click
 import soundfile as sf
 
