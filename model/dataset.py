@@ -188,15 +188,12 @@ def load_dataset(
         dataset_type: str = "CustomDataset", 
         audio_type: str = "raw", 
         mel_spec_kwargs: dict = dict()
-<<<<<<< HEAD
         ) -> CustomDataset | HFDataset:
     '''
     dataset_type    - "CustomDataset" if you want to use tokenizer name and default data path to load for train_dataset
                     - "CustomDatasetPath" if you just want to pass the full path to a preprocessed dataset without relying on tokenizer
     '''
-=======
         ) -> CustomDataset:
->>>>>>> 0297be2541f9a062f9d54103926bdb88d63440ea
     
     print("Loading dataset ...")
 
