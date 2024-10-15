@@ -184,10 +184,15 @@ class DynamicBatchSampler(Sampler[list[int]]):
 
 def load_dataset(
         dataset_name: str,
-        tokenizer: str,
+        tokenizer: str = "pinyon",
         dataset_type: str = "CustomDataset", 
         audio_type: str = "raw", 
         mel_spec_kwargs: dict = dict()
+        ) -> CustomDataset | HFDataset:
+    '''
+    dataset_type    - "CustomDataset" if you want to use tokenizer name and default data path to load for train_dataset
+                    - "CustomDatasetPath" if you just want to pass the full path to a preprocessed dataset without relying on tokenizer
+    '''
         ) -> CustomDataset:
     
     print("Loading dataset ...")
@@ -206,7 +211,18 @@ def load_dataset(
             data_dict = json.load(f)
         durations = data_dict["duration"]
         train_dataset = CustomDataset(train_dataset, durations=durations, preprocessed_mel=preprocessed_mel, **mel_spec_kwargs)
-
+        
+    elif dataset_type == "CustomDatasetPath":
+        try:
+            train_dataset = load_from_disk(f"{dataset_name}/raw")
+        except:
+            train_dataset = Dataset_.from_file(f"{dataset_name}/raw.arrow")
+            
+        with open(f"{dataset_name}/duration.json", 'r', encoding='utf-8') as f:
+            data_dict = json.load(f)
+        durations = data_dict["duration"]
+        train_dataset = CustomDataset(train_dataset, durations=durations, preprocessed_mel=preprocessed_mel, **mel_spec_kwargs)
+            
     elif dataset_type == "HFDataset":
         print("Should manually modify the path of huggingface dataset to your need.\n" +
               "May also the corresponding script cuz different dataset may have different format.")

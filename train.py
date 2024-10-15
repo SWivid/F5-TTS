@@ -9,9 +9,9 @@ target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
 
-tokenizer = "pinyin"
+tokenizer = "pinyin" # 'pinyin', 'char', or 'custom'
+tokenizer_path = None # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
 dataset_name = "Emilia_ZH_EN"
-
 
 # -------------------------- Training Settings -------------------------- #
 
@@ -44,8 +44,11 @@ elif exp_name == "E2TTS_Base":
 # ----------------------------------------------------------------------- #
 
 def main():
-
-    vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
+    if tokenizer == "custom":
+        tokenizer_path = tokenizer_path
+    else:
+        tokenizer_path = dataset_name
+    vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
 
     mel_spec_kwargs = dict(
             target_sample_rate = target_sample_rate, 
