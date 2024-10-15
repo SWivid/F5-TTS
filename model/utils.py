@@ -129,6 +129,7 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
     tokenizer   - "pinyin" do g2p for only chinese characters, need .txt vocab_file
                 - "char" for char-wise tokenizer, need .txt vocab_file
                 - "byte" for utf-8 tokenizer
+                - "custom" if you're directly passing in a path to the vocab.txt you want to use
     vocab_size  - if use "pinyin", all available pinyin types, common alphabets (also those with accent) and symbols
                 - if use "char", derived from unfiltered character & symbol counts of custom dataset
                 - if use "byte", set to 256 (unicode byte range) 
@@ -144,6 +145,12 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
     elif tokenizer == "byte":
         vocab_char_map = None
         vocab_size = 256
+    elif tokenizer == "custom":
+        with open (dataset_name, "r", encoding="utf-8") as f:
+            vocab_char_map = {}
+            for i, char in enumerate(f):
+                vocab_char_map[char[:-1]] = i
+        vocab_size = len(vocab_char_map)
 
     return vocab_char_map, vocab_size
 
