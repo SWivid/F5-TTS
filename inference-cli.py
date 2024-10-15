@@ -20,6 +20,7 @@ import tomli
 import argparse
 import tqdm
 from pathlib import Path
+import codecs
 
 parser = argparse.ArgumentParser(
     prog="python3 inference-cli.py",
@@ -57,6 +58,12 @@ parser.add_argument(
     help="Text to generate.",
 )
 parser.add_argument(
+    "-f",
+    "--gen_file",
+    type=str,
+    help="File with text to generate. Ignores --text",
+)
+parser.add_argument(
     "-o",
     "--output_dir",
     type=str,
@@ -73,6 +80,9 @@ config = tomli.load(open(args.config, "rb"))
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
+gen_file = args.gen_file if args.gen_file else config["gen_file"]
+if gen_file:
+    gen_text = codecs.open(gen_file, "r", "utf-8").read()
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
 model = args.model if args.model else config["model"]
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
