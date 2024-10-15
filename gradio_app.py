@@ -112,15 +112,15 @@ def chunk_text(text, max_chars=135):
     chunks = []
     current_chunk = ""
     # Split the text into sentences based on punctuation followed by whitespace
-    sentences = re.split(r'(?<=[;:,.!?])\s+', text)
+    sentences = re.split(r'(?<=[;:,.!?])\s+|(?<=[；：，。！？])', text)
 
     for sentence in sentences:
-        if len(current_chunk) + len(sentence) <= max_chars:
-            current_chunk += sentence + " "
+        if len(current_chunk.encode('utf-8')) + len(sentence.encode('utf-8')) <= max_chars:
+            current_chunk += sentence + " " if sentence and len(sentence[-1].encode('utf-8')) == 1 else sentence
         else:
             if current_chunk:
                 chunks.append(current_chunk.strip())
-            current_chunk = sentence + " "
+            current_chunk = sentence + " " if sentence and len(sentence[-1].encode('utf-8')) == 1 else sentence
 
     if current_chunk:
         chunks.append(current_chunk.strip())
@@ -258,7 +258,7 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, cross_fa
         aseg = AudioSegment.from_file(ref_audio_orig)
 
         non_silent_segs = silence.split_on_silence(
-            aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500
+            aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000
         )
         non_silent_wave = AudioSegment.silent(duration=0)
         for non_silent_seg in non_silent_segs:
@@ -295,7 +295,8 @@ def infer(ref_audio_orig, ref_text, gen_text, exp_name, remove_silence, cross_fa
     audio, sr = torchaudio.load(ref_audio)
 
     # Use the new chunk_text function to split gen_text
-    gen_text_batches = chunk_text(gen_text, max_chars=135)
+    max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / sr) * (25 - audio.shape[-1] / sr))
+    gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
     print('ref_text', ref_text)
     for i, batch_text in enumerate(gen_text_batches):
         print(f'gen_text {i}', batch_text)
