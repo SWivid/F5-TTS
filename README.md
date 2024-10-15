@@ -33,6 +33,13 @@ Install other packages:
 pip install -r requirements.txt
 ```
 
+You can also install a smaller set of packages, e.g. to only run inference in English:
+
+```bash
+pip install -r requirements-infer.txt -r requirements-en.txt
+```
+
+
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.

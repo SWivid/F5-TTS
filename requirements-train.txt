@@ -1,0 +1,9 @@
+accelerate>=0.33.0
+click
+datasets
+numpy<=1.26.4
+pydub
+safetensors
+tomli
+tqdm>=4.65.0
+wandb

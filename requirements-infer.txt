@@ -1,0 +1,12 @@
+cached_path
+einops>=0.8.0
+einx>=0.3.0
+ema_pytorch>=0.5.2
+gradio
+matplotlib
+numpy<=1.26.4
+soundfile
+torchdiffeq
+transformers
+vocos
+x-transformers>=1.31.14

@@ -1,0 +1,6 @@
+zhconv
+zhon
+pypinyin
+jieba
+jiwer
+funasr

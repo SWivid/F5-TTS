@@ -1,29 +1,6 @@
-accelerate>=0.33.0
-cached_path
-click
-datasets
-einops>=0.8.0
-einx>=0.3.0
-ema_pytorch>=0.5.2
-faster_whisper
-funasr
-gradio
-jieba
-jiwer
-matplotlib
-numpy<=1.26.4
-pydub
-pypinyin
-safetensors
-soundfile
 # torch>=2.0
 # torchaudio>=2.3.0
-torchdiffeq
-tqdm>=4.65.0
-transformers
-vocos
-wandb
-x_transformers>=1.31.14
-zhconv
-zhon
-tomli
+-r requirements-en.txt
+-r requirements-infer.txt
+-r requirements-train.txt
+-r requirements-zh.txt
