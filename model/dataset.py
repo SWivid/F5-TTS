@@ -184,7 +184,7 @@ class DynamicBatchSampler(Sampler[list[int]]):
 
 def load_dataset(
         dataset_name: str,
-        tokenizer: str = "pinyon",
+        tokenizer: str = "pinyin",
         dataset_type: str = "CustomDataset", 
         audio_type: str = "raw", 
         mel_spec_kwargs: dict = dict()
