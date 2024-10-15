@@ -96,6 +96,7 @@ class CFM(nn.Module):
         duplicate_test = False,
         t_inter = 0.1,
         edit_mask = None,
+        dtype = torch.float32,
     ):
         self.eval()
 
@@ -143,7 +144,7 @@ class CFM(nn.Module):
         cond = F.pad(cond, (0, 0, 0, max_duration - cond_seq_len), value = 0.)
         cond_mask = F.pad(cond_mask, (0, max_duration - cond_mask.shape[-1]), value = False)
         cond_mask = rearrange(cond_mask, '... -> ... 1')
-        step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))  # allow direct control (cut cond audio) with lens passed in
+        step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond)).to(dtype)  # allow direct control (cut cond audio) with lens passed in
 
         if batch > 1:
             mask = lens_to_mask(duration)
@@ -161,11 +162,11 @@ class CFM(nn.Module):
             # step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))
 
             # predict flow
-            pred = self.transformer(x = x, cond = step_cond, text = text, time = t, mask = mask, drop_audio_cond = False, drop_text = False)
+            pred = self.transformer(x = x, cond = step_cond, text = text, time = t, mask = mask, drop_audio_cond = False, drop_text = False).clone()
             if cfg_strength < 1e-5:
                 return pred
             
-            null_pred = self.transformer(x = x, cond = step_cond, text = text, time = t, mask = mask, drop_audio_cond = True, drop_text = True)
+            null_pred = self.transformer(x = x, cond = step_cond, text = text, time = t, mask = mask, drop_audio_cond = True, drop_text = True).clone()
             return pred + (pred - null_pred) * cfg_strength
 
         # noise input
@@ -176,7 +177,7 @@ class CFM(nn.Module):
             if exists(seed):
                 torch.manual_seed(seed)
             y0.append(torch.randn(dur, self.num_channels, device = self.device))
-        y0 = pad_sequence(y0, padding_value = 0, batch_first = True)
+        y0 = pad_sequence(y0, padding_value = 0, batch_first = True).to(dtype)
 
         t_start = 0
 
@@ -186,7 +187,7 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        t = torch.linspace(t_start, 1, steps, device = self.device)
+        t = torch.linspace(t_start, 1, steps, device = self.device).to(dtype)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 

@@ -69,15 +69,16 @@ class MelSpec(nn.Module):
 # sinusoidal position embedding
 
 class SinusPositionEmbedding(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, dim, dtype = torch.float32):
         super().__init__()
         self.dim = dim
+        self.dtype = dtype
 
     def forward(self, x, scale=1000):
         device = x.device
         half_dim = self.dim // 2
         emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device=device).float() * -emb)
+        emb = torch.exp(torch.arange(half_dim, device=device, dtype = self.dtype) * -emb)
         emb = scale * x.unsqueeze(1) * emb.unsqueeze(0)
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
@@ -560,9 +561,9 @@ class MMDiTBlock(nn.Module):
 # time step conditioning embedding
 
 class TimestepEmbedding(nn.Module):
-    def __init__(self, dim, freq_embed_dim=256):
+    def __init__(self, dim, freq_embed_dim=256, dtype = torch.float32):
         super().__init__()
-        self.time_embed = SinusPositionEmbedding(freq_embed_dim)
+        self.time_embed = SinusPositionEmbedding(freq_embed_dim, dtype = dtype)
         self.time_mlp = nn.Sequential(
             nn.Linear(freq_embed_dim, dim),
             nn.SiLU(),

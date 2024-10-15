@@ -8,6 +8,7 @@ import numpy as np
 import soundfile as sf
 import tomli
 import torch
+import time
 import torchaudio
 import tqdm
 from cached_path import cached_path
@@ -115,10 +116,10 @@ if args.load_vocoder_from_local:
     vocos = Vocos.from_hparams(f"{vocos_local_path}/config.yaml")
     state_dict = torch.load(f"{vocos_local_path}/pytorch_model.bin", map_location=device)
     vocos.load_state_dict(state_dict)
-    vocos.eval()
+    vocos.eval().to(device)
 else:
     print("Donwload Vocos from huggingface charactr/vocos-mel-24khz")
-    vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
+    vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz").to(device)
 
 print(f"Using {device} device")
 
@@ -128,13 +129,14 @@ target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
 target_rms = 0.1
-nfe_step = 32  # 16, 32
+nfe_step = 16  # 16, 32
 cfg_strength = 2.0
 ode_method = "euler"
 sway_sampling_coef = -1.0
 speed = 1.0
 # fix_duration = 27  # None or float (duration in seconds)
 fix_duration = None
+dtype = torch.float16
 
 def load_model(repo_name, exp_name, model_cls, model_cfg, ckpt_step):
     ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt" # .pt | .safetensors
@@ -163,9 +165,9 @@ def load_model(repo_name, exp_name, model_cls, model_cfg, ckpt_step):
 
 # load models
 F5TTS_model_cfg = dict(
-    dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4
+    dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4, dtype=dtype
 )
-E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
+E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4, dtype=dtype)
 
 def split_text_into_batches(text, max_chars=200, split_words=SPLIT_WORDS):
     if len(text.encode('utf-8')) <= max_chars:
@@ -300,20 +302,44 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, model, remove_silence):
 
         # inference
         with torch.inference_mode():
+            if i == 0:  
+                # NOTE: To productionize, we'll need to compile for a larger set of dimensions
+                # TODO: model recompiles sometimes when it shouldn't...
+                print("Warming up...")
+                ema_model.transformer = torch.compile(ema_model.transformer.half(), mode="max-autotune")
+                for dim in [1280, 1024, 2048, 2112]:
+                    generated, _ = ema_model.sample(
+                        cond=audio,
+                        text=final_text_list,
+                        duration=dim,
+                        steps=nfe_step,
+                        cfg_strength=cfg_strength,
+                        sway_sampling_coef=sway_sampling_coef,
+                        dtype=dtype,
+                    )
+                    print(f"Compiled {dim}")
+
+            torch.cuda.synchronize()
+            start_time = time.time()
             generated, _ = ema_model.sample(
                 cond=audio,
                 text=final_text_list,
-                duration=duration,
+                duration=round(duration / 64) * 64,
                 steps=nfe_step,
                 cfg_strength=cfg_strength,
                 sway_sampling_coef=sway_sampling_coef,
+                dtype=dtype,
             )
+            torch.cuda.synchronize()
+            end_time = time.time()
+            print(f"Inference time: {end_time - start_time} seconds, duration: {round(duration / 64) * 64}")
 
         generated = generated[:, ref_audio_len:, :]
         generated_mel_spec = rearrange(generated, "1 n d -> 1 d n")
-        generated_wave = vocos.decode(generated_mel_spec.cpu())
+        generated_wave = vocos.decode(generated_mel_spec)
         if rms < target_rms:
             generated_wave = generated_wave * rms / target_rms
+        
 
         # wav -> numpy
         generated_wave = generated_wave.squeeze().cpu().numpy()

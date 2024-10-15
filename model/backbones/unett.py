@@ -93,12 +93,12 @@ class UNetT(nn.Module):
     def __init__(self, *,
                  dim, depth = 8, heads = 8, dim_head = 64, dropout = 0.1, ff_mult = 4,
                  mel_dim = 100, text_num_embeds = 256, text_dim = None, conv_layers = 0,
-                 skip_connect_type: Literal['add', 'concat', 'none'] = 'concat',
+                 skip_connect_type: Literal['add', 'concat', 'none'] = 'concat', dtype=torch.float32
     ):
         super().__init__()
         assert depth % 2 == 0, "UNet-Transformer's depth should be even."
 
-        self.time_embed = TimestepEmbedding(dim)
+        self.time_embed = TimestepEmbedding(dim, dtype=dtype)
         if text_dim is None:
             text_dim = mel_dim
         self.text_embed = TextEmbedding(text_num_embeds, text_dim, conv_layers = conv_layers)
