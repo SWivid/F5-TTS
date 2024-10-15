@@ -193,7 +193,6 @@ def load_dataset(
     dataset_type    - "CustomDataset" if you want to use tokenizer name and default data path to load for train_dataset
                     - "CustomDatasetPath" if you just want to pass the full path to a preprocessed dataset without relying on tokenizer
     '''
-        ) -> CustomDataset:
     
     print("Loading dataset ...")
 
