@@ -1,15 +1,24 @@
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
+<div style="position: relative; width: 100%;">
+  <div style="position: absolute; top: 0; right: 0;">
+    <img src="https://avatars.githubusercontent.com/u/35554183?s=200&v=4" alt="Watermark" style="width: 140px; height: auto;">
+  </div>
+</div>
+
 [![python](https://img.shields.io/badge/Python-3.10-brightgreen)](https://github.com/SWivid/F5-TTS)
 [![arXiv](https://img.shields.io/badge/arXiv-2410.06885-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2410.06885)
 [![demo](https://img.shields.io/badge/GitHub-Demo%20page-blue.svg)](https://swivid.github.io/F5-TTS/)
 [![space](https://img.shields.io/badge/🤗-Space%20demo-yellow)](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
+[![lab](https://img.shields.io/badge/X--LANCE-Lab-grey?labelColor=lightgrey)](https://x-lance.sjtu.edu.cn/)
 
 **F5-TTS**: Diffusion Transformer with ConvNeXt V2, faster trained and inference.
 
-**E2 TTS**: Flat-UNet Transformer, closest reproduction.
+**E2 TTS**: Flat-UNet Transformer, closest reproduction from [paper](https://arxiv.org/abs/2406.18009).
 
 **Sway Sampling**: Inference-time flow step sampling strategy, greatly improves performance
+
+### Thanks to all the contributors !
 
 ## Installation
 
