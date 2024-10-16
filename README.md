@@ -1,15 +1,24 @@
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
+<div style="position: absolute; width: 100%;">
+  <div style="position: absolute; top: 0; right: 100px;">
+    <img src="https://avatars.githubusercontent.com/u/35554183?s=200&v=4" alt="Watermark" style="width: 140px; height: auto;">
+  </div>
+</div>
+
 [![python](https://img.shields.io/badge/Python-3.10-brightgreen)](https://github.com/SWivid/F5-TTS)
 [![arXiv](https://img.shields.io/badge/arXiv-2410.06885-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2410.06885)
 [![demo](https://img.shields.io/badge/GitHub-Demo%20page-blue.svg)](https://swivid.github.io/F5-TTS/)
 [![space](https://img.shields.io/badge/🤗-Space%20demo-yellow)](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
+[![lab](https://img.shields.io/badge/X--LANCE-Lab-grey?labelColor=lightgrey)](https://x-lance.sjtu.edu.cn/)
 
 **F5-TTS**: Diffusion Transformer with ConvNeXt V2, faster trained and inference.
 
-**E2 TTS**: Flat-UNet Transformer, closest reproduction.
+**E2 TTS**: Flat-UNet Transformer, closest reproduction from [paper](https://arxiv.org/abs/2406.18009).
 
 **Sway Sampling**: Inference-time flow step sampling strategy, greatly improves performance
+
+### Thanks to all the contributors !
 
 ## Installation
 
@@ -62,7 +71,7 @@ An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discuss
 
 ## Inference
 
-To run inference with pretrained models, download the checkpoints from [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS), or automatically downloaded with `inference-cli` and `gradio_app`.
+The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [⭐ Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or automatically downloaded with `inference-cli` and `gradio_app`.
 
 Currently support 30s for a single generation, which is the **TOTAL** length of prompt audio and the generated. Batch inference with chunks is supported by `inference-cli` and `gradio_app`. 
 - To avoid possible inference failures, make sure you have seen through the following instructions.
@@ -148,6 +157,12 @@ bash scripts/eval_infer_batch.sh
 
 ### Objective Evaluation
 
+Install packages for evaluation:
+
+```bash
+pip install -r requirements_eval.txt
+```
+
 **Some Notes**
 
 For faster-whisper with CUDA 11:
@@ -193,4 +208,4 @@ python scripts/eval_librispeech_test_clean.py
 ```
 ## License
 
-Our code is released under MIT License.
+Our code is released under MIT License. The pre-trained models are licensed under the CC-BY-NC license due to the training data Emilia, which is an in-the-wild dataset. Sorry for any inconvenience this may cause.
