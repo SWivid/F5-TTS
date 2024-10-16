@@ -1,12 +1,9 @@
 import os,sys
-os.chdir(r"C:\PythonApps\ff5ttsmy\F5-TTS")
 
-from pydub import silence,AudioSegment
 from transformers import pipeline
 import gradio as gr
 import torch
 import click
-import tempfile
 import torchaudio
 from glob import glob
 import librosa
@@ -23,7 +20,6 @@ import signal
 import psutil
 import platform
 import subprocess
-from subprocess import Popen
 
 training_process = None    
 system = platform.system()
