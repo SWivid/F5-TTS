@@ -5,25 +5,19 @@ datasets
 einops>=0.8.0
 einx>=0.3.0
 ema_pytorch>=0.5.2
-faster_whisper
-funasr
 gradio
 jieba
-jiwer
 librosa
 matplotlib
-numpy==1.23.5
+numpy<=1.26.4
 pydub
 pypinyin
 safetensors
 soundfile
-# torch>=2.0
-# torchaudio>=2.3.0
+tomli
 torchdiffeq
 tqdm>=4.65.0
 transformers
 vocos
 wandb
 x_transformers>=1.31.14
-zhconv
-zhon
