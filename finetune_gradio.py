@@ -1,4 +1,5 @@
 import os,sys
+os.chdir(r"C:\PythonApps\ff5ttsmy\F5-TTS")
 
 from transformers import pipeline
 import gradio as gr
@@ -20,6 +21,7 @@ import signal
 import psutil
 import platform
 import subprocess
+from datasets.arrow_writer import ArrowWriter
 
 training_process = None    
 system = platform.system()
@@ -393,13 +395,12 @@ def format_seconds_to_hms(seconds):
     seconds = seconds % 60
     return "{:02d}:{:02d}:{:02d}".format(hours, minutes, int(seconds))
 
- 
 def create_metadata(name_project,progress=gr.Progress()):
     name_project+="_pinyin"
     path_project= os.path.join(path_data,name_project)
     path_project_wavs = os.path.join(path_project,"wavs")
-    path_raw = os.path.join(path_project,"raw")
     file_metadata = os.path.join(path_project,"metadata.csv")
+    file_raw = os.path.join(path_project,"raw.arrow")
     file_duration = os.path.join(path_project,"duration.json")
     file_vocab = os.path.join(path_project,"vocab.txt")
     
@@ -412,7 +413,7 @@ def create_metadata(name_project,progress=gr.Progress()):
     
     count=data.split("\n")
     lenght=0
-    
+    result=[]
     for line in progress.tqdm(data.split("\n"),total=count):
         sp_line=line.split("|")
         if len(sp_line)!=2:continue
@@ -423,22 +424,22 @@ def create_metadata(name_project,progress=gr.Progress()):
         if len(text)<4:continue
 
         text = clear_text(text)
+        text = convert_char_to_pinyin([text], polyphone = True)[0]
 
         audio_path_list.append(file_audio)
         duration_list.append(duraction)
         text_list.append(text)
-        lenght+=duraction
+      
+        result.append({"audio_path": file_audio, "text": text, "duration": duraction})
 
-    tokenizer="pinyin"
-    polyphone=True
-    if tokenizer=="pinyin":
-       text_list = [convert_char_to_pinyin([text], polyphone = polyphone)[0] for text in text_list]
+        lenght+=duraction
 
     min_second = round(min(duration_list),2)   
     max_second = round(max(duration_list),2)
 
-    dataset = Dataset.from_dict({"audio_path": audio_path_list, "text": text_list, "duration": duration_list})
-    dataset.save_to_disk(path_raw, max_shard_size="2GB")  # arrow format
+    with ArrowWriter(path=file_raw, writer_batch_size=1) as writer:
+        for line in progress.tqdm(result,total=len(result), desc=f"prepare data"):
+            writer.write(line)
 
     with open(file_duration, 'w', encoding='utf-8') as f:
         json.dump({"duration": duration_list}, f, ensure_ascii=False)
@@ -446,7 +447,7 @@ def create_metadata(name_project,progress=gr.Progress()):
     file_vocab_finetune = "data/Emilia_ZH_EN_pinyin/vocab.txt"    
     shutil.copy2(file_vocab_finetune, file_vocab)
 
-    return f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\npath : {path_raw}\n"
+    return f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\nfile_arrow : {file_raw}\n"
 
 def check_user(value):
     return gr.update(visible=not value),gr.update(visible=value)
@@ -514,11 +515,11 @@ with gr.Blocks() as app:
          with gr.TabItem("train Data"):
               
               exp_name = gr.Radio(label="Model", choices=["F5TTS_Base", "E2TTS_Base"], value="F5TTS_Base")
-              learning_rate = gr.Number(label="Learning Rate", value=1e-4, step=1e-5)
+              learning_rate = gr.Number(label="Learning Rate", value=1e-4, step=1e-4)
 
               with gr.Row():
-                   batch_size_per_gpu = gr.Number(label="Batch Size per GPU", value=408)
-                   max_samples = gr.Number(label="Max Samples", value=64)
+                   batch_size_per_gpu = gr.Number(label="Batch Size per GPU", value=256)
+                   max_samples = gr.Number(label="Max Samples", value=16)
                    batch_size_type = gr.Radio(label="Batch Size Type", choices=["frame", "sample"], value="frame")
 
               with gr.Row():
@@ -526,12 +527,12 @@ with gr.Blocks() as app:
                    max_grad_norm = gr.Number(label="Max Gradient Norm", value=1.0)
                    
               with gr.Row():
-                   epochs = gr.Number(label="Epochs", value=11)
-                   num_warmup_updates = gr.Number(label="Warmup Updates", value=200)
+                   epochs = gr.Number(label="Epochs", value=10)
+                   num_warmup_updates = gr.Number(label="Warmup Updates", value=5)
 
               with gr.Row():     
-                   save_per_updates = gr.Number(label="Save per Updates", value=400)
-                   last_per_steps = gr.Number(label="Last per Steps", value=800)
+                   save_per_updates = gr.Number(label="Save per Updates", value=10)
+                   last_per_steps = gr.Number(label="Last per Steps", value=10)
        
               with gr.Row():
                    start_button = gr.Button("Start Training")
