@@ -1,7 +1,7 @@
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
-<div style="position: relative; width: 100%;">
-  <div style="position: absolute; top: 0; right: 0;">
+<div style="position: absolute; width: 100%;">
+  <div style="position: absolute; top: 0; right: 100px;">
     <img src="https://avatars.githubusercontent.com/u/35554183?s=200&v=4" alt="Watermark" style="width: 140px; height: auto;">
   </div>
 </div>
