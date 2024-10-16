@@ -1,4 +1,5 @@
 import os,sys
+os.chdir(r"C:\PythonApps\ff5ttsmy\F5-TTS")
 
 from transformers import pipeline
 import gradio as gr
@@ -244,7 +245,6 @@ def terminate_process(pid):
     else:
         terminate_process_tree(pid)
 
-
 def start_training(
     dataset_name="",     
     exp_name="F5TTS_Base",            # Default experiment name
@@ -281,7 +281,7 @@ def start_training(
           f"--save_per_updates {save_per_updates} " \
           f"--last_per_steps {last_per_steps} " \
           f"--dataset_name {dataset_name}"
-    
+    print(cmd)
     try:
       # Start the training process
       training_process = subprocess.Popen(cmd, shell=True)
@@ -333,7 +333,7 @@ def transcribe(file_audio,language="english"):
     )["text"].strip()
     return text_transcribe
 
-def transcribe_all(name_project,audio_file,language,user=False):
+def transcribe_all(name_project,audio_file,language,user=False,progress=gr.Progress()):
     name_project+="_pinyin"
     path_project= os.path.join(path_data,name_project)
     path_dataset = os.path.join(path_project,"dataset")
@@ -361,12 +361,13 @@ def transcribe_all(name_project,audio_file,language,user=False):
 
     num = 0
     data=""
-    for file_audio in tqdm(file_audios, desc="transcribe files",total=len((file_audios))):
+    for file_audio in progress.tqdm(file_audios, desc="transcribe files",total=len((file_audios))):
         
         audio, _ = librosa.load(file_audio, sr=24000, mono=True) 
 
         list_slicer=slicer.slice(audio)
-        for chunk, start, end in tqdm(list_slicer,total=len(list_slicer), desc="slicer files"): 
+        for chunk, start, end in progress.tqdm(list_slicer,total=len(list_slicer), desc="slicer files"): 
+            
             name_segment = os.path.join(f"segment_{num}")
             file_segment = os.path.join(path_project_wavs, f"{name_segment}.wav")    
             
@@ -386,8 +387,15 @@ def transcribe_all(name_project,audio_file,language,user=False):
         f.write(data)
 
     return f"transcribe complete samples : {num} in path {path_project_wavs}"
+
+def format_seconds_to_hms(seconds):
+    hours = int(seconds / 3600)
+    minutes = int((seconds % 3600) / 60)
+    seconds = seconds % 60
+    return "{:02d}:{:02d}:{:02d}".format(hours, minutes, int(seconds))
+
  
-def create_metadata(name_project):
+def create_metadata(name_project,progress=gr.Progress()):
     name_project+="_pinyin"
     path_project= os.path.join(path_data,name_project)
     path_project_wavs = os.path.join(path_project,"wavs")
@@ -402,8 +410,11 @@ def create_metadata(name_project):
     audio_path_list=[]
     text_list=[]
     duration_list=[]
-
-    for line in data.split("\n"):
+    
+    count=data.split("\n")
+    lenght=0
+    
+    for line in progress.tqdm(data.split("\n"),total=count):
         sp_line=line.split("|")
         if len(sp_line)!=2:continue
         name_audio,text = sp_line[:2] 
@@ -417,11 +428,15 @@ def create_metadata(name_project):
         audio_path_list.append(file_audio)
         duration_list.append(duraction)
         text_list.append(text)
+        lenght+=duraction
 
     tokenizer="pinyin"
     polyphone=True
     if tokenizer=="pinyin":
        text_list = [convert_char_to_pinyin([text], polyphone = polyphone)[0] for text in text_list]
+
+    min_second = round(min(duration_list),2)   
+    max_second = round(max(duration_list),2)
 
     dataset = Dataset.from_dict({"audio_path": audio_path_list, "text": text_list, "duration": duration_list})
     dataset.save_to_disk(path_raw, max_shard_size="2GB")  # arrow format
@@ -432,7 +447,7 @@ def create_metadata(name_project):
     file_vocab_finetune = "data/Emilia_ZH_EN_pinyin/vocab.txt"    
     shutil.copy2(file_vocab_finetune, file_vocab)
 
-    return f"prepare complete samples : {len(text_list)} in path {path_raw}"
+    return f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\npath : {path_raw}\n"
 
 def check_user(value):
     return gr.update(visible=not value),gr.update(visible=value)
