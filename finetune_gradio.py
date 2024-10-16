@@ -1,5 +1,4 @@
 import os,sys
-os.chdir(r"C:\PythonApps\ff5ttsmy\F5-TTS")
 
 from transformers import pipeline
 import gradio as gr
