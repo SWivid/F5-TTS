@@ -1,7 +1,7 @@
 import sys, os
 sys.path.append(os.getcwd())
 
-from model import M2_TTS, UNetT, DiT, MMDiT
+from f5_tts.model import M2_TTS, UNetT, DiT, MMDiT
 
 import torch
 import thop
