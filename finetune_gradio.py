@@ -339,7 +339,7 @@ def transcribe(file_audio,language="english"):
     )["text"].strip()
     return text_transcribe
 
-def transcribe_all(name_project,audio_file,language,user=False,progress=gr.Progress()):
+def transcribe_all(name_project,audio_files,language,user=False,progress=gr.Progress()):
     name_project+="_pinyin"
     path_project= os.path.join(path_data,name_project)
     path_dataset = os.path.join(path_project,"dataset")
@@ -357,7 +357,7 @@ def transcribe_all(name_project,audio_file,language,user=False,progress=gr.Progr
     if user:
        file_audios = [file for format in ('*.wav', '*.ogg', '*.opus', '*.mp3', '*.flac') for file in glob(os.path.join(path_dataset, format))]
     else:
-       file_audios = [audio_file]
+       file_audios = audio_files
 
     print([file_audios])   
 
@@ -580,7 +580,7 @@ with gr.Blocks() as app:
          ...
      ```""",visible=False)
 
-              audio_speaker = gr.Audio(label="voice",type="filepath")
+              audio_speaker = gr.File(label="voice",type="filepath",file_count="multiple")
               txt_lang = gr.Text(label="Language",value="english")
               bt_transcribe=bt_create=gr.Button("transcribe")
               txt_info_transcribe=gr.Text(label="info",value="")
