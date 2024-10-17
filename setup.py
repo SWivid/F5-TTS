@@ -3,7 +3,7 @@ import setuptools
 setuptools.setup(
     name="f5_tts",
     packages=setuptools.find_namespace_packages(),
-    version="0.0.1",
+    version="0.1.0",
     author="Yushen Chen and Zhikang Niu and Ziyang Ma and Keqi Deng and Chunhui Wang and Jian Zhao and Kai Yu and Xie Chen",
     description="F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching",
     url="https://github.com/SWivid/F5-TTS",
