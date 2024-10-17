@@ -1,0 +1,19 @@
+# F5-TTS | E2-TTS
+model = "F5-TTS"
+ref_audio = "samples/main.flac"
+# If an empty "", transcribes the reference audio automatically.
+ref_text = ""
+gen_text = ""
+# File with text to generate. Ignores the text above.
+gen_file = "samples/story.txt"
+remove_silence = true
+output_dir = "samples"
+
+[voices.town]
+ref_audio = "samples/town.flac"
+ref_text = ""
+
+[voices.country]
+ref_audio = "samples/country.flac"
+ref_text = ""
+
