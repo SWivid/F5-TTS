@@ -189,11 +189,13 @@ python scripts/eval_librispeech_test_clean.py
 - [lucidrains](https://github.com/lucidrains) initial CFM structure with also [bfs18](https://github.com/bfs18) for discussion
 - [SD3](https://arxiv.org/abs/2403.03206) & [Hugging Face diffusers](https://github.com/huggingface/diffusers) DiT and MMDiT code structure
 - [torchdiffeq](https://github.com/rtqichen/torchdiffeq) as ODE solver, [Vocos](https://huggingface.co/charactr/vocos-mel-24khz) as vocoder
-- [mrfakename](https://x.com/realmrfakename) huggingface space demo ~
 - [FunASR](https://github.com/modelscope/FunASR), [faster-whisper](https://github.com/SYSTRAN/faster-whisper), [UniSpeech](https://github.com/microsoft/UniSpeech) for evaluation tools
 - [ctc-forced-aligner](https://github.com/MahmoudAshraf97/ctc-forced-aligner) for speech edit test
+- [mrfakename](https://x.com/realmrfakename) huggingface space demo ~
+- [f5-tts-mlx](https://github.com/lucasnewman/f5-tts-mlx/tree/main) Implementation of F5-TTS, with the MLX framework.
 
 ## Citation
+If our work and codebase is useful for you, please cite as:
 ```
 @article{chen-etal-2024-f5tts,
       title={F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching}, 
