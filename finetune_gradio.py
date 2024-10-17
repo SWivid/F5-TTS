@@ -1,5 +1,4 @@
 import os,sys
-os.chdir(r"C:\PythonApps\ff5ttsmy\F5-TTS")
 
 from transformers import pipeline
 import gradio as gr
@@ -22,6 +21,7 @@ import psutil
 import platform
 import subprocess
 from datasets.arrow_writer import ArrowWriter
+from datasets import load_dataset, load_from_disk
 
 import json
 
@@ -516,6 +516,42 @@ def extract_and_save_ema_model(checkpoint_path: str, new_checkpoint_path: str) -
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
+def vocab_check(project_name):
+    name_project = project_name + "_pinyin"
+    path_project = os.path.join(path_data, name_project)
+
+    file_metadata = os.path.join(path_project, "metadata.csv")
+   
+    file_vocab="data/Emilia_ZH_EN_pinyin/vocab.txt"
+    
+    with open(file_vocab,"r",encoding="utf-8") as f:
+         data=f.read()
+
+    vocab = data.split("\n")
+
+    with open(file_metadata,"r",encoding="utf-8") as f:
+         data=f.read()
+
+    miss_symbols=[]
+    miss_symbols_keep={}
+    for item in data.split("\n"):
+         sp=item.split("|")
+         if len(sp)!=2:continue
+         text=sp[1].lower().strip()
+
+         for t in text:
+             if (t in vocab)==False and (t in miss_symbols_keep)==False:
+                miss_symbols.append(t) 
+                miss_symbols_keep[t]=t
+
+            
+    if miss_symbols==[]:info ="You can train using your language !"     
+    else:info = f"The following symbols are missing in your language : {len(miss_symbols)}\n\n" + "\n".join(miss_symbols)   
+    return info
+
+
+
 with gr.Blocks() as app:
 
     with gr.Row():
@@ -618,7 +654,13 @@ with gr.Blocks() as app:
               txt_path_checkpoint_small = gr.Text(label="path output :") 
               reduse_button = gr.Button("reduse") 
               reduse_button.click(fn=extract_and_save_ema_model,inputs=[txt_path_checkpoint,txt_path_checkpoint_small])
-      
+
+         with gr.TabItem("vocab check experiment"):
+              check_button = gr.Button("check vocab") 
+              txt_info_check=gr.Text(label="info",value="")
+              check_button.click(fn=vocab_check,inputs=[project_name],outputs=[txt_info_check])
+       
+
 @click.command()
 @click.option("--port", "-p", default=None, type=int, help="Port to run the app on")
 @click.option("--host", "-H", default=None, help="Host to run the app on")
