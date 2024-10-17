@@ -38,6 +38,12 @@ Install other packages:
 pip install -r requirements.txt
 ```
 
+### As a Library
+
+```bash
+pip install git+https://github.com/SWivid/F5-TTS.git
+```
+
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
