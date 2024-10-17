@@ -6,7 +6,7 @@ sys.path.append(os.getcwd())
 import multiprocessing as mp
 import numpy as np
 
-from model.utils import (
+from f5_tts.model.utils import (
     get_librispeech_test,
     run_asr_wer,
     run_sim,

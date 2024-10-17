@@ -19,7 +19,7 @@ from einops import repeat, pack, unpack
 from x_transformers import RMSNorm
 from x_transformers.x_transformers import RotaryEmbedding
 
-from model.modules import (
+from f5_tts.model.modules import (
     TimestepEmbedding,
     ConvNeXtV2Block,
     ConvPositionEmbedding,

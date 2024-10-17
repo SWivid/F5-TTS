@@ -16,7 +16,7 @@ from einops import repeat
 
 from x_transformers.x_transformers import RotaryEmbedding
 
-from model.modules import (
+from f5_tts.model.modules import (
     TimestepEmbedding,
     ConvPositionEmbedding,
     MMDiTBlock,

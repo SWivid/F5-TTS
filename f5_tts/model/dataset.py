@@ -11,7 +11,7 @@ from datasets import Dataset as Dataset_
 
 from einops import rearrange
 
-from model.modules import MelSpec
+from f5_tts.model.modules import MelSpec
 
 
 class HFDataset(Dataset):

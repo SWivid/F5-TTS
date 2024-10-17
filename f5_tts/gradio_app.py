@@ -7,9 +7,9 @@ import tempfile
 from einops import rearrange
 from vocos import Vocos
 from pydub import AudioSegment, silence
-from model import CFM, UNetT, DiT, MMDiT
+from f5_tts.model import CFM, UNetT, DiT, MMDiT
 from cached_path import cached_path
-from model.utils import (
+from f5_tts.model.utils import (
     load_checkpoint,
     get_tokenizer,
     convert_char_to_pinyin,

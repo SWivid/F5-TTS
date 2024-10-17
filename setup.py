@@ -9,11 +9,11 @@ setuptools.setup(
     url="https://github.com/SWivid/F5-TTS",
     project_urls={},
     scripts=[],
-    # include_package_data=True,
-    # include JSON files
-    # package_data={
-    #     "": ["*.json"],
-    # },
+    include_package_data=True,
+    # include txt tokenizers
+    package_data={
+        "": ["*.txt"],
+    },
     install_requires=[
         "torch>=2.0.0",
         "torchaudio>=2.0.0",
