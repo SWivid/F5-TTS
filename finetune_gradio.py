@@ -22,8 +22,6 @@ from datasets.arrow_writer import ArrowWriter
 
 import json
 
-
-
 training_process = None    
 system = platform.system()
 python_executable = sys.executable or "python"
@@ -283,7 +281,7 @@ def start_training(dataset_name="",
     yield "start train",gr.update(interactive=False),gr.update(interactive=False)
 
     # Command to run the training script with the specified arguments
-    cmd = f"{python_executable} finetune-cli.py --exp_name {exp_name} " \
+    cmd = f"accelerate launch finetune-cli.py --exp_name {exp_name} " \
           f"--learning_rate {learning_rate} " \
           f"--batch_size_per_gpu {batch_size_per_gpu} " \
           f"--batch_size_type {batch_size_type} " \
@@ -505,6 +503,7 @@ def calculate_train(name_project,batch_size_type,max_samples,learning_rate,num_w
         data = json.load(file)  
     
     duration_list = data['duration']
+
     samples = len(duration_list)
 
     if torch.cuda.is_available():
