@@ -788,4 +788,7 @@ def main(port, host, share, api):
 
 
 if __name__ == "__main__":
-    main()
+    if not USING_SPACES:
+        main()
+    else:
+        app.queue().launch()
