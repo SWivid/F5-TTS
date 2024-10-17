@@ -282,29 +282,12 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, model, remove_silence, cr
 
             final_wave = new_wave
 
-    with open(wave_path, "wb") as f:
-        sf.write(f.name, final_wave, target_sample_rate)
-        # Remove silence
-        if remove_silence:
-            aseg = AudioSegment.from_file(f.name)
-            non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
-            non_silent_wave = AudioSegment.silent(duration=0)
-            for non_silent_seg in non_silent_segs:
-                non_silent_wave += non_silent_seg
-            aseg = non_silent_wave
-            aseg.export(f.name, format="wav")
-        print(f.name)
-
     # Create a combined spectrogram
     combined_spectrogram = np.concatenate(spectrograms, axis=1)
-    save_spectrogram(combined_spectrogram, spectrogram_path)
-    print(spectrogram_path)
 
+    return final_wave, combined_spectrogram
 
-def infer(ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15):
-
-    print(gen_text)
-
+def process_voice(ref_audio_orig, ref_text):
     print("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
@@ -340,7 +323,10 @@ def infer(ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_
         print("Finished transcription")
     else:
         print("Using custom reference text...")
+    return ref_audio, ref_text    
 
+def infer(ref_audio, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15):
+    print(gen_text)
     # Add the functionality to ensure it ends with ". "
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
         if ref_text.endswith("."):
@@ -360,4 +346,47 @@ def infer(ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_
     return infer_batch((audio, sr), ref_text, gen_text_batches, model, remove_silence, cross_fade_duration)
     
 
-infer(ref_audio, ref_text, gen_text, model, remove_silence)
+def process(ref_audio, ref_text, text_gen, model, remove_silence):
+    main_voice = {"ref_audio":ref_audio, "ref_text":ref_text}
+    if "voices" not in config:
+        voices = {"main": main_voice}
+    else:
+        voices = config["voices"]
+        voices["main"] = main_voice
+    for voice in voices:
+        voices[voice]['ref_audio'], voices[voice]['ref_text'] = process_voice(voices[voice]['ref_audio'], voices[voice]['ref_text'])
+
+    generated_audio_segments = []
+    reg1 = r'(?=\[\w+\])'
+    chunks = re.split(reg1, text_gen)
+    reg2 = r'\[(\w+)\]'
+    for text in chunks:
+        match = re.match(reg2, text)
+        if not match or voice not in voices:
+            voice = "main"
+        else:
+            voice = match[1]
+        text = re.sub(reg2, "", text)
+        gen_text = text.strip()
+        ref_audio = voices[voice]['ref_audio']
+        ref_text = voices[voice]['ref_text']
+        print(f"Voice: {voice}")
+        audio, spectragram = infer(ref_audio, ref_text, gen_text, model, remove_silence)
+        generated_audio_segments.append(audio)
+
+    if generated_audio_segments:
+        final_wave = np.concatenate(generated_audio_segments)
+        with open(wave_path, "wb") as f:
+            sf.write(f.name, final_wave, target_sample_rate)
+            # Remove silence
+            if remove_silence:
+                aseg = AudioSegment.from_file(f.name)
+                non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
+                non_silent_wave = AudioSegment.silent(duration=0)
+                for non_silent_seg in non_silent_segs:
+                    non_silent_wave += non_silent_seg
+                aseg = non_silent_wave
+                aseg.export(f.name, format="wav")
+            print(f.name)
+
+process(ref_audio, ref_text, gen_text, model, remove_silence)

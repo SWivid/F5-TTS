@@ -532,8 +532,8 @@ with gr.Blocks() as app_emotional:
         regular_audio = gr.Audio(label='Regular Reference Audio', type='filepath')
         regular_ref_text = gr.Textbox(label='Reference Text (Regular)', lines=2)
 
-    # Additional speech types (up to 9 more)
-    max_speech_types = 10
+    # Additional speech types (up to 99 more)
+    max_speech_types = 100
     speech_type_names = []
     speech_type_audios = []
     speech_type_ref_texts = []
