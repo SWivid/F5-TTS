@@ -65,6 +65,8 @@ accelerate launch train.py
 ```
 An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discussions/57).
 
+Gradio UI finetuning with `finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
+
 ## Inference
 
 The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or automatically downloaded with `inference-cli` and `gradio_app`.
