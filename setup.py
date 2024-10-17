@@ -18,7 +18,7 @@ setuptools.setup(
         "torch>=2.0.0",
         "torchaudio>=2.0.0",
         "accelerate>=0.33.0",
-        "cached_path",
+        "cached_path @ git+https://github.com/rsxdalv/cached_path@main",
         "click",
         "datasets",
         "einops>=0.8.0",
