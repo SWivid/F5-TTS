@@ -53,7 +53,7 @@ python scripts/prepare_emilia.py
 python scripts/prepare_wenetspeech4tts.py
 ```
 
-## Training
+## Training & Finetuning
 
 Once your datasets are prepared, you can start the training process.
 
