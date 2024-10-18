@@ -1,6 +1,6 @@
-from model import CFM, UNetT, DiT, MMDiT, Trainer
-from model.utils import get_tokenizer
-from model.dataset import load_dataset
+from f5_tts.model import CFM, UNetT, DiT, MMDiT, Trainer
+from f5_tts.model.utils import get_tokenizer
+from f5_tts.model.dataset import load_dataset
 
 
 # -------------------------- Dataset Settings --------------------------- #
