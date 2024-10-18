@@ -294,7 +294,9 @@ def start_training(dataset_name="",
           f"--last_per_steps {last_per_steps} " \
           f"--dataset_name {dataset_name}"  
     if finetune:cmd += f" --finetune {finetune}"   
-    print(cmd)      
+
+    print(cmd)
+        
     try:
       # Start the training process
       training_process = subprocess.Popen(cmd, shell=True)
@@ -525,6 +527,8 @@ def calculate_train(name_project,batch_size_type,max_samples,learning_rate,num_w
 
     if samples<64:
        max_samples = int(samples * 0.25) 
+    else:
+       max_samples = 64    
     
     num_warmup_updates = int(samples * 0.10) 
     save_per_updates = int(samples * 0.25) 
