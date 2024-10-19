@@ -149,10 +149,10 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
     generated_waves = []
     spectrograms = []
 
+    if len(ref_text[-1].encode('utf-8')) == 1:
+        ref_text = ref_text + " "
     for i, gen_text in enumerate(progress.tqdm(gen_text_batches)):
         # Prepare the text
-        if len(ref_text[-1].encode('utf-8')) == 1:
-            ref_text = ref_text + " "
         text_list = [ref_text + gen_text]
         final_text_list = convert_char_to_pinyin(text_list)
 
