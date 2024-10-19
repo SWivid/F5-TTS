@@ -38,6 +38,11 @@ Install other packages:
 pip install -r requirements.txt
 ```
 
+**[Optional]**: We provide [Dockerfile](https://github.com/SWivid/F5-TTS/blob/main/Dockerfile) and you can use the following command to build it.
+```bash
+docker build -t f5tts:v1 .
+```
+
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
