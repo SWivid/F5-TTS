@@ -37,6 +37,16 @@ parser.add_argument(
     help="F5-TTS | E2-TTS",
 )
 parser.add_argument(
+    "-p",
+    "--ckpt_file",
+    help="The Checkpoint .pt",
+)
+parser.add_argument(
+    "-v",
+    "--vocab_file",
+    help="The vocab .txt",
+)
+parser.add_argument(
     "-r",
     "--ref_audio",
     type=str,
@@ -88,6 +98,8 @@ if gen_file:
     gen_text = codecs.open(gen_file, "r", "utf-8").read()
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
 model = args.model if args.model else config["model"]
+ckpt_file = args.ckpt_file if args.ckpt_file else ""
+vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
 wave_path = Path(output_dir)/"out.wav"
 spectrogram_path = Path(output_dir)/"out.png"
@@ -125,11 +137,19 @@ speed = 1.0
 # fix_duration = 27  # None or float (duration in seconds)
 fix_duration = None
 
-def load_model(repo_name, exp_name, model_cls, model_cfg, ckpt_step):
-    ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt" # .pt | .safetensors
-    if not Path(ckpt_path).exists():
-        ckpt_path = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
-    vocab_char_map, vocab_size = get_tokenizer("Emilia_ZH_EN", "pinyin")
+def load_model(model_cls, model_cfg, ckpt_path,file_vocab):
+    
+    if file_vocab=="":
+        file_vocab="Emilia_ZH_EN"
+        tokenizer="pinyin"
+    else:
+        tokenizer="custom"
+
+    print("\nvocab : ",vocab_file,tokenizer) 
+    print("tokenizer : ",tokenizer) 
+    print("model : ",ckpt_path,"\n")    
+
+    vocab_char_map, vocab_size = get_tokenizer(file_vocab, tokenizer)
     model = CFM(
         transformer=model_cls(
             **model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels
@@ -149,13 +169,11 @@ def load_model(repo_name, exp_name, model_cls, model_cfg, ckpt_step):
 
     return model
 
-
 # load models
 F5TTS_model_cfg = dict(
     dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4
 )
 E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
-
 
 def chunk_text(text, max_chars=135):
     """
@@ -184,12 +202,29 @@ def chunk_text(text, max_chars=135):
 
     return chunks
 
+    #ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt" # .pt | .safetensors
+    #if not Path(ckpt_path).exists():
+        #ckpt_path = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
 
-def infer_batch(ref_audio, ref_text, gen_text_batches, model, remove_silence, cross_fade_duration=0.15):
+def infer_batch(ref_audio, ref_text, gen_text_batches, model,ckpt_file,file_vocab, remove_silence, cross_fade_duration=0.15):
     if model == "F5-TTS":
-        ema_model = load_model(model, "F5TTS_Base", DiT, F5TTS_model_cfg, 1200000)
+
+        if ckpt_file == "": 
+           repo_name= "F5-TTS"
+           exp_name = "F5TTS_Base"
+           ckpt_step= 1200000
+           ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
+
+        ema_model = load_model(DiT, F5TTS_model_cfg, ckpt_file,file_vocab)
+
     elif model == "E2-TTS":
-        ema_model = load_model(model, "E2TTS_Base", UNetT, E2TTS_model_cfg, 1200000)
+        if ckpt_file == "": 
+           repo_name= "E2-TTS"
+           exp_name = "E2TTS_Base"
+           ckpt_step= 1200000
+           ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
+        
+        ema_model = load_model(UNetT, E2TTS_model_cfg, ckpt_file,file_vocab)
 
     audio, sr = ref_audio
     if audio.shape[0] > 1:
@@ -325,7 +360,7 @@ def process_voice(ref_audio_orig, ref_text):
         print("Using custom reference text...")
     return ref_audio, ref_text    
 
-def infer(ref_audio, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15):
+def infer(ref_audio, ref_text, gen_text, model,ckpt_file,file_vocab, remove_silence, cross_fade_duration=0.15):
     print(gen_text)
     # Add the functionality to ensure it ends with ". "
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
@@ -343,10 +378,10 @@ def infer(ref_audio, ref_text, gen_text, model, remove_silence, cross_fade_durat
         print(f'gen_text {i}', gen_text)
     
     print(f"Generating audio using {model} in {len(gen_text_batches)} batches, loading models...")
-    return infer_batch((audio, sr), ref_text, gen_text_batches, model, remove_silence, cross_fade_duration)
+    return infer_batch((audio, sr), ref_text, gen_text_batches, model,ckpt_file,file_vocab, remove_silence, cross_fade_duration)
     
 
-def process(ref_audio, ref_text, text_gen, model, remove_silence):
+def process(ref_audio, ref_text, text_gen, model,ckpt_file,file_vocab, remove_silence):
     main_voice = {"ref_audio":ref_audio, "ref_text":ref_text}
     if "voices" not in config:
         voices = {"main": main_voice}
@@ -371,7 +406,7 @@ def process(ref_audio, ref_text, text_gen, model, remove_silence):
         ref_audio = voices[voice]['ref_audio']
         ref_text = voices[voice]['ref_text']
         print(f"Voice: {voice}")
-        audio, spectragram = infer(ref_audio, ref_text, gen_text, model, remove_silence)
+        audio, spectragram = infer(ref_audio, ref_text, gen_text, model,ckpt_file,file_vocab, remove_silence)
         generated_audio_segments.append(audio)
 
     if generated_audio_segments:
@@ -389,4 +424,5 @@ def process(ref_audio, ref_text, text_gen, model, remove_silence):
                 aseg.export(f.name, format="wav")
             print(f.name)
 
-process(ref_audio, ref_text, gen_text, model, remove_silence)
+
+process(ref_audio, ref_text, gen_text, model,ckpt_file,vocab_file, remove_silence)
