@@ -118,7 +118,7 @@ if args.load_vocoder_from_local:
     vocos.load_state_dict(state_dict)
     vocos.eval()
 else:
-    print("Donwload Vocos from huggingface charactr/vocos-mel-24khz")
+    print("Download Vocos from huggingface charactr/vocos-mel-24khz")
     vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
 
 print(f"Using {device} device")
@@ -323,7 +323,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, model,ckpt_file,file_voca
     return final_wave, combined_spectrogram
 
 def process_voice(ref_audio_orig, ref_text):
-    print("Converting audio...")
+    print("Converting", ref_audio_orig)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
 
@@ -361,7 +361,6 @@ def process_voice(ref_audio_orig, ref_text):
     return ref_audio, ref_text    
 
 def infer(ref_audio, ref_text, gen_text, model,ckpt_file,file_vocab, remove_silence, cross_fade_duration=0.15):
-    print(gen_text)
     # Add the functionality to ensure it ends with ". "
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
         if ref_text.endswith("."):
@@ -373,7 +372,6 @@ def infer(ref_audio, ref_text, gen_text, model,ckpt_file,file_vocab, remove_sile
     audio, sr = torchaudio.load(ref_audio)
     max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / sr) * (25 - audio.shape[-1] / sr))
     gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
-    print('ref_text', ref_text)
     for i, gen_text in enumerate(gen_text_batches):
         print(f'gen_text {i}', gen_text)
     
@@ -390,6 +388,9 @@ def process(ref_audio, ref_text, text_gen, model,ckpt_file,file_vocab, remove_si
         voices["main"] = main_voice
     for voice in voices:
         voices[voice]['ref_audio'], voices[voice]['ref_text'] = process_voice(voices[voice]['ref_audio'], voices[voice]['ref_text'])
+        print("Voice:", voice)
+        print("Ref_audio:", voices[voice]['ref_audio'])
+        print("Ref_text:", voices[voice]['ref_text'])
 
     generated_audio_segments = []
     reg1 = r'(?=\[\w+\])'
