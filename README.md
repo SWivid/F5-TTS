@@ -38,6 +38,11 @@ Install other packages:
 pip install -r requirements.txt
 ```
 
+**[Optional]**: We provide [Dockerfile](https://github.com/SWivid/F5-TTS/blob/main/Dockerfile) and you can use the following command to build it.
+```bash
+docker build -t f5tts:v1 .
+```
+
 ### As a Library
 
 ```bash
@@ -73,6 +78,32 @@ An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discuss
 
 Gradio UI finetuning with `finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
 
+### Wandb Logging
+
+By default, the training script does NOT use logging (assuming you didn't manually log in using `wandb login`).
+
+To turn on wandb logging, you can either:
+
+1. Manually login with `wandb login`: Learn more [here](https://docs.wandb.ai/ref/cli/wandb-login)
+2. Automatically login programmatically by setting an environment variable: Get an API KEY at https://wandb.ai/site/ and set the environment variable as follows:
+
+On Mac & Linux:
+
+```
+export WANDB_API_KEY=<YOUR WANDB API KEY>
+```
+
+On Windows:
+
+```
+set WANDB_API_KEY=<YOUR WANDB API KEY>
+```
+Moreover, if you couldn't access Wandb and want to log metrics offline, you can the environment variable as follows:
+
+```
+export WANDB_MODE=offline
+```
+
 ## Inference
 
 The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or automatically downloaded with `inference-cli` and `gradio_app`.
@@ -86,6 +117,9 @@ Currently support 30s for a single generation, which is the **TOTAL** length of 
 ### CLI Inference
 
 Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_path` in `inference-cli.py`
+
+for change model use `--ckpt_file` to specify the model you want to load,  
+for change vocab.txt use `--vocab_file` to provide your vocab.txt file.
 
 ```bash
 python inference-cli.py \

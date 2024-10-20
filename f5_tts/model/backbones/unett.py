@@ -14,8 +14,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from einops import repeat, pack, unpack
-
 from x_transformers import RMSNorm
 from x_transformers.x_transformers import RotaryEmbedding
 
@@ -155,7 +153,7 @@ class UNetT(nn.Module):
     ):
         batch, seq_len = x.shape[0], x.shape[1]
         if time.ndim == 0:
-            time = repeat(time, ' -> b', b = batch)
+            time = time.repeat(batch)
         
         # t: conditioning time, c: context (text + masked cond audio), x: noised input audio
         t = self.time_embed(time)
@@ -163,7 +161,7 @@ class UNetT(nn.Module):
         x = self.input_embed(x, cond, text_embed, drop_audio_cond = drop_audio_cond)
 
         # postfix time t to input x, [b n d] -> [b n+1 d]
-        x, ps = pack((t, x), 'b * d')
+        x = torch.cat([t.unsqueeze(1), x], dim=1)  # pack t to x
         if mask is not None:
             mask = F.pad(mask, (1, 0), value=1)
         
@@ -196,6 +194,6 @@ class UNetT(nn.Module):
 
         assert len(skips) == 0
 
-        _, x = unpack(self.norm_out(x), ps, 'b * d')
+        x = self.norm_out(x)[:, 1:, :]  # unpack t from x
 
         return self.proj_out(x)

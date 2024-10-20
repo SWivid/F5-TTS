@@ -1,9 +1,8 @@
 accelerate>=0.33.0
+bitsandbytes>0.37.0
 cached_path
 click
 datasets
-einops>=0.8.0
-einx>=0.3.0
 ema_pytorch>=0.5.2
 gradio
 jieba

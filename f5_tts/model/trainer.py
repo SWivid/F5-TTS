@@ -10,8 +10,6 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 
-from einops import rearrange
-
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 
@@ -45,36 +43,41 @@ class Trainer:
         wandb_resume_id: str = None,
         last_per_steps = None,
         accelerate_kwargs: dict = dict(),
-        ema_kwargs: dict = dict()
+        ema_kwargs: dict = dict(),
+        bnb_optimizer: bool = False,
     ):
         
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters = True)
 
+        logger = "wandb" if wandb.api.api_key else None
+        print(f"Using logger: {logger}")
+
         self.accelerator = Accelerator(
-            log_with = "wandb",
+            log_with = logger,
             kwargs_handlers = [ddp_kwargs],
             gradient_accumulation_steps = grad_accumulation_steps,
             **accelerate_kwargs
         )
-        
-        if exists(wandb_resume_id):
-            init_kwargs={"wandb": {"resume": "allow", "name": wandb_run_name, 'id': wandb_resume_id}}
-        else:
-            init_kwargs={"wandb": {"resume": "allow", "name": wandb_run_name}}
-        self.accelerator.init_trackers(
-            project_name = wandb_project, 
-            init_kwargs=init_kwargs,
-            config={"epochs": epochs,
-                    "learning_rate": learning_rate,
-                    "num_warmup_updates": num_warmup_updates, 
-                    "batch_size": batch_size,
-                    "batch_size_type": batch_size_type,
-                    "max_samples": max_samples,
-                    "grad_accumulation_steps": grad_accumulation_steps,
-                    "max_grad_norm": max_grad_norm,
-                    "gpus": self.accelerator.num_processes,
-                    "noise_scheduler": noise_scheduler}
-            )
+
+        if logger == "wandb":
+            if exists(wandb_resume_id):
+                init_kwargs={"wandb": {"resume": "allow", "name": wandb_run_name, 'id': wandb_resume_id}}
+            else:
+                init_kwargs={"wandb": {"resume": "allow", "name": wandb_run_name}}
+            self.accelerator.init_trackers(
+                project_name = wandb_project,
+                init_kwargs=init_kwargs,
+                config={"epochs": epochs,
+                        "learning_rate": learning_rate,
+                        "num_warmup_updates": num_warmup_updates,
+                        "batch_size": batch_size,
+                        "batch_size_type": batch_size_type,
+                        "max_samples": max_samples,
+                        "grad_accumulation_steps": grad_accumulation_steps,
+                        "max_grad_norm": max_grad_norm,
+                        "gpus": self.accelerator.num_processes,
+                        "noise_scheduler": noise_scheduler}
+                )
 
         self.model = model
 
@@ -103,7 +106,11 @@ class Trainer:
 
         self.duration_predictor = duration_predictor
 
-        self.optimizer = AdamW(model.parameters(), lr=learning_rate)
+        if bnb_optimizer:
+            import bitsandbytes as bnb
+            self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
+        else:
+            self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(
             self.model, self.optimizer
         )
@@ -213,7 +220,7 @@ class Trainer:
             for batch in progress_bar:
                 with self.accelerator.accumulate(self.model):
                     text_inputs = batch['text']
-                    mel_spec = rearrange(batch['mel'], 'b d n -> b n d')
+                    mel_spec = batch['mel'].permute(0, 2, 1)
                     mel_lengths = batch["mel_lengths"]
 
                     # TODO. add duration predictor training

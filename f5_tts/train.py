@@ -56,7 +56,7 @@ def main():
             hop_length = hop_length,
         )
     
-    e2tts = CFM(
+    model = CFM(
         transformer = model_cls(
             **model_cfg,
             text_num_embeds = vocab_size, 
@@ -67,7 +67,7 @@ def main():
     )
 
     trainer = Trainer(
-        e2tts,
+        model,
         epochs, 
         learning_rate,
         num_warmup_updates = num_warmup_updates,

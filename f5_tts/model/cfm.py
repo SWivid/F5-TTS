@@ -18,8 +18,6 @@ from torch.nn.utils.rnn import pad_sequence
 
 from torchdiffeq import odeint
 
-from einops import rearrange
-
 from f5_tts.model.modules import MelSpec
 
 from f5_tts.model.utils import (
@@ -99,11 +97,14 @@ class CFM(nn.Module):
     ):
         self.eval()
 
+        if next(self.parameters()).dtype == torch.float16:
+            cond = cond.half()
+
         # raw wave
 
         if cond.ndim == 2:
             cond = self.mel_spec(cond)
-            cond = rearrange(cond, 'b d n -> b n d')
+            cond = cond.permute(0, 2, 1)
             assert cond.shape[-1] == self.num_channels
 
         batch, cond_seq_len, device = *cond.shape[:2], cond.device
@@ -142,7 +143,7 @@ class CFM(nn.Module):
             
         cond = F.pad(cond, (0, 0, 0, max_duration - cond_seq_len), value = 0.)
         cond_mask = F.pad(cond_mask, (0, max_duration - cond_mask.shape[-1]), value = False)
-        cond_mask = rearrange(cond_mask, '... -> ... 1')
+        cond_mask = cond_mask.unsqueeze(-1)
         step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))  # allow direct control (cut cond audio) with lens passed in
 
         if batch > 1:
@@ -175,7 +176,7 @@ class CFM(nn.Module):
         for dur in duration:
             if exists(seed):
                 torch.manual_seed(seed)
-            y0.append(torch.randn(dur, self.num_channels, device = self.device))
+            y0.append(torch.randn(dur, self.num_channels, device = self.device, dtype=step_cond.dtype))
         y0 = pad_sequence(y0, padding_value = 0, batch_first = True)
 
         t_start = 0
@@ -186,7 +187,7 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        t = torch.linspace(t_start, 1, steps, device = self.device)
+        t = torch.linspace(t_start, 1, steps, device = self.device, dtype=step_cond.dtype)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
@@ -197,7 +198,7 @@ class CFM(nn.Module):
         out = torch.where(cond_mask, cond, out)
 
         if exists(vocoder):
-            out = rearrange(out, 'b n d -> b d n')
+            out = out.permute(0, 2, 1)
             out = vocoder(out)
 
         return out, trajectory
@@ -213,7 +214,7 @@ class CFM(nn.Module):
         # handle raw wave
         if inp.ndim == 2:
             inp = self.mel_spec(inp)
-            inp = rearrange(inp, 'b d n -> b n d')
+            inp = inp.permute(0, 2, 1)
             assert inp.shape[-1] == self.num_channels
 
         batch, seq_len, dtype, device, σ1 = *inp.shape[:2], inp.dtype, self.device, self.sigma
@@ -250,7 +251,7 @@ class CFM(nn.Module):
         # TODO. noise_scheduler
 
         # sample xt (φ_t(x) in the paper)
-        t = rearrange(time, 'b -> b 1 1')
+        t = time.unsqueeze(-1).unsqueeze(-1)
         φ = (1 - t) * x0 + t * x1
         flow = x1 - x0
 
