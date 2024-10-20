@@ -9,7 +9,6 @@ import argparse
 import torch
 import torchaudio
 from accelerate import Accelerator
-from einops import rearrange
 from vocos import Vocos
 
 from model import CFM, UNetT, DiT
@@ -187,7 +186,7 @@ with accelerator.split_between_processes(prompts_all) as prompts:
         # Final result
         for i, gen in enumerate(generated):
             gen = gen[ref_mel_lens[i]:total_mel_lens[i], :].unsqueeze(0)
-            gen_mel_spec = rearrange(gen, '1 n d -> 1 d n')
+            gen_mel_spec = gen.permute(0, 2, 1)
             generated_wave = vocos.decode(gen_mel_spec.cpu())
             if ref_rms_list[i] < target_rms:
                 generated_wave = generated_wave * ref_rms_list[i] / target_rms

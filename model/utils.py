@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 import math
 import random
 import string
@@ -16,9 +15,6 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 import torchaudio
-
-import einx
-from einops import rearrange, reduce
 
 import jieba
 from pypinyin import lazy_pinyin, Style
@@ -57,7 +53,7 @@ def lens_to_mask(
         length = t.amax()
 
     seq = torch.arange(length, device = t.device)
-    return einx.less('n, b -> b n', seq, t)
+    return seq[None, :] < t[:, None]
 
 def mask_from_start_end_indices(
     seq_len: int['b'],
@@ -66,7 +62,9 @@ def mask_from_start_end_indices(
 ):
     max_seq_len = seq_len.max().item()  
     seq = torch.arange(max_seq_len, device = start.device).long()
-    return einx.greater_equal('n, b -> b n', seq, start) & einx.less('n, b -> b n', seq, end)
+    start_mask = seq[None, :] >= start[:, None]
+    end_mask = seq[None, :] < end[:, None]
+    return start_mask & end_mask
 
 def mask_from_frac_lengths(
     seq_len: int['b'],
@@ -89,11 +87,11 @@ def maybe_masked_mean(
     if not exists(mask):
         return t.mean(dim = 1)
 
-    t = einx.where('b n, b n d, -> b n d', mask, t, 0.)
-    num = reduce(t, 'b n d -> b d', 'sum')
-    den = reduce(mask.float(), 'b n -> b', 'sum')
+    t = torch.where(mask[:, :, None], t, torch.tensor(0., device=t.device))
+    num = t.sum(dim=1)
+    den = mask.float().sum(dim=1)
 
-    return einx.divide('b d, b -> b d', num, den.clamp(min = 1.))
+    return num / den.clamp(min=1.)
 
 
 # simple utf-8 tokenizer, since paper went character based
@@ -239,7 +237,7 @@ def padded_mel_batch(ref_mels):
         padded_ref_mel = F.pad(mel, (0, max_mel_length - mel.shape[-1]), value = 0)
         padded_ref_mels.append(padded_ref_mel)
     padded_ref_mels = torch.stack(padded_ref_mels)
-    padded_ref_mels = rearrange(padded_ref_mels, 'b d n -> b n d')
+    padded_ref_mels = padded_ref_mels.permute(0, 2, 1)
     return padded_ref_mels
 
 
@@ -302,7 +300,7 @@ def get_inference_prompt(
 
         # to mel spectrogram
         ref_mel = mel_spectrogram(ref_audio)
-        ref_mel = rearrange(ref_mel, '1 d n -> d n')
+        ref_mel = ref_mel.squeeze(0)
 
         # deal with batch
         assert infer_batch_size > 0, "infer_batch_size should be greater than 0."
