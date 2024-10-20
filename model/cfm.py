@@ -96,7 +96,7 @@ class CFM(nn.Module):
     ):
         self.eval()
 
-        if cond.device == torch.device('cuda'):
+        if next(self.parameters()).dtype == torch.float16:
             cond = cond.half()
 
         # raw wave
