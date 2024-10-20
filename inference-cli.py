@@ -250,9 +250,8 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, model,ckpt_file,file_voca
 
         # Calculate duration
         ref_audio_len = audio.shape[-1] // hop_length
-        zh_pause_punc = r"。，、；：？！"
-        ref_text_len = len(ref_text.encode('utf-8')) + 3 * len(re.findall(zh_pause_punc, ref_text))
-        gen_text_len = len(gen_text.encode('utf-8')) + 3 * len(re.findall(zh_pause_punc, gen_text))
+        ref_text_len = len(ref_text.encode('utf-8'))
+        gen_text_len = len(gen_text.encode('utf-8'))
         duration = ref_audio_len + int(ref_audio_len / ref_text_len * gen_text_len / speed)
 
         # inference

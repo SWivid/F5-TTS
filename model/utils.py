@@ -296,9 +296,8 @@ def get_inference_prompt(
             # # test vocoder resynthesis
             # ref_audio = gt_audio
         else:
-            zh_pause_punc = r"。，、；：？！"
-            ref_text_len = len(prompt_text.encode('utf-8')) + 3 * len(re.findall(zh_pause_punc, prompt_text))
-            gen_text_len = len(gt_text.encode('utf-8')) + 3 * len(re.findall(zh_pause_punc, gt_text))
+            ref_text_len = len(prompt_text.encode('utf-8'))
+            gen_text_len = len(gt_text.encode('utf-8'))
             total_mel_len = ref_mel_len + int(ref_mel_len / ref_text_len * gen_text_len / speed)
 
         # to mel spectrogram
