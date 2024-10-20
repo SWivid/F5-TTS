@@ -9,18 +9,6 @@ import torchaudio
 from cached_path import cached_path
 from pydub import AudioSegment
 
-from model import DiT, UNetT
-from model.utils import (
-    save_spectrogram,
-)
-from model.utils_infer import (
-    load_vocoder,
-    load_model,
-    preprocess_ref_audio_text,
-    infer_process,
-    remove_silence_for_generated_wav,
-)
-
 try:
     import spaces
     USING_SPACES = True
@@ -32,6 +20,18 @@ def gpu_decorator(func):
         return spaces.GPU(func)
     else:
         return func
+
+from model import DiT, UNetT
+from model.utils import (
+    save_spectrogram,
+)
+from model.utils_infer import (
+    load_vocoder,
+    load_model,
+    preprocess_ref_audio_text,
+    infer_process,
+    remove_silence_for_generated_wav,
+)
 
 vocos = load_vocoder()
 
