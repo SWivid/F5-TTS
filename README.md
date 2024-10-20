@@ -72,6 +72,27 @@ An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discuss
 
 Gradio UI finetuning with `finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
 
+## Wandb Logging
+
+By default, the training script does NOT use logging (assuming you didn't manually log in using `wandb login`).
+
+To turn on wandb logging, you can either:
+
+1. Manually login with `wandb login`: Learn more [here](https://docs.wandb.ai/ref/cli/wandb-login)
+2. Automatically login programmatically by setting an environment variable: Get an API KEY at https://wandb.ai/site/ and set the environment variable as follows:
+
+On Mac & Linux:
+
+```
+export WANDB_API_KEY=<YOUR WANDB API KEY>
+```
+
+On Windows:
+
+```
+set WANDB_API_KEY=<YOUR WANDB API KEY>
+```
+
 ## Inference
 
 The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or automatically downloaded with `inference-cli` and `gradio_app`.
