@@ -103,6 +103,8 @@ class CustomDataset(Dataset):
 
         else:
             audio, source_sample_rate = torchaudio.load(audio_path)
+            if audio.shape[0] > 1:
+                audio = torch.mean(audio, dim=0, keepdim=True)
 
             if duration > 30 or duration < 0.3:
                 return self.__getitem__((index + 1) % len(self.data))
