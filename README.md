@@ -92,6 +92,11 @@ On Windows:
 ```
 set WANDB_API_KEY=<YOUR WANDB API KEY>
 ```
+Moreover, if you couldn't access Wandb and want to log metrics offline, you can the environment variable as follows:
+
+```
+export WANDB_MODE=offline
+```
 
 ## Inference
 
