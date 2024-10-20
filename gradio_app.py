@@ -173,6 +173,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
                 sway_sampling_coef=sway_sampling_coef,
             )
 
+        generated = generated.to(torch.float32)
         generated = generated[:, ref_audio_len:, :]
         generated_mel_spec = rearrange(generated, "1 n d -> 1 d n")
         generated_wave = vocos.decode(generated_mel_spec.cpu())

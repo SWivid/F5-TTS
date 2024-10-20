@@ -49,7 +49,7 @@ elif exp_name == "E2TTS_Base":
     model_cls = UNetT
     model_cfg = dict(dim = 1024, depth = 24, heads = 16, ff_mult = 4)
 
-ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"
+ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.safetensors"
 output_dir = "tests"
 
 # [leverage https://github.com/MahmoudAshraf97/ctc-forced-aligner to get char level alignment]
@@ -172,12 +172,13 @@ with torch.inference_mode():
 print(f"Generated mel: {generated.shape}")
 
 # Final result
+generated = generated.to(torch.float32)
 generated = generated[:, ref_audio_len:, :]
 generated_mel_spec = rearrange(generated, '1 n d -> 1 d n')
 generated_wave = vocos.decode(generated_mel_spec.cpu())
 if rms < target_rms:
     generated_wave = generated_wave * rms / target_rms
 
-save_spectrogram(generated_mel_spec[0].cpu().numpy(), f"{output_dir}/test_single_edit.png")
-torchaudio.save(f"{output_dir}/test_single_edit.wav", generated_wave, target_sample_rate)
+save_spectrogram(generated_mel_spec[0].cpu().numpy(), f"{output_dir}/speech_edit_out.png")
+torchaudio.save(f"{output_dir}/speech_edit_out.wav", generated_wave, target_sample_rate)
 print(f"Generated wav: {generated_wave.shape}")

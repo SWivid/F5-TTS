@@ -145,9 +145,9 @@ def load_model(model_cls, model_cfg, ckpt_path,file_vocab):
     else:
         tokenizer="custom"
 
-    print("\nvocab : ",vocab_file,tokenizer) 
-    print("tokenizer : ",tokenizer) 
-    print("model : ",ckpt_path,"\n")    
+    print("\nvocab : ", vocab_file,tokenizer) 
+    print("tokenizer : ", tokenizer) 
+    print("model : ", ckpt_path,"\n")    
 
     vocab_char_map, vocab_size = get_tokenizer(file_vocab, tokenizer)
     model = CFM(
@@ -265,6 +265,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, model,ckpt_file,file_voca
                 sway_sampling_coef=sway_sampling_coef,
             )
 
+        generated = generated.to(torch.float32)
         generated = generated[:, ref_audio_len:, :]
         generated_mel_spec = rearrange(generated, "1 n d -> 1 d n")
         generated_wave = vocos.decode(generated_mel_spec.cpu())
