@@ -96,7 +96,7 @@ class CFM(nn.Module):
     ):
         self.eval()
 
-        if cond.device != torch.device('cpu'):
+        if cond.device == torch.device('cuda'):
             cond = cond.half()
 
         # raw wave

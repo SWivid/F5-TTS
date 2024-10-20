@@ -555,7 +555,7 @@ def repetition_found(text, length = 2, tolerance = 10):
 # load model checkpoint for inference
 
 def load_checkpoint(model, ckpt_path, device, use_ema = True):
-    if device != "cpu":
+    if device == "cuda":
         model = model.half()
 
     ckpt_type = ckpt_path.split(".")[-1]
