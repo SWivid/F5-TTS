@@ -4,7 +4,6 @@ import torchaudio
 import gradio as gr
 import numpy as np
 import tempfile
-from einops import rearrange
 from vocos import Vocos
 from pydub import AudioSegment, silence
 from model import CFM, UNetT, DiT, MMDiT
@@ -175,7 +174,7 @@ def infer_batch(ref_audio, ref_text, gen_text_batches, exp_name, remove_silence,
 
         generated = generated.to(torch.float32)
         generated = generated[:, ref_audio_len:, :]
-        generated_mel_spec = rearrange(generated, "1 n d -> 1 d n")
+        generated_mel_spec = generated.permute(0, 2, 1)
         generated_wave = vocos.decode(generated_mel_spec.cpu())
         if rms < target_rms:
             generated_wave = generated_wave * rms / target_rms

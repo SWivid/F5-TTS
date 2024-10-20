@@ -10,8 +10,6 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 
-from einops import rearrange
-
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 
@@ -222,7 +220,7 @@ class Trainer:
             for batch in progress_bar:
                 with self.accelerator.accumulate(self.model):
                     text_inputs = batch['text']
-                    mel_spec = rearrange(batch['mel'], 'b d n -> b n d')
+                    mel_spec = batch['mel'].permute(0, 2, 1)
                     mel_lengths = batch["mel_lengths"]
 
                     # TODO. add duration predictor training

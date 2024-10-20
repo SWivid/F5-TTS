@@ -9,8 +9,6 @@ import torchaudio
 from datasets import load_dataset, load_from_disk
 from datasets import Dataset as Dataset_
 
-from einops import rearrange
-
 from model.modules import MelSpec
 
 
@@ -54,11 +52,11 @@ class HFDataset(Dataset):
             resampler = torchaudio.transforms.Resample(sample_rate, self.target_sample_rate)
             audio_tensor = resampler(audio_tensor)
         
-        audio_tensor = rearrange(audio_tensor, 't -> 1 t')
+        audio_tensor = audio_tensor.unsqueeze(0)  # 't -> 1 t')
         
         mel_spec = self.mel_spectrogram(audio_tensor)
         
-        mel_spec = rearrange(mel_spec, '1 d t -> d t')
+        mel_spec = mel_spec.squeeze(0)  # '1 d t -> d t'
         
         text = row['text']
         
@@ -114,7 +112,7 @@ class CustomDataset(Dataset):
                 audio = resampler(audio)
             
             mel_spec = self.mel_spectrogram(audio)
-            mel_spec = rearrange(mel_spec, '1 d t -> d t')
+            mel_spec = mel_spec.squeeze(0)  # '1 d t -> d t')
         
         return dict(
             mel_spec = mel_spec,

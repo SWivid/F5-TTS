@@ -3,7 +3,6 @@ import os
 import torch
 import torch.nn.functional as F
 import torchaudio
-from einops import rearrange
 from vocos import Vocos
 
 from model import CFM, UNetT, DiT, MMDiT
@@ -174,7 +173,7 @@ print(f"Generated mel: {generated.shape}")
 # Final result
 generated = generated.to(torch.float32)
 generated = generated[:, ref_audio_len:, :]
-generated_mel_spec = rearrange(generated, '1 n d -> 1 d n')
+generated_mel_spec = generated.permute(0, 2, 1)
 generated_wave = vocos.decode(generated_mel_spec.cpu())
 if rms < target_rms:
     generated_wave = generated_wave * rms / target_rms

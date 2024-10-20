@@ -18,10 +18,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 from torchdiffeq import odeint
 
-from einops import rearrange
-
 from model.modules import MelSpec
-
 from model.utils import (
     default, exists, 
     list_str_to_idx, list_str_to_tensor, 
@@ -105,7 +102,7 @@ class CFM(nn.Module):
 
         if cond.ndim == 2:
             cond = self.mel_spec(cond)
-            cond = rearrange(cond, 'b d n -> b n d')
+            cond = cond.permute(0, 2, 1)
             assert cond.shape[-1] == self.num_channels
 
         batch, cond_seq_len, device = *cond.shape[:2], cond.device
@@ -144,7 +141,7 @@ class CFM(nn.Module):
             
         cond = F.pad(cond, (0, 0, 0, max_duration - cond_seq_len), value = 0.)
         cond_mask = F.pad(cond_mask, (0, max_duration - cond_mask.shape[-1]), value = False)
-        cond_mask = rearrange(cond_mask, '... -> ... 1')
+        cond_mask = cond_mask.unsqueeze(-1)
         step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))  # allow direct control (cut cond audio) with lens passed in
 
         if batch > 1:
@@ -199,7 +196,7 @@ class CFM(nn.Module):
         out = torch.where(cond_mask, cond, out)
 
         if exists(vocoder):
-            out = rearrange(out, 'b n d -> b d n')
+            out = out.permute(0, 2, 1)
             out = vocoder(out)
 
         return out, trajectory
@@ -215,7 +212,7 @@ class CFM(nn.Module):
         # handle raw wave
         if inp.ndim == 2:
             inp = self.mel_spec(inp)
-            inp = rearrange(inp, 'b d n -> b n d')
+            inp = inp.permute(0, 2, 1)
             assert inp.shape[-1] == self.num_channels
 
         batch, seq_len, dtype, device, σ1 = *inp.shape[:2], inp.dtype, self.device, self.sigma
@@ -252,7 +249,7 @@ class CFM(nn.Module):
         # TODO. noise_scheduler
 
         # sample xt (φ_t(x) in the paper)
-        t = rearrange(time, 'b -> b 1 1')
+        t = time.unsqueeze(-1).unsqueeze(-1)
         φ = (1 - t) * x0 + t * x1
         flow = x1 - x0
 

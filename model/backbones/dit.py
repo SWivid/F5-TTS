@@ -13,8 +13,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from einops import repeat
-
 from x_transformers.x_transformers import RotaryEmbedding
 
 from model.modules import (
@@ -134,7 +132,7 @@ class DiT(nn.Module):
     ):
         batch, seq_len = x.shape[0], x.shape[1]
         if time.ndim == 0:
-            time = repeat(time, ' -> b', b = batch)
+            time = time.repeat(batch)
         
         # t: conditioning time, c: context (text + masked cond audio), x: noised input audio
         t = self.time_embed(time)

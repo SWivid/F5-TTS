@@ -16,7 +16,6 @@ from torch import nn
 import torch.nn.functional as F
 import torchaudio
 
-from einops import rearrange
 from x_transformers.x_transformers import apply_rotary_pos_emb
 
 
@@ -54,7 +53,7 @@ class MelSpec(nn.Module):
 
     def forward(self, inp):
         if len(inp.shape) == 3:
-            inp = rearrange(inp, 'b 1 nw -> b nw')
+            inp = inp.squeeze(1) # 'b 1 nw -> b nw'
 
         assert len(inp.shape) == 2
 
@@ -101,9 +100,9 @@ class ConvPositionEmbedding(nn.Module):
             mask = mask[..., None]
             x = x.masked_fill(~mask, 0.)
 
-        x = rearrange(x, 'b n d -> b d n')
+        x = x.permute(0, 2, 1)
         x = self.conv1d(x)
-        out = rearrange(x, 'b d n -> b n d')
+        out = x.permute(0, 2, 1)
 
         if mask is not None:
             out = out.masked_fill(~mask, 0.)
@@ -345,7 +344,7 @@ class AttnProcessor:
         # mask. e.g. inference got a batch with different target durations, mask out the padding
         if mask is not None:
             attn_mask = mask
-            attn_mask = rearrange(attn_mask, 'b n -> b 1 1 n')
+            attn_mask = attn_mask.unsqueeze(1).unsqueeze(1)  # 'b n -> b 1 1 n'
             attn_mask = attn_mask.expand(batch_size, attn.heads, query.shape[-2], key.shape[-2])
         else:
             attn_mask = None
@@ -360,7 +359,7 @@ class AttnProcessor:
         x = attn.to_out[1](x)
 
         if mask is not None:
-            mask = rearrange(mask, 'b n -> b n 1')
+            mask = mask.unsqueeze(-1)
             x = x.masked_fill(~mask, 0.)
 
         return x
@@ -422,7 +421,7 @@ class JointAttnProcessor:
         # mask. e.g. inference got a batch with different target durations, mask out the padding
         if mask is not None:
             attn_mask = F.pad(mask, (0, c.shape[1]), value = True)  # no mask for c (text)
-            attn_mask = rearrange(attn_mask, 'b n -> b 1 1 n')
+            attn_mask = attn_mask.unsqueeze(1).unsqueeze(1)  # 'b n -> b 1 1 n'
             attn_mask = attn_mask.expand(batch_size, attn.heads, query.shape[-2], key.shape[-2])
         else:
             attn_mask = None
@@ -445,7 +444,7 @@ class JointAttnProcessor:
             c = attn.to_out_c(c)
 
         if mask is not None:
-            mask = rearrange(mask, 'b n -> b n 1')
+            mask = mask.unsqueeze(-1)
             x = x.masked_fill(~mask, 0.)
             # c = c.masked_fill(~mask, 0.)  # no mask for c (text)
 
