@@ -99,6 +99,8 @@ class CFM(nn.Module):
     ):
         self.eval()
 
+        cond = cond.half()
+
         # raw wave
 
         if cond.ndim == 2:
@@ -175,7 +177,7 @@ class CFM(nn.Module):
         for dur in duration:
             if exists(seed):
                 torch.manual_seed(seed)
-            y0.append(torch.randn(dur, self.num_channels, device = self.device))
+            y0.append(torch.randn(dur, self.num_channels, device = self.device, dtype=step_cond.dtype))
         y0 = pad_sequence(y0, padding_value = 0, batch_first = True)
 
         t_start = 0
@@ -186,7 +188,7 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        t = torch.linspace(t_start, 1, steps, device = self.device)
+        t = torch.linspace(t_start, 1, steps, device = self.device, dtype=step_cond.dtype)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 

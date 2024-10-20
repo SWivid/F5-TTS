@@ -571,5 +571,6 @@ class TimestepEmbedding(nn.Module):
 
     def forward(self, timestep: float['b']):
         time_hidden = self.time_embed(timestep)
+        time_hidden = time_hidden.to(timestep.dtype)
         time = self.time_mlp(time_hidden)  # b d
         return time

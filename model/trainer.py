@@ -45,7 +45,8 @@ class Trainer:
         wandb_resume_id: str = None,
         last_per_steps = None,
         accelerate_kwargs: dict = dict(),
-        ema_kwargs: dict = dict()
+        ema_kwargs: dict = dict(),
+        bnb_optimizer: bool = False,
     ):
         
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters = True)
@@ -107,7 +108,11 @@ class Trainer:
 
         self.duration_predictor = duration_predictor
 
-        self.optimizer = AdamW(model.parameters(), lr=learning_rate)
+        if bnb_optimizer:
+            import bitsandbytes as bnb
+            self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
+        else:
+            self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(
             self.model, self.optimizer
         )

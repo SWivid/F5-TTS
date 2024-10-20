@@ -1,4 +1,5 @@
 accelerate>=0.33.0
+bitsandbytes>0.37.0
 cached_path
 click
 datasets

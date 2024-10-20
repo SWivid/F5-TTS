@@ -557,23 +557,23 @@ def repetition_found(text, length = 2, tolerance = 10):
 # load model checkpoint for inference
 
 def load_checkpoint(model, ckpt_path, device, use_ema = True):
-    from ema_pytorch import EMA
+    model = model.half()
 
     ckpt_type = ckpt_path.split(".")[-1]
     if ckpt_type == "safetensors":
         from safetensors.torch import load_file
-        checkpoint = load_file(ckpt_path, device=device)
+        checkpoint = load_file(ckpt_path)
     else:
-        checkpoint = torch.load(ckpt_path, weights_only=True, map_location=device)
+        checkpoint = torch.load(ckpt_path, weights_only=True)
 
-    if use_ema == True:
-        ema_model = EMA(model, include_online_model = False).to(device)
+    if use_ema:
         if ckpt_type == "safetensors":
-            ema_model.load_state_dict(checkpoint)
-        else:
-            ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
-        ema_model.copy_params_from_ema_to_model()
-    else:
+            checkpoint = {'ema_model_state_dict': checkpoint}
+        checkpoint['model_state_dict'] = {k.replace("ema_model.", ""): v for k, v in checkpoint['ema_model_state_dict'].items() if k not in ["initted", "step"]}
         model.load_state_dict(checkpoint['model_state_dict'])
-        
-    return model
+    else:
+        if ckpt_type == "safetensors":
+            checkpoint = {'model_state_dict': checkpoint}
+        model.load_state_dict(checkpoint['model_state_dict'])
+
+    return model.to(device)
