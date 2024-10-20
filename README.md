@@ -72,7 +72,7 @@ An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discuss
 
 Gradio UI finetuning with `finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
 
-## Wandb Logging
+### Wandb Logging
 
 By default, the training script does NOT use logging (assuming you didn't manually log in using `wandb login`).
 
@@ -112,8 +112,8 @@ Currently support 30s for a single generation, which is the **TOTAL** length of 
 
 Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_path` in `inference-cli.py`
 
-for change model use --ckpt_file to specify the model you want to load,  
-for change vocab.txt use --vocab_file to provide your vocab.txt file.
+for change model use `--ckpt_file` to specify the model you want to load,  
+for change vocab.txt use `--vocab_file` to provide your vocab.txt file.
 
 ```bash
 python inference-cli.py \
