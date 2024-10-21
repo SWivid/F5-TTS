@@ -761,7 +761,7 @@ with gr.Blocks() as app:
             random_sample_transcribe = gr.Button("random sample")
 
             with gr.Row():
-                random_text_transcribe = gr.Text(label="Pinyin")
+                random_text_transcribe = gr.Text(label="Text")
                 random_audio_transcribe = gr.Audio(label="Audio", type="filepath")
 
             random_sample_transcribe.click(
