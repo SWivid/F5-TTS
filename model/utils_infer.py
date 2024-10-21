@@ -22,13 +22,6 @@ from model.utils import (
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 print(f"Using {device} device")
 
-asr_pipe = pipeline(
-    "automatic-speech-recognition",
-    model="openai/whisper-large-v3-turbo",
-    torch_dtype=torch.float16,
-    device=device,
-)
-
 vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
 
 
@@ -82,8 +75,6 @@ def chunk_text(text, max_chars=135):
 
 
 # load vocoder
-
-
 def load_vocoder(is_local=False, local_path="", device=device):
     if is_local:
         print(f"Load vocos from local path {local_path}")
@@ -95,6 +86,22 @@ def load_vocoder(is_local=False, local_path="", device=device):
         print("Download Vocos from huggingface charactr/vocos-mel-24khz")
         vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
     return vocos
+
+
+# load asr pipeline
+
+asr_pipe = None
+
+
+def initialize_asr_pipeline(device=device):
+    global asr_pipe
+
+    asr_pipe = pipeline(
+        "automatic-speech-recognition",
+        model="openai/whisper-large",
+        torch_dtype=torch.float16,
+        device=device,
+    )
 
 
 # load model for inference
@@ -133,7 +140,7 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method="euler
 # preprocess reference audio and text
 
 
-def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
+def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=device):
     show_info("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
@@ -152,6 +159,9 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         ref_audio = f.name
 
     if not ref_text.strip():
+        global asr_pipe
+        if asr_pipe is None:
+            initialize_asr_pipeline(device=device)
         show_info("No reference text provided, transcribing reference audio...")
         ref_text = asr_pipe(
             ref_audio,
@@ -329,6 +339,8 @@ def infer_batch_process(
 
 
 # remove silence from generated wav
+
+
 def remove_silence_for_generated_wav(filename):
     aseg = AudioSegment.from_file(filename)
     non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
