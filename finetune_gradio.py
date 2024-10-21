@@ -709,13 +709,15 @@ def infer(project_name, file_checkpoint, exp_name, ref_text, ref_audio, gen_text
     else:
         device_test = None
 
-    if last_checkpoint != file_checkpoint and last_device != device_test:
+    if last_checkpoint != file_checkpoint or last_device != device_test:
         if last_checkpoint != file_checkpoint:
             last_checkpoint = file_checkpoint
         if last_device != device_test:
             last_device = device_test
 
         tts_api = F5TTS(model_type=exp_name, ckpt_file=file_checkpoint, device=device_test)
+
+        print("update", device_test, file_checkpoint)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         tts_api.infer(gen_text=gen_text, ref_text=ref_text, ref_file=ref_audio, nfe_step=nfe_step, file_wave=f.name)
