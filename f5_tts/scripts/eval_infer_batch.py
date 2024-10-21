@@ -11,8 +11,8 @@ import torchaudio
 from accelerate import Accelerator
 from vocos import Vocos
 
-from model import CFM, UNetT, DiT
-from model.utils import (
+from f5_tts.model import CFM, UNetT, DiT
+from f5_tts.model.utils import (
     load_checkpoint,
     get_tokenizer, 
     get_seedtts_testset_metainfo, 
