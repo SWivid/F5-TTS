@@ -84,7 +84,7 @@ class F5TTS:
         fix_duration=None,
         remove_silence=False,
         file_wave=None,
-        file_spect=None
+        file_spect=None,
         seed=-1,
     ):
         if seed == -1:
