@@ -1,6 +1,7 @@
-'''ADAPTIVE BATCH SIZE'''
-print('Adaptive batch size: using grouping batch sampler, frames_per_gpu fixed fed in')
-print('  -> least padding, gather wavs with accumulated frames in a batch\n')
+"""ADAPTIVE BATCH SIZE"""
+
+print("Adaptive batch size: using grouping batch sampler, frames_per_gpu fixed fed in")
+print("  -> least padding, gather wavs with accumulated frames in a batch\n")
 
 # data
 total_hours = 95282
