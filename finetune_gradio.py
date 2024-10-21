@@ -905,13 +905,13 @@ with gr.Blocks() as app:
             random_sample_infer = gr.Button("random sample")
 
             ref_text = gr.Textbox(label="ref text")
-            ref_audio = gr.Audio("audio ref", type="filepath")
+            ref_audio = gr.Audio(label="audio ref", type="filepath")
             gen_text = gr.Textbox(label="gen text")
             random_sample_infer.click(
                 fn=get_random_sample_infer, inputs=[project_name], outputs=[ref_text, gen_text, ref_audio]
             )
             check_button_infer = gr.Button("infer")
-            gen_audio = gr.Audio("audio ref", type="filepath")
+            gen_audio = gr.Audio(label="audio gen", type="filepath")
 
             check_button_infer.click(
                 fn=infer,
