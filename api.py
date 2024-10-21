@@ -56,10 +56,10 @@ class F5TTS:
         self.ema_model = load_model(model_cls, model_cfg, ckpt_file, vocab_file, ode_method, use_ema, self.device)
 
     def export_wav(self, wav, file_wave, remove_silence=False):
+        sf.write(file_wave, wav, self.target_sample_rate)
+
         if remove_silence:
             remove_silence_for_generated_wav(file_wave)
-
-        sf.write(file_wave, wav, self.target_sample_rate)
 
     def export_spectrogram(self, spect, file_spect):
         save_spectrogram(spect, file_spect)
@@ -114,4 +114,5 @@ if __name__ == "__main__":
         gen_text="""I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences.""",
         file_wave="tests/out.wav",
         file_spect="tests/out.png",
+        remove_silence=True,
     )
