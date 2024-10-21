@@ -532,7 +532,7 @@ def calculate_train(
     path_project = os.path.join(path_data, name_project)
     file_duraction = os.path.join(path_project, "duration.json")
 
-    if os.path.isfile(file_duraction) == False:
+    if not os.path.isfile(file_duraction):
         return (
             1000,
             max_samples,
@@ -654,7 +654,7 @@ def get_random_sample_prepare(project_name):
     name_project = project_name + "_pinyin"
     path_project = os.path.join(path_data, name_project)
     file_arrow = os.path.join(path_project, "raw.arrow")
-    if os.path.isfile(file_arrow) == False:
+    if not os.path.isfile(file_arrow):
         return "", None
     dataset = Dataset_.from_file(file_arrow)
     random_sample = dataset.shuffle(seed=random.randint(0, 1000)).select([0])
@@ -667,7 +667,7 @@ def get_random_sample_transcribe(project_name):
     name_project = project_name + "_pinyin"
     path_project = os.path.join(path_data, name_project)
     file_metadata = os.path.join(path_project, "metadata.csv")
-    if os.path.isfile(file_metadata) == False:
+    if not os.path.isfile(file_metadata):
         return "", None
 
     data = ""
@@ -701,7 +701,7 @@ def get_random_sample_infer(project_name):
 def infer(project_name, file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step):
     global last_checkpoint, last_device, tts_api
 
-    if os.path.isfile(file_checkpoint) == False:
+    if not os.path.isfile(file_checkpoint):
         return None
 
     if training_process is not None:
