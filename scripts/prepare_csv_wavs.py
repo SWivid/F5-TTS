@@ -1,4 +1,6 @@
-import sys, os
+import sys
+import os
+
 sys.path.append(os.getcwd())
 
 from pathlib import Path
@@ -17,10 +19,11 @@ from model.utils import (
 
 PRETRAINED_VOCAB_PATH = Path(__file__).parent.parent / "data/Emilia_ZH_EN_pinyin/vocab.txt"
 
+
 def is_csv_wavs_format(input_dataset_dir):
     fpath = Path(input_dataset_dir)
     metadata = fpath / "metadata.csv"
-    wavs = fpath / 'wavs'
+    wavs = fpath / "wavs"
     return metadata.exists() and metadata.is_file() and wavs.exists() and wavs.is_dir()
 
 
@@ -46,22 +49,24 @@ def prepare_csv_wavs_dir(input_dir):
 
     return sub_result, durations, vocab_set
 
+
 def get_audio_duration(audio_path):
     audio, sample_rate = torchaudio.load(audio_path)
     num_channels = audio.shape[0]
     return audio.shape[1] / (sample_rate * num_channels)
 
+
 def read_audio_text_pairs(csv_file_path):
     audio_text_pairs = []
 
     parent = Path(csv_file_path).parent
-    with open(csv_file_path, mode='r', newline='', encoding='utf-8') as csvfile:
-        reader = csv.reader(csvfile, delimiter='|')
+    with open(csv_file_path, mode="r", newline="", encoding="utf-8") as csvfile:
+        reader = csv.reader(csvfile, delimiter="|")
         next(reader)  # Skip the header row
         for row in reader:
             if len(row) >= 2:
                 audio_file = row[0].strip()  # First column: audio file path
-                text = row[1].strip()          # Second column: text
+                text = row[1].strip()  # Second column: text
                 audio_file_path = parent / audio_file
                 audio_text_pairs.append((audio_file_path.as_posix(), text))
 
@@ -78,12 +83,12 @@ def save_prepped_dataset(out_dir, result, duration_list, text_vocab_set, is_fine
     # dataset.save_to_disk(f"data/{dataset_name}/raw", max_shard_size="2GB")
     raw_arrow_path = out_dir / "raw.arrow"
     with ArrowWriter(path=raw_arrow_path.as_posix(), writer_batch_size=1) as writer:
-        for line in tqdm(result, desc=f"Writing to raw.arrow ..."):
+        for line in tqdm(result, desc="Writing to raw.arrow ..."):
             writer.write(line)
 
     # dup a json separately saving duration in case for DynamicBatchSampler ease
     dur_json_path = out_dir / "duration.json"
-    with open(dur_json_path.as_posix(), 'w', encoding='utf-8') as f:
+    with open(dur_json_path.as_posix(), "w", encoding="utf-8") as f:
         json.dump({"duration": duration_list}, f, ensure_ascii=False)
 
     # vocab map, i.e. tokenizer
@@ -120,13 +125,14 @@ def cli():
     # finetune: python scripts/prepare_csv_wavs.py /path/to/input_dir /path/to/output_dir_pinyin
     # pretrain: python scripts/prepare_csv_wavs.py /path/to/output_dir_pinyin --pretrain
     parser = argparse.ArgumentParser(description="Prepare and save dataset.")
-    parser.add_argument('inp_dir', type=str, help="Input directory containing the data.")
-    parser.add_argument('out_dir', type=str, help="Output directory to save the prepared data.")
-    parser.add_argument('--pretrain', action='store_true', help="Enable for new pretrain, otherwise is a fine-tune")
+    parser.add_argument("inp_dir", type=str, help="Input directory containing the data.")
+    parser.add_argument("out_dir", type=str, help="Output directory to save the prepared data.")
+    parser.add_argument("--pretrain", action="store_true", help="Enable for new pretrain, otherwise is a fine-tune")
 
     args = parser.parse_args()
 
     prepare_and_save_set(args.inp_dir, args.out_dir, is_finetune=not args.pretrain)
+
 
 if __name__ == "__main__":
     cli()

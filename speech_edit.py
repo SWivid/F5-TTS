@@ -5,11 +5,11 @@ import torch.nn.functional as F
 import torchaudio
 from vocos import Vocos
 
-from model import CFM, UNetT, DiT, MMDiT
+from model import CFM, UNetT, DiT
 from model.utils import (
     load_checkpoint,
-    get_tokenizer, 
-    convert_char_to_pinyin, 
+    get_tokenizer,
+    convert_char_to_pinyin,
     save_spectrogram,
 )
 
@@ -35,18 +35,18 @@ exp_name = "F5TTS_Base"  # F5TTS_Base | E2TTS_Base
 ckpt_step = 1200000
 
 nfe_step = 32  # 16, 32
-cfg_strength = 2.
-ode_method = 'euler'  # euler | midpoint
-sway_sampling_coef = -1.
-speed = 1.
+cfg_strength = 2.0
+ode_method = "euler"  # euler | midpoint
+sway_sampling_coef = -1.0
+speed = 1.0
 
 if exp_name == "F5TTS_Base":
     model_cls = DiT
-    model_cfg = dict(dim = 1024, depth = 22, heads = 16, ff_mult = 2, text_dim = 512, conv_layers = 4)
+    model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
 
 elif exp_name == "E2TTS_Base":
     model_cls = UNetT
-    model_cfg = dict(dim = 1024, depth = 24, heads = 16, ff_mult = 4)
+    model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
 
 ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.safetensors"
 output_dir = "tests"
@@ -62,8 +62,14 @@ output_dir = "tests"
 audio_to_edit = "tests/ref_audio/test_en_1_ref_short.wav"
 origin_text = "Some call me nature, others call me mother nature."
 target_text = "Some call me optimist, others call me realist."
-parts_to_edit = [[1.42, 2.44], [4.04, 4.9], ]  # stard_ends of "nature" & "mother nature", in seconds
-fix_duration = [1.2, 1, ]  # fix duration for "optimist" & "realist", in seconds
+parts_to_edit = [
+    [1.42, 2.44],
+    [4.04, 4.9],
+]  # stard_ends of "nature" & "mother nature", in seconds
+fix_duration = [
+    1.2,
+    1,
+]  # fix duration for "optimist" & "realist", in seconds
 
 # audio_to_edit = "tests/ref_audio/test_zh_1_ref_short.wav"
 # origin_text = "对，这就是我，万人敬仰的太乙真人。"
@@ -86,7 +92,7 @@ if local:
     vocos = Vocos.from_hparams(f"{vocos_local_path}/config.yaml")
     state_dict = torch.load(f"{vocos_local_path}/pytorch_model.bin", weights_only=True, map_location=device)
     vocos.load_state_dict(state_dict)
-    
+
     vocos.eval()
 else:
     vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
@@ -96,23 +102,19 @@ vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
 
 # Model
 model = CFM(
-    transformer = model_cls(
-        **model_cfg,
-        text_num_embeds = vocab_size, 
-        mel_dim = n_mel_channels
+    transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+    mel_spec_kwargs=dict(
+        target_sample_rate=target_sample_rate,
+        n_mel_channels=n_mel_channels,
+        hop_length=hop_length,
     ),
-    mel_spec_kwargs = dict(
-        target_sample_rate = target_sample_rate, 
-        n_mel_channels = n_mel_channels,
-        hop_length = hop_length,
+    odeint_kwargs=dict(
+        method=ode_method,
     ),
-    odeint_kwargs = dict(
-        method = ode_method,
-    ),
-    vocab_char_map = vocab_char_map,
+    vocab_char_map=vocab_char_map,
 ).to(device)
 
-model = load_checkpoint(model, ckpt_path, device, use_ema = use_ema)
+model = load_checkpoint(model, ckpt_path, device, use_ema=use_ema)
 
 # Audio
 audio, sr = torchaudio.load(audio_to_edit)
@@ -132,14 +134,18 @@ for part in parts_to_edit:
     part_dur = end - start if fix_duration is None else fix_duration.pop(0)
     part_dur = part_dur * target_sample_rate
     start = start * target_sample_rate
-    audio_ = torch.cat((audio_, audio[:, round(offset):round(start)], torch.zeros(1, round(part_dur))), dim = -1)
-    edit_mask = torch.cat((edit_mask, 
-                           torch.ones(1, round((start - offset) / hop_length), dtype = torch.bool), 
-                           torch.zeros(1, round(part_dur / hop_length), dtype = torch.bool)
-                           ), dim = -1)
+    audio_ = torch.cat((audio_, audio[:, round(offset) : round(start)], torch.zeros(1, round(part_dur))), dim=-1)
+    edit_mask = torch.cat(
+        (
+            edit_mask,
+            torch.ones(1, round((start - offset) / hop_length), dtype=torch.bool),
+            torch.zeros(1, round(part_dur / hop_length), dtype=torch.bool),
+        ),
+        dim=-1,
+    )
     offset = end * target_sample_rate
 # audio = torch.cat((audio_, audio[:, round(offset):]), dim = -1)
-edit_mask = F.pad(edit_mask, (0, audio.shape[-1] // hop_length - edit_mask.shape[-1] + 1), value = True)
+edit_mask = F.pad(edit_mask, (0, audio.shape[-1] // hop_length - edit_mask.shape[-1] + 1), value=True)
 audio = audio.to(device)
 edit_mask = edit_mask.to(device)
 
@@ -159,14 +165,14 @@ duration = audio.shape[-1] // hop_length
 # Inference
 with torch.inference_mode():
     generated, trajectory = model.sample(
-        cond = audio,
-        text = final_text_list,
-        duration = duration,
-        steps = nfe_step,
-        cfg_strength = cfg_strength,
-        sway_sampling_coef = sway_sampling_coef,
-        seed = seed,
-        edit_mask = edit_mask,
+        cond=audio,
+        text=final_text_list,
+        duration=duration,
+        steps=nfe_step,
+        cfg_strength=cfg_strength,
+        sway_sampling_coef=sway_sampling_coef,
+        seed=seed,
+        edit_mask=edit_mask,
     )
 print(f"Generated mel: {generated.shape}")
 
