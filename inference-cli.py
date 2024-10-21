@@ -44,19 +44,8 @@ parser.add_argument(
     "--vocab_file",
     help="The vocab .txt",
 )
-parser.add_argument(
-    "-r",
-    "--ref_audio",
-    type=str,
-    help="Reference audio file < 15 seconds."
-)
-parser.add_argument(
-    "-s",
-    "--ref_text",
-    type=str,
-    default="666",
-    help="Subtitle for the reference audio."
-)
+parser.add_argument("-r", "--ref_audio", type=str, help="Reference audio file < 15 seconds.")
+parser.add_argument("-s", "--ref_text", type=str, default="666", help="Subtitle for the reference audio.")
 parser.add_argument(
     "-t",
     "--gen_text",
@@ -99,8 +88,8 @@ model = args.model if args.model else config["model"]
 ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
-wave_path = Path(output_dir)/"out.wav"
-spectrogram_path = Path(output_dir)/"out.png"
+wave_path = Path(output_dir) / "out.wav"
+spectrogram_path = Path(output_dir) / "out.png"
 vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
 
 vocos = load_vocoder(is_local=args.load_vocoder_from_local, local_path=vocos_local_path)
@@ -110,44 +99,46 @@ vocos = load_vocoder(is_local=args.load_vocoder_from_local, local_path=vocos_loc
 if model == "F5-TTS":
     model_cls = DiT
     model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
-    if ckpt_file == "": 
-        repo_name= "F5-TTS"
+    if ckpt_file == "":
+        repo_name = "F5-TTS"
         exp_name = "F5TTS_Base"
-        ckpt_step= 1200000
+        ckpt_step = 1200000
         ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
         # ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
 
 elif model == "E2-TTS":
     model_cls = UNetT
     model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
-    if ckpt_file == "": 
-        repo_name= "E2-TTS"
+    if ckpt_file == "":
+        repo_name = "E2-TTS"
         exp_name = "E2TTS_Base"
-        ckpt_step= 1200000
+        ckpt_step = 1200000
         ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
         # ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
 
 print(f"Using {model}...")
 ema_model = load_model(model_cls, model_cfg, ckpt_file, vocab_file)
-    
+
 
 def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence):
-    main_voice = {"ref_audio":ref_audio, "ref_text":ref_text}
+    main_voice = {"ref_audio": ref_audio, "ref_text": ref_text}
     if "voices" not in config:
         voices = {"main": main_voice}
     else:
         voices = config["voices"]
         voices["main"] = main_voice
     for voice in voices:
-        voices[voice]['ref_audio'], voices[voice]['ref_text'] = preprocess_ref_audio_text(voices[voice]['ref_audio'], voices[voice]['ref_text'])
+        voices[voice]["ref_audio"], voices[voice]["ref_text"] = preprocess_ref_audio_text(
+            voices[voice]["ref_audio"], voices[voice]["ref_text"]
+        )
         print("Voice:", voice)
-        print("Ref_audio:", voices[voice]['ref_audio'])
-        print("Ref_text:", voices[voice]['ref_text'])
+        print("Ref_audio:", voices[voice]["ref_audio"])
+        print("Ref_text:", voices[voice]["ref_text"])
 
     generated_audio_segments = []
-    reg1 = r'(?=\[\w+\])'
+    reg1 = r"(?=\[\w+\])"
     chunks = re.split(reg1, text_gen)
-    reg2 = r'\[(\w+)\]'
+    reg2 = r"\[(\w+)\]"
     for text in chunks:
         match = re.match(reg2, text)
         if match:
@@ -160,8 +151,8 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence):
             voice = "main"
         text = re.sub(reg2, "", text)
         gen_text = text.strip()
-        ref_audio = voices[voice]['ref_audio']
-        ref_text = voices[voice]['ref_text']
+        ref_audio = voices[voice]["ref_audio"]
+        ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(ref_audio, ref_text, gen_text, model_obj)
         generated_audio_segments.append(audio)
