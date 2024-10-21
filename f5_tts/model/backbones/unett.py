@@ -8,19 +8,22 @@ d - dimension
 """
 
 from __future__ import annotations
+from typing import Literal
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 
+from x_transformers import RMSNorm
 from x_transformers.x_transformers import RotaryEmbedding
 
-from model.modules import (
+from f5_tts.model.modules import (
     TimestepEmbedding,
     ConvNeXtV2Block,
     ConvPositionEmbedding,
-    DiTBlock,
-    AdaLayerNormZero_Final,
+    Attention,
+    AttnProcessor,
+    FeedForward,
     precompute_freqs_cis, get_pos_embed_indices,
 )
 
@@ -80,17 +83,18 @@ class InputEmbedding(nn.Module):
         x = self.proj(torch.cat((x, cond, text_embed), dim = -1))
         x = self.conv_pos_embed(x) + x
         return x
-    
 
-# Transformer backbone using DiT blocks
 
-class DiT(nn.Module):
-    def __init__(self, *, 
+# Flat UNet Transformer backbone
+
+class UNetT(nn.Module):
+    def __init__(self, *,
                  dim, depth = 8, heads = 8, dim_head = 64, dropout = 0.1, ff_mult = 4,
                  mel_dim = 100, text_num_embeds = 256, text_dim = None, conv_layers = 0,
-                 long_skip_connection = False,
+                 skip_connect_type: Literal['add', 'concat', 'none'] = 'concat',
     ):
         super().__init__()
+        assert depth % 2 == 0, "UNet-Transformer's depth should be even."
 
         self.time_embed = TimestepEmbedding(dim)
         if text_dim is None:
@@ -100,24 +104,41 @@ class DiT(nn.Module):
 
         self.rotary_embed = RotaryEmbedding(dim_head)
 
+        # transformer layers & skip connections
+
         self.dim = dim
+        self.skip_connect_type = skip_connect_type
+        needs_skip_proj = skip_connect_type == 'concat'
+
         self.depth = depth
-        
-        self.transformer_blocks = nn.ModuleList(
-            [
-                DiTBlock(
-                    dim = dim,
-                    heads = heads,
-                    dim_head = dim_head,
-                    ff_mult = ff_mult,
-                    dropout = dropout
+        self.layers = nn.ModuleList([])
+
+        for idx in range(depth):
+            is_later_half = idx >= (depth // 2)
+
+            attn_norm = RMSNorm(dim)
+            attn = Attention(
+                processor = AttnProcessor(),
+                dim = dim,
+                heads = heads,
+                dim_head = dim_head,
+                dropout = dropout,
                 )
-                for _ in range(depth)
-            ]
-        )
-        self.long_skip_connection = nn.Linear(dim * 2, dim, bias = False) if long_skip_connection else None
-        
-        self.norm_out = AdaLayerNormZero_Final(dim)  # final modulation
+
+            ff_norm = RMSNorm(dim)
+            ff = FeedForward(dim = dim, mult = ff_mult, dropout = dropout, approximate = "tanh")
+
+            skip_proj = nn.Linear(dim * 2, dim, bias = False) if needs_skip_proj and is_later_half else None
+
+            self.layers.append(nn.ModuleList([
+                skip_proj,
+                attn_norm,
+                attn,
+                ff_norm,
+                ff,
+            ]))
+
+        self.norm_out = RMSNorm(dim)
         self.proj_out = nn.Linear(dim, mel_dim)
 
     def forward(
@@ -138,19 +159,41 @@ class DiT(nn.Module):
         t = self.time_embed(time)
         text_embed = self.text_embed(text, seq_len, drop_text = drop_text)
         x = self.input_embed(x, cond, text_embed, drop_audio_cond = drop_audio_cond)
+
+        # postfix time t to input x, [b n d] -> [b n+1 d]
+        x = torch.cat([t.unsqueeze(1), x], dim=1)  # pack t to x
+        if mask is not None:
+            mask = F.pad(mask, (1, 0), value=1)
         
-        rope = self.rotary_embed.forward_from_seq_len(seq_len)
+        rope = self.rotary_embed.forward_from_seq_len(seq_len + 1)
 
-        if self.long_skip_connection is not None:
-            residual = x
+        # flat unet transformer
+        skip_connect_type = self.skip_connect_type
+        skips = []
+        for idx, (maybe_skip_proj, attn_norm, attn, ff_norm, ff) in enumerate(self.layers):
+            layer = idx + 1
 
-        for block in self.transformer_blocks:
-            x = block(x, t, mask = mask, rope = rope)
+            # skip connection logic
+            is_first_half = layer <= (self.depth // 2)
+            is_later_half = not is_first_half
 
-        if self.long_skip_connection is not None:
-            x = self.long_skip_connection(torch.cat((x, residual), dim = -1))
+            if is_first_half:
+                skips.append(x)
 
-        x = self.norm_out(x, t)
-        output = self.proj_out(x)
+            if is_later_half:
+                skip = skips.pop()
+                if skip_connect_type == 'concat':
+                    x = torch.cat((x, skip), dim = -1)
+                    x = maybe_skip_proj(x)
+                elif skip_connect_type == 'add':
+                    x = x + skip
 
-        return output
+            # attention and feedforward blocks
+            x = attn(attn_norm(x), rope = rope, mask = mask) + x
+            x = ff(ff_norm(x)) + x
+
+        assert len(skips) == 0
+
+        x = self.norm_out(x)[:, 1:, :]  # unpack t from x
+
+        return self.proj_out(x)

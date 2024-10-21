@@ -13,7 +13,7 @@ import shutil
 import time
 
 import json
-from model.utils import convert_char_to_pinyin
+from f5_tts.model.utils import convert_char_to_pinyin
 import signal
 import psutil
 import platform

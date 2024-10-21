@@ -19,8 +19,8 @@ import torchaudio
 import jieba
 from pypinyin import lazy_pinyin, Style
 
-from model.ecapa_tdnn import ECAPA_TDNN_SMALL
-from model.modules import MelSpec
+from f5_tts.model.ecapa_tdnn import ECAPA_TDNN_SMALL
+from f5_tts.model.modules import MelSpec
 
 
 # seed everything

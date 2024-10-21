@@ -9,7 +9,7 @@ import torchaudio
 from datasets import load_dataset, load_from_disk
 from datasets import Dataset as Dataset_
 
-from model.modules import MelSpec
+from f5_tts.model.modules import MelSpec
 
 
 class HFDataset(Dataset):
