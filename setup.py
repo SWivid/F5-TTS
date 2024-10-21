@@ -40,6 +40,7 @@ setuptools.setup(
         "vocos",
         "wandb",
         "x_transformers>=1.31.14",
+        "pre-commit",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
