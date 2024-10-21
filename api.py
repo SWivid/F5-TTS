@@ -53,10 +53,7 @@ class F5TTS:
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
-        self.ema_model = self.load_model(model_cls, model_cfg, ckpt_file, vocab_file, ode_method, use_ema)
-
-    def load_model(self, model_cls, model_cfg, ckpt_path, file_vocab, ode_method, use_ema):
-        return load_model(model_cls, model_cfg, ckpt_path, file_vocab, ode_method, use_ema, self.device)
+        self.ema_model = load_model(model_cls, model_cfg, ckpt_file, vocab_file, ode_method, use_ema, self.device)
 
     def export_wav(self, wav, file_wave, remove_silence=False):
         if remove_silence:
