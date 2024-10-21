@@ -99,7 +99,7 @@ def initialize_asr_pipeline(device=device):
 
     asr_pipe = pipeline(
         "automatic-speech-recognition",
-        model="openai/whisper-large",
+        model="openai/whisper-large-v3-turbo",
         torch_dtype=torch.float16,
         device=device,
     )
