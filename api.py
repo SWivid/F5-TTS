@@ -46,9 +46,7 @@ class F5TTS:
         self.load_ema_model(model_type, ckpt_file, vocab_file, ode_method, use_ema)
 
     def load_vecoder_model(self, local_path):
-        if local_path is not None:load_vocoder_from_local=True
-        else:load_vocoder_from_local=False
-        self.vocos = load_vocoder(load_vocoder_from_local,local_path,self.device)
+        self.vocos = load_vocoder(local_path is not None,local_path,self.device)
 
     def load_ema_model(self, model_type, ckpt_file, vocab_file, ode_method, use_ema):
         
