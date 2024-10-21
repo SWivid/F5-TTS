@@ -150,10 +150,14 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence):
     reg2 = r'\[(\w+)\]'
     for text in chunks:
         match = re.match(reg2, text)
-        if not match or voice not in voices:
-            voice = "main"
-        else:
+        if match:
             voice = match[1]
+        else:
+            print("No voice tag found, using main.")
+            voice = "main"
+        if voice not in voices:
+            print(f"Voice {voice} not found, using main.")
+            voice = "main"
         text = re.sub(reg2, "", text)
         gen_text = text.strip()
         ref_audio = voices[voice]['ref_audio']
