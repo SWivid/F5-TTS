@@ -295,4 +295,6 @@ class Trainer:
                 if global_step % self.last_per_steps == 0:
                     self.save_checkpoint(global_step, last=True)
 
+        self.save_checkpoint(global_step, last=True)
+
         self.accelerator.end_training()
