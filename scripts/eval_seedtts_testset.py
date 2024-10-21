@@ -1,6 +1,8 @@
 # Evaluate with Seed-TTS testset
 
-import sys, os
+import sys
+import os
+
 sys.path.append(os.getcwd())
 
 import multiprocessing as mp
@@ -14,21 +16,21 @@ from model.utils import (
 
 
 eval_task = "wer"  # sim | wer
-lang = "zh"        # zh | en
+lang = "zh"  # zh | en
 metalst = f"data/seedtts_testset/{lang}/meta.lst"  # seed-tts testset
 # gen_wav_dir = f"data/seedtts_testset/{lang}/wavs"  # ground truth wavs
-gen_wav_dir = f"PATH_TO_GENERATED"  # generated wavs
+gen_wav_dir = "PATH_TO_GENERATED"  # generated wavs
 
 
 # NOTE. paraformer-zh result will be slightly different according to the number of gpus, cuz batchsize is different
-#       zh 1.254 seems a result of 4 workers wer_seed_tts 
-gpus = [0,1,2,3,4,5,6,7]
+#       zh 1.254 seems a result of 4 workers wer_seed_tts
+gpus = [0, 1, 2, 3, 4, 5, 6, 7]
 test_set = get_seed_tts_test(metalst, gen_wav_dir, gpus)
 
 local = False
 if local:  # use local custom checkpoint dir
     if lang == "zh":
-        asr_ckpt_dir = "../checkpoints/funasr" # paraformer-zh dir under funasr
+        asr_ckpt_dir = "../checkpoints/funasr"  # paraformer-zh dir under funasr
     elif lang == "en":
         asr_ckpt_dir = "../checkpoints/Systran/faster-whisper-large-v3"
 else:
@@ -48,7 +50,7 @@ if eval_task == "wer":
         for wers_ in results:
             wers.extend(wers_)
 
-    wer = round(np.mean(wers)*100, 3)
+    wer = round(np.mean(wers) * 100, 3)
     print(f"\nTotal {len(wers)} samples")
     print(f"WER      : {wer}%")
 
@@ -64,6 +66,6 @@ if eval_task == "sim":
         for sim_ in results:
             sim_list.extend(sim_)
 
-    sim = round(sum(sim_list)/len(sim_list), 3)
+    sim = round(sum(sim_list) / len(sim_list), 3)
     print(f"\nTotal {len(sim_list)} samples")
     print(f"SIM      : {sim}")

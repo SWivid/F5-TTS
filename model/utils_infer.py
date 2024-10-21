@@ -19,11 +19,7 @@ from model.utils import (
     convert_char_to_pinyin,
 )
 
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "mps" if torch.backends.mps.is_available() else "cpu"
-)
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 print(f"Using {device} device")
 
 asr_pipe = pipeline(
@@ -54,6 +50,7 @@ fix_duration = None
 
 # chunk text into smaller pieces
 
+
 def chunk_text(text, max_chars=135):
     """
     Splits the input text into chunks, each with a maximum number of characters.
@@ -68,15 +65,15 @@ def chunk_text(text, max_chars=135):
     chunks = []
     current_chunk = ""
     # Split the text into sentences based on punctuation followed by whitespace
-    sentences = re.split(r'(?<=[;:,.!?])\s+|(?<=[；：，。！？])', text)
+    sentences = re.split(r"(?<=[;:,.!?])\s+|(?<=[；：，。！？])", text)
 
     for sentence in sentences:
-        if len(current_chunk.encode('utf-8')) + len(sentence.encode('utf-8')) <= max_chars:
-            current_chunk += sentence + " " if sentence and len(sentence[-1].encode('utf-8')) == 1 else sentence
+        if len(current_chunk.encode("utf-8")) + len(sentence.encode("utf-8")) <= max_chars:
+            current_chunk += sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
         else:
             if current_chunk:
                 chunks.append(current_chunk.strip())
-            current_chunk = sentence + " " if sentence and len(sentence[-1].encode('utf-8')) == 1 else sentence
+            current_chunk = sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
 
     if current_chunk:
         chunks.append(current_chunk.strip())
@@ -85,6 +82,7 @@ def chunk_text(text, max_chars=135):
 
 
 # load vocoder
+
 
 def load_vocoder(is_local=False, local_path=""):
     if is_local:
@@ -101,23 +99,21 @@ def load_vocoder(is_local=False, local_path=""):
 
 # load model for inference
 
+
 def load_model(model_cls, model_cfg, ckpt_path, vocab_file=""):
-    
     if vocab_file == "":
         vocab_file = "Emilia_ZH_EN"
         tokenizer = "pinyin"
     else:
         tokenizer = "custom"
 
-    print("\nvocab : ", vocab_file, tokenizer) 
-    print("tokenizer : ", tokenizer) 
-    print("model : ", ckpt_path,"\n")    
+    print("\nvocab : ", vocab_file, tokenizer)
+    print("tokenizer : ", tokenizer)
+    print("model : ", ckpt_path, "\n")
 
     vocab_char_map, vocab_size = get_tokenizer(vocab_file, tokenizer)
     model = CFM(
-        transformer=model_cls(
-            **model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels
-        ),
+        transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=dict(
             target_sample_rate=target_sample_rate,
             n_mel_channels=n_mel_channels,
@@ -129,21 +125,20 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file=""):
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    model = load_checkpoint(model, ckpt_path, device, use_ema = True)
+    model = load_checkpoint(model, ckpt_path, device, use_ema=True)
 
     return model
 
 
 # preprocess reference audio and text
 
+
 def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
     show_info("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
 
-        non_silent_segs = silence.split_on_silence(
-            aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000
-        )
+        non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000)
         non_silent_wave = AudioSegment.silent(duration=0)
         for non_silent_seg in non_silent_segs:
             non_silent_wave += non_silent_seg
@@ -181,22 +176,27 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
 
 # infer process: chunk text -> infer batches [i.e. infer_batch_process()]
 
-def infer_process(ref_audio, ref_text, gen_text, model_obj, cross_fade_duration=0.15, speed=speed, show_info=print, progress=tqdm):
 
+def infer_process(
+    ref_audio, ref_text, gen_text, model_obj, cross_fade_duration=0.15, speed=speed, show_info=print, progress=tqdm
+):
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
-    max_chars = int(len(ref_text.encode('utf-8')) / (audio.shape[-1] / sr) * (25 - audio.shape[-1] / sr))
+    max_chars = int(len(ref_text.encode("utf-8")) / (audio.shape[-1] / sr) * (25 - audio.shape[-1] / sr))
     gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
     for i, gen_text in enumerate(gen_text_batches):
-        print(f'gen_text {i}', gen_text)
-    
+        print(f"gen_text {i}", gen_text)
+
     show_info(f"Generating audio in {len(gen_text_batches)} batches...")
     return infer_batch_process((audio, sr), ref_text, gen_text_batches, model_obj, cross_fade_duration, speed, progress)
 
 
 # infer batches
 
-def infer_batch_process(ref_audio, ref_text, gen_text_batches, model_obj, cross_fade_duration=0.15, speed=1, progress=tqdm):
+
+def infer_batch_process(
+    ref_audio, ref_text, gen_text_batches, model_obj, cross_fade_duration=0.15, speed=1, progress=tqdm
+):
     audio, sr = ref_audio
     if audio.shape[0] > 1:
         audio = torch.mean(audio, dim=0, keepdim=True)
@@ -212,7 +212,7 @@ def infer_batch_process(ref_audio, ref_text, gen_text_batches, model_obj, cross_
     generated_waves = []
     spectrograms = []
 
-    if len(ref_text[-1].encode('utf-8')) == 1:
+    if len(ref_text[-1].encode("utf-8")) == 1:
         ref_text = ref_text + " "
     for i, gen_text in enumerate(progress.tqdm(gen_text_batches)):
         # Prepare the text
@@ -221,8 +221,8 @@ def infer_batch_process(ref_audio, ref_text, gen_text_batches, model_obj, cross_
 
         # Calculate duration
         ref_audio_len = audio.shape[-1] // hop_length
-        ref_text_len = len(ref_text.encode('utf-8'))
-        gen_text_len = len(gen_text.encode('utf-8'))
+        ref_text_len = len(ref_text.encode("utf-8"))
+        gen_text_len = len(gen_text.encode("utf-8"))
         duration = ref_audio_len + int(ref_audio_len / ref_text_len * gen_text_len / speed)
 
         # inference
@@ -245,7 +245,7 @@ def infer_batch_process(ref_audio, ref_text, gen_text_batches, model_obj, cross_
 
         # wav -> numpy
         generated_wave = generated_wave.squeeze().cpu().numpy()
-        
+
         generated_waves.append(generated_wave)
         spectrograms.append(generated_mel_spec[0].cpu().numpy())
 
@@ -280,11 +280,9 @@ def infer_batch_process(ref_audio, ref_text, gen_text_batches, model_obj, cross_
             cross_faded_overlap = prev_overlap * fade_out + next_overlap * fade_in
 
             # Combine
-            new_wave = np.concatenate([
-                prev_wave[:-cross_fade_samples],
-                cross_faded_overlap,
-                next_wave[cross_fade_samples:]
-            ])
+            new_wave = np.concatenate(
+                [prev_wave[:-cross_fade_samples], cross_faded_overlap, next_wave[cross_fade_samples:]]
+            )
 
             final_wave = new_wave
 
@@ -295,6 +293,7 @@ def infer_batch_process(ref_audio, ref_text, gen_text_batches, model_obj, cross_
 
 
 # remove silence from generated wav
+
 
 def remove_silence_for_generated_wav(filename):
     aseg = AudioSegment.from_file(filename)
