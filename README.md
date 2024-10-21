@@ -43,6 +43,26 @@ pip install -r requirements.txt
 docker build -t f5tts:v1 .
 ```
 
+### Development
+
+When making a pull request, please use pre-commit to ensure code quality:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This will run linters and formatters automatically before each commit.
+
+Manually run using: 
+
+```bash
+pre-commit run --all-files
+```
+
+Note: Some model components have linting exceptions for E722 to accommodate tensor notation
+
+
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.

@@ -1,0 +1,10 @@
+line-length = 120
+target-version = "py310"
+
+[lint]
+# Only ignore variables with names starting with "_".
+dummy-variable-rgx = "^_.*$"
+
+[lint.isort]
+force-single-line = true
+lines-after-imports = 2
