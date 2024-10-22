@@ -92,7 +92,7 @@ def main():
         metainfo = get_librispeech_test_clean_metainfo(metalst, librispeech_test_clean_path)
 
     elif testset == "seedtts_test_zh":
-        metalst = os.path.join(datapath,"seedtts_testset/zh/metal.lst")
+        metalst = os.path.join(datapath,"seedtts_testset/zh/meta.lst")
         metainfo = get_seedtts_testset_metainfo(metalst)
 
     elif testset == "seedtts_test_en":
