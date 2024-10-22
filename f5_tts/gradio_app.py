@@ -26,6 +26,7 @@ def gpu_decorator(func):
     else:
         return func
 
+
 from f5_tts.model import DiT, UNetT
 from f5_tts.model.utils import (
     save_spectrogram,
