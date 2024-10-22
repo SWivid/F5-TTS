@@ -43,12 +43,6 @@ pip install -r requirements.txt
 docker build -t f5tts:v1 .
 ```
 
-### As a Library
-
-```bash
-pip install git+https://github.com/SWivid/F5-TTS.git
-```
-
 ### Development
 
 When making a pull request, please use pre-commit to ensure code quality:
@@ -69,11 +63,35 @@ pre-commit run --all-files
 Note: Some model components have linting exceptions for E722 to accommodate tensor notation
 
 
-## Prepare Dataset
-
-Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
+### As a pip package
 
 ```bash
+pip install git+https://github.com/SWivid/F5-TTS.git
+```
+
+```python
+import gradio as gr
+from f5_tts.gradio_app import app
+
+with gr.Blocks() as main_app:
+    gr.Markdown("# This is an example of using F5-TTS within a bigger Gradio app")
+
+    # ... other Gradio components
+
+    app.render()
+
+main_app.launch()
+
+```
+
+## Prepare Dataset
+
+Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `f5_tts/model/dataset.py`.
+
+```bash
+# switch to the main directory
+cd f5_tts
+
 # prepare custom dataset up to your need
 # download corresponding dataset first, and fill in the path in scripts
 
@@ -89,6 +107,9 @@ python scripts/prepare_wenetspeech4tts.py
 Once your datasets are prepared, you can start the training process.
 
 ```bash
+# switch to the main directory
+cd f5_tts
+
 # setup accelerate config, e.g. use multi-gpu ddp, fp16
 # will be to: ~/.cache/huggingface/accelerate/default_config.yaml     
 accelerate config
@@ -96,7 +117,7 @@ accelerate launch train.py
 ```
 An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discussions/57).
 
-Gradio UI finetuning with `finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
+Gradio UI finetuning with `f5_tts/finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
 
 ### Wandb Logging
 
@@ -142,6 +163,9 @@ for change model use `--ckpt_file` to specify the model you want to load,
 for change vocab.txt use `--vocab_file` to provide your vocab.txt file.
 
 ```bash
+# switch to the main directory
+cd f5_tts
+
 python inference-cli.py \
 --model "F5-TTS" \
 --ref_audio "tests/ref_audio/test_en_1_ref_short.wav" \
@@ -167,19 +191,19 @@ Currently supported features:
 You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may also use local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
 ```bash
-python gradio_app.py
+python f5_tts/gradio_app.py
 ```
 
 You can specify the port/host:
 
 ```bash
-python gradio_app.py --port 7860 --host 0.0.0.0
+python f5_tts/gradio_app.py --port 7860 --host 0.0.0.0
 ```
 
 Or launch a share link:
 
 ```bash
-python gradio_app.py --share
+python f5_tts/gradio_app.py --share
 ```
 
 ### Speech Editing
@@ -187,7 +211,7 @@ python gradio_app.py --share
 To test speech editing capabilities, use the following command.
 
 ```bash
-python speech_edit.py
+python f5_tts/speech_edit.py
 ```
 
 ## Evaluation
@@ -205,6 +229,9 @@ python speech_edit.py
 To run batch inference for evaluations, execute the following commands:
 
 ```bash
+# switch to the main directory
+cd f5_tts
+
 # batch inference for evaluations
 accelerate config  # if not set before
 bash scripts/eval_infer_batch.sh
@@ -240,6 +267,9 @@ pip install faster-whisper==0.10.1
 
 Update the path with your batch-inferenced results, and carry out WER / SIM evaluations:
 ```bash
+# switch to the main directory
+cd f5_tts
+
 # Evaluation for Seed-TTS test set
 python scripts/eval_seedtts_testset.py
 
