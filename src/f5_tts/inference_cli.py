@@ -1,6 +1,7 @@
 import argparse
 import codecs
 import re
+import os
 from pathlib import Path
 from importlib.resources import files
 
