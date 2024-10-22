@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools >= 61.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f5-tts"
+dynamic = ["version"]
+description = "F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching"
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "accelerate>=0.33.0",
+    "cached_path @ git+https://github.com/rsxdalv/cached_path@main",
+    "click",
+    "datasets",
+    "einops>=0.8.0",
+    "einx>=0.3.0",
+    "ema_pytorch>=0.5.2",
+    "gradio",
+    "jieba",
+    "librosa",
+    "matplotlib",
+    "numpy<=1.26.4",
+    "pydub",
+    "pypinyin",
+    "safetensors",
+    "soundfile",
+    "tomli",
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "torchdiffeq",
+    "tqdm>=4.65.0",
+    "transformers",
+    "vocos",
+    "wandb",
+    "x_transformers>=1.31.14",
+]
+
+[[project.authors]]
+name = "Yushen Chen and Zhikang Niu and Ziyang Ma and Keqi Deng and Chunhui Wang and Jian Zhao and Kai Yu and Xie Chen"
+
+[project.urls]
+Homepage = "https://github.com/SWivid/F5-TTS"
+
+[project.scripts]
+"finetune-cli" = "f5_tts.finetune_cli:main"
+"inference-cli" = "f5_tts.inference_cli:main"
