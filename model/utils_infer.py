@@ -154,7 +154,8 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_me
 
 
 def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=None):
-    device = get_device(device)
+    if device is None:
+        device = get_device()
 
     show_info("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
