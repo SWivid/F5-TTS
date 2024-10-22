@@ -168,5 +168,8 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence):
                 remove_silence_for_generated_wav(f.name)
             print(f.name)
 
+def main():
+    main_process(ref_audio, ref_text, gen_text, ema_model, remove_silence)
 
-main_process(ref_audio, ref_text, gen_text, ema_model, remove_silence)
+if __name__ == "__main__":
+    main()
