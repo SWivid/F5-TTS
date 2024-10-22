@@ -49,3 +49,4 @@ Homepage = "https://github.com/SWivid/F5-TTS"
 [project.scripts]
 "finetune-cli" = "f5_tts.finetune_cli:main"
 "inference-cli" = "f5_tts.inference_cli:main"
+"eval_infer_batch" = "f5_tts.scripts.eval_infer_batch:main"
