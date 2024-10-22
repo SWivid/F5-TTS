@@ -2,6 +2,7 @@ import argparse
 import codecs
 import re
 from pathlib import Path
+from importlib.resources import files
 
 import numpy as np
 import soundfile as sf
@@ -26,8 +27,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "-c",
     "--config",
-    help="Configuration file. Default=cli-config.toml",
-    default="inference-cli.toml",
+    help="Configuration file. Default=inference-cli.toml",
+    default=os.path.join(files('f5_tts').joinpath('data'), 'inference-cli.toml')
 )
 parser.add_argument(
     "-m",
