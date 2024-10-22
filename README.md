@@ -130,7 +130,7 @@ Currently support 30s for a single generation, which is the **TOTAL** length of 
 
 ### CLI Inference
 
-Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_path` in `inference-cli.py`
+Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_file` in `inference-cli.py`
 
 for change model use `--ckpt_file` to specify the model you want to load,  
 for change vocab.txt use `--vocab_file` to provide your vocab.txt file.
@@ -158,7 +158,7 @@ Currently supported features:
 - Podcast Generation
 - Multiple Speech-Type Generation
 
-You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
+You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may also use local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
 ```bash
 python gradio_app.py
