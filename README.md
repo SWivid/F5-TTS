@@ -49,6 +49,26 @@ docker build -t f5tts:v1 .
 pip install git+https://github.com/SWivid/F5-TTS.git
 ```
 
+### Development
+
+When making a pull request, please use pre-commit to ensure code quality:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This will run linters and formatters automatically before each commit.
+
+Manually run using: 
+
+```bash
+pre-commit run --all-files
+```
+
+Note: Some model components have linting exceptions for E722 to accommodate tensor notation
+
+
 ## Prepare Dataset
 
 Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `model/dataset.py`.
@@ -116,7 +136,7 @@ Currently support 30s for a single generation, which is the **TOTAL** length of 
 
 ### CLI Inference
 
-Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_path` in `inference-cli.py`
+Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_file` in `inference-cli.py`
 
 for change model use `--ckpt_file` to specify the model you want to load,  
 for change vocab.txt use `--vocab_file` to provide your vocab.txt file.
@@ -144,7 +164,7 @@ Currently supported features:
 - Podcast Generation
 - Multiple Speech-Type Generation
 
-You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may set `ckpt_path` to local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
+You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may also use local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
 ```bash
 python gradio_app.py
@@ -237,7 +257,8 @@ python scripts/eval_librispeech_test_clean.py
 - [FunASR](https://github.com/modelscope/FunASR), [faster-whisper](https://github.com/SYSTRAN/faster-whisper), [UniSpeech](https://github.com/microsoft/UniSpeech) for evaluation tools
 - [ctc-forced-aligner](https://github.com/MahmoudAshraf97/ctc-forced-aligner) for speech edit test
 - [mrfakename](https://x.com/realmrfakename) huggingface space demo ~
-- [f5-tts-mlx](https://github.com/lucasnewman/f5-tts-mlx/tree/main) Implementation of F5-TTS, with the MLX framework.
+- [f5-tts-mlx](https://github.com/lucasnewman/f5-tts-mlx/tree/main) Implementation with MLX framework by [Lucas Newman](https://github.com/lucasnewman)
+- [F5-TTS-ONNX](https://github.com/DakeQQ/F5-TTS-ONNX) ONNX Runtime version by [DakeQQ](https://github.com/DakeQQ)
 
 ## Citation
 If our work and codebase is useful for you, please cite as:

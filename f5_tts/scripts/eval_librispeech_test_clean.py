@@ -1,6 +1,8 @@
 # Evaluate with Librispeech test-clean, ~3s prompt to generate 4-10s audio (the way of valle/voicebox evaluation)
 
-import sys, os
+import sys
+import os
+
 sys.path.append(os.getcwd())
 
 import multiprocessing as mp
@@ -19,7 +21,7 @@ metalst = "data/librispeech_pc_test_clean_cross_sentence.lst"
 librispeech_test_clean_path = "<SOME_PATH>/LibriSpeech/test-clean"  # test-clean path
 gen_wav_dir = "PATH_TO_GENERATED"  # generated wavs
 
-gpus = [0,1,2,3,4,5,6,7]
+gpus = [0, 1, 2, 3, 4, 5, 6, 7]
 test_set = get_librispeech_test(metalst, gen_wav_dir, gpus, librispeech_test_clean_path)
 
 ## In LibriSpeech, some speakers utilized varying voice characteristics for different characters in the book,
@@ -46,7 +48,7 @@ if eval_task == "wer":
         for wers_ in results:
             wers.extend(wers_)
 
-    wer = round(np.mean(wers)*100, 3)
+    wer = round(np.mean(wers) * 100, 3)
     print(f"\nTotal {len(wers)} samples")
     print(f"WER      : {wer}%")
 
@@ -62,6 +64,6 @@ if eval_task == "sim":
         for sim_ in results:
             sim_list.extend(sim_)
 
-    sim = round(sum(sim_list)/len(sim_list), 3)
+    sim = round(sum(sim_list) / len(sim_list), 3)
     print(f"\nTotal {len(sim_list)} samples")
     print(f"SIM      : {sim}")
