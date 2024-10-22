@@ -19,13 +19,8 @@ from model.utils import (
     convert_char_to_pinyin,
 )
 
-# get device
 
-
-def get_device():
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    return device
-
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
 vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
 
@@ -81,9 +76,7 @@ def chunk_text(text, max_chars=135):
 
 
 # load vocoder
-def load_vocoder(is_local=False, local_path="", device=None):
-    if device is None:
-        device = get_device()
+def load_vocoder(is_local=False, local_path="", device=device):
     if is_local:
         print(f"Load vocos from local path {local_path}")
         vocos = Vocos.from_hparams(f"{local_path}/config.yaml")
@@ -101,11 +94,8 @@ def load_vocoder(is_local=False, local_path="", device=None):
 asr_pipe = None
 
 
-def initialize_asr_pipeline(device=None):
+def initialize_asr_pipeline(device=device):
     global asr_pipe
-    if device is None:
-        device = get_device()
-
     asr_pipe = pipeline(
         "automatic-speech-recognition",
         model="openai/whisper-large-v3-turbo",
@@ -117,9 +107,7 @@ def initialize_asr_pipeline(device=None):
 # load model for inference
 
 
-def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_method, use_ema=True, device=None):
-    if device is None:
-        device = get_device()
+def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_method, use_ema=True, device=device):
     if vocab_file == "":
         vocab_file = "Emilia_ZH_EN"
         tokenizer = "pinyin"
@@ -152,10 +140,7 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_me
 # preprocess reference audio and text
 
 
-def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=None):
-    if device is None:
-        device = get_device()
-
+def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=device):
     show_info("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
@@ -216,6 +201,7 @@ def infer_process(
     sway_sampling_coef=sway_sampling_coef,
     speed=speed,
     fix_duration=fix_duration,
+    device=device,
 ):
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
@@ -238,6 +224,7 @@ def infer_process(
         sway_sampling_coef=sway_sampling_coef,
         speed=speed,
         fix_duration=fix_duration,
+        device=device,
     )
 
 
@@ -259,9 +246,6 @@ def infer_batch_process(
     fix_duration=None,
     device=None,
 ):
-    if device is None:
-        device = get_device()
-
     audio, sr = ref_audio
     if audio.shape[0] > 1:
         audio = torch.mean(audio, dim=0, keepdim=True)

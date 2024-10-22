@@ -105,6 +105,7 @@ class F5TTS:
             sway_sampling_coef=sway_sampling_coef,
             speed=speed,
             fix_duration=fix_duration,
+            device=self.device,
         )
 
         if file_wave is not None:
