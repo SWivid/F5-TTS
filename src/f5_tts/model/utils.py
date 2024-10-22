@@ -4,7 +4,7 @@ import os
 import math
 import random
 import string
-import importlib.resources import files
+from importlib.resources import files
 from tqdm import tqdm
 from collections import defaultdict
 
