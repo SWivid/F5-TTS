@@ -21,7 +21,7 @@ def parse_args():
 
     # num_warmup_updates 10000 sample = 500
 
-    # change save_per_updates , last_per_steps what you need
+    # change save_per_updates , last_per_steps what you need ,
 
     parser = argparse.ArgumentParser(description="Train CFM Model")
 

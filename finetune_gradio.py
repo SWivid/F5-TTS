@@ -64,7 +64,7 @@ def get_rms(
     y = np.pad(y, padding, mode=pad_mode)
 
     axis = -1
-    # put our new within-frame axis at the end for now
+    # put our new within-frame axis at the end for  now
     out_strides = y.strides + tuple([y.strides[axis]])
     # Reduce the shape on the framing axis
     x_shape_trimmed = list(y.shape)
