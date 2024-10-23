@@ -362,9 +362,7 @@ with gr.Blocks() as app_emotional:
     # Update delete button clicks
     for i, delete_btn in enumerate(speech_type_delete_btns):
         delete_fn = make_delete_speech_type_fn(i)
-        delete_btn.click(
-            delete_fn, inputs=speech_type_count, outputs=[speech_type_count] + speech_type_rows
-        )
+        delete_btn.click(delete_fn, inputs=speech_type_count, outputs=[speech_type_count] + speech_type_rows)
 
     # Text input for the prompt
     gen_text_input_emotional = gr.Textbox(label="Text to Generate", lines=10)
@@ -447,10 +445,10 @@ with gr.Blocks() as app_emotional:
             regular_audio,
             regular_ref_text,
             gen_text_input_emotional,
-        ] 
-        + speech_type_names 
-        + speech_type_audios 
-        + speech_type_ref_texts 
+        ]
+        + speech_type_names
+        + speech_type_audios
+        + speech_type_ref_texts
         + [
             model_choice_emotional,
             remove_silence_emotional,
@@ -490,7 +488,7 @@ with gr.Blocks() as app_emotional:
         inputs=[gen_text_input_emotional, regular_name] + speech_type_names,
         outputs=generate_emotional_btn,
     )
-    
+
 with gr.Blocks() as app:
     gr.Markdown(
         """
