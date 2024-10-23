@@ -627,7 +627,7 @@ def vocab_check(project_name):
     if not os.path.isfile(file_metadata):
         return f"the file {file_metadata} not found !"
 
-    with open(file_metadata, "r", encoding="utf-8") as f:
+    with open(file_metadata, "r", encoding="utf-8-sig") as f:
         data = f.read()
 
     miss_symbols = []
