@@ -18,8 +18,8 @@ from torch.nn.utils.rnn import pad_sequence
 
 from torchdiffeq import odeint
 
-from model.modules import MelSpec
-from model.utils import (
+from f5_tts.model.modules import MelSpec
+from f5_tts.model.utils import (
     default,
     exists,
     list_str_to_idx,

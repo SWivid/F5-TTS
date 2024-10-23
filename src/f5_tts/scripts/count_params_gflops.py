@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.getcwd())
 
-from model import M2_TTS, DiT
+from f5_tts.model import M2_TTS, DiT
 
 import torch
 import thop

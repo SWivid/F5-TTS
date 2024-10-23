@@ -15,9 +15,9 @@ from accelerate.utils import DistributedDataParallelKwargs
 
 from ema_pytorch import EMA
 
-from model import CFM
-from model.utils import exists, default
-from model.dataset import DynamicBatchSampler, collate_fn
+from f5_tts.model import CFM
+from f5_tts.model.utils import exists, default
+from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
 
 
 # trainer

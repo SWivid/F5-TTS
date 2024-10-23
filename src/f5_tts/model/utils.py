@@ -4,6 +4,7 @@ import os
 import math
 import random
 import string
+from importlib.resources import files
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -20,8 +21,8 @@ import torchaudio
 import jieba
 from pypinyin import lazy_pinyin, Style
 
-from model.ecapa_tdnn import ECAPA_TDNN_SMALL
-from model.modules import MelSpec
+from f5_tts.model.ecapa_tdnn import ECAPA_TDNN_SMALL
+from f5_tts.model.modules import MelSpec
 
 
 # seed everything
@@ -121,7 +122,8 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
                 - if use "byte", set to 256 (unicode byte range)
     """
     if tokenizer in ["pinyin", "char"]:
-        with open(f"data/{dataset_name}_{tokenizer}/vocab.txt", "r", encoding="utf-8") as f:
+        tokenizer_path = os.path.join(files('f5_tts').joinpath('data'), f"{dataset_name}_{tokenizer}/vocab.txt")
+        with open(tokenizer_path, "r", encoding="utf-8") as f:
             vocab_char_map = {}
             for i, char in enumerate(f):
                 vocab_char_map[char[:-1]] = i

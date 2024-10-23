@@ -1,4 +1,4 @@
-# Evaluate with Librispeech test-clean, ~3s prompt to generate 4-10s audio (the way of valle/voicebox evaluation)
+# Evaluate with Seed-TTS testset
 
 import sys
 import os
@@ -8,29 +8,31 @@ sys.path.append(os.getcwd())
 import multiprocessing as mp
 import numpy as np
 
-from model.utils import (
-    get_librispeech_test,
+from f5_tts.model.utils import (
+    get_seed_tts_test,
     run_asr_wer,
     run_sim,
 )
 
 
 eval_task = "wer"  # sim | wer
-lang = "en"
-metalst = "data/librispeech_pc_test_clean_cross_sentence.lst"
-librispeech_test_clean_path = "<SOME_PATH>/LibriSpeech/test-clean"  # test-clean path
+lang = "zh"  # zh | en
+metalst = f"data/seedtts_testset/{lang}/meta.lst"  # seed-tts testset
+# gen_wav_dir = f"data/seedtts_testset/{lang}/wavs"  # ground truth wavs
 gen_wav_dir = "PATH_TO_GENERATED"  # generated wavs
 
-gpus = [0, 1, 2, 3, 4, 5, 6, 7]
-test_set = get_librispeech_test(metalst, gen_wav_dir, gpus, librispeech_test_clean_path)
 
-## In LibriSpeech, some speakers utilized varying voice characteristics for different characters in the book,
-## leading to a low similarity for the ground truth in some cases.
-# test_set = get_librispeech_test(metalst, gen_wav_dir, gpus, librispeech_test_clean_path, eval_ground_truth = True)  # eval ground truth
+# NOTE. paraformer-zh result will be slightly different according to the number of gpus, cuz batchsize is different
+#       zh 1.254 seems a result of 4 workers wer_seed_tts
+gpus = [0, 1, 2, 3, 4, 5, 6, 7]
+test_set = get_seed_tts_test(metalst, gen_wav_dir, gpus)
 
 local = False
 if local:  # use local custom checkpoint dir
-    asr_ckpt_dir = "../checkpoints/Systran/faster-whisper-large-v3"
+    if lang == "zh":
+        asr_ckpt_dir = "../checkpoints/funasr"  # paraformer-zh dir under funasr
+    elif lang == "en":
+        asr_ckpt_dir = "../checkpoints/Systran/faster-whisper-large-v3"
 else:
     asr_ckpt_dir = ""  # auto download to cache dir
 

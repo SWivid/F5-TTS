@@ -10,8 +10,8 @@ from datasets import load_from_disk
 from datasets import Dataset as Dataset_
 from torch import nn
 
-from model.modules import MelSpec
-from model.utils import default
+from f5_tts.model.modules import MelSpec
+from f5_tts.model.utils import default
 
 
 class HFDataset(Dataset):
