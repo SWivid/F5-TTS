@@ -35,7 +35,7 @@ Then you can choose from a few options below:
 pip install git+https://github.com/SWivid/F5-TTS.git
 ```
 
-### 2. Local editable (if also do training, finetuning & evaluation)
+### 2. Local editable (if also do training, finetuning)
 
 ```bash
 git clone https://github.com/SWivid/F5-TTS.git
