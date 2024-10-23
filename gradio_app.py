@@ -141,6 +141,7 @@ def generate_podcast(
 
     return podcast_path
 
+
 with gr.Blocks() as app_credits:
     gr.Markdown("""
 # Credits
@@ -247,6 +248,7 @@ with gr.Blocks() as app_podcast:
         outputs=podcast_output,
     )
 
+
 def parse_speechtypes_text(gen_text):
     # Pattern to find (Emotion)
     pattern = r"\{(.*?)\}"
@@ -270,6 +272,7 @@ def parse_speechtypes_text(gen_text):
             current_emotion = emotion
 
     return segments
+
 
 with gr.Blocks() as app_emotional:
     # New section for emotional generation
