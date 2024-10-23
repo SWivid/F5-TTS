@@ -18,71 +18,52 @@
 
 ## Installation
 
-Clone the repository:
+```bash
+# Create a python 3.10 conda env (you could also use virtualenv)
+conda create -n f5-tts python=3.10
+conda activate f5-tts
+
+# Install pytorch with your CUDA version, e.g.
+pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+```
+
+Then you can choose from a few options below:
+
+### 1. Local editable
 
 ```bash
 git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
+pip install -e .
 ```
 
-Install torch with your CUDA version, e.g. :
+### 2. As a pip package
 
 ```bash
-pip install torch==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
-pip install torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+pip install git+https://github.com/SWivid/F5-TTS.git
 ```
 
-Install other packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-**[Optional]**: We provide [Dockerfile](https://github.com/SWivid/F5-TTS/blob/main/Dockerfile) and you can use the following command to build it.
+### 3. Build from dockerfile
 ```bash
 docker build -t f5tts:v1 .
 ```
 
-### Development
+## Development
 
-When making a pull request, please use pre-commit to ensure code quality:
+Use pre-commit to ensure code quality (will run linters and formatters automatically)
 
 ```bash
 pip install pre-commit
 pre-commit install
 ```
 
-This will run linters and formatters automatically before each commit.
-
-Manually run using: 
+When making a pull request, before each commit, run: 
 
 ```bash
 pre-commit run --all-files
 ```
 
 Note: Some model components have linting exceptions for E722 to accommodate tensor notation
-
-
-### As a pip package
-
-```bash
-pip install git+https://github.com/SWivid/F5-TTS.git
-```
-
-```python
-import gradio as gr
-from f5_tts.gradio_app import app
-
-with gr.Blocks() as main_app:
-    gr.Markdown("# This is an example of using F5-TTS within a bigger Gradio app")
-
-    # ... other Gradio components
-
-    app.render()
-
-main_app.launch()
-
-```
 
 ## Prepare Dataset
 
@@ -146,6 +127,21 @@ export WANDB_MODE=offline
 ```
 
 ## Inference
+
+```python
+import gradio as gr
+from f5_tts.gradio_app import app
+
+with gr.Blocks() as main_app:
+    gr.Markdown("# This is an example of using F5-TTS within a bigger Gradio app")
+
+    # ... other Gradio components
+
+    app.render()
+
+main_app.launch()
+
+```
 
 The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or automatically downloaded with `inference-cli` and `gradio_app`.
 
@@ -248,21 +244,7 @@ bash scripts/eval_infer_batch.sh
 Install packages for evaluation:
 
 ```bash
-pip install -r requirements_eval.txt
-```
-
-**Some Notes**
-
-For faster-whisper with CUDA 11:
-
-```bash
-pip install --force-reinstall ctranslate2==3.24.0
-```
-
-(Recommended) To avoid possible ASR failures, such as abnormal repetitions in output:
-
-```bash
-pip install faster-whisper==0.10.1
+pip install -e .[eval]
 ```
 
 Update the path with your batch-inferenced results, and carry out WER / SIM evaluations:

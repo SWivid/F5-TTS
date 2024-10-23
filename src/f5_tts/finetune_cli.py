@@ -1,10 +1,11 @@
 import argparse
+import os
+import shutil
+
+from cached_path import cached_path
 from f5_tts.model import CFM, UNetT, DiT, Trainer
 from f5_tts.model.utils import get_tokenizer
 from f5_tts.model.dataset import load_dataset
-from cached_path import cached_path
-import shutil
-import os
 
 # -------------------------- Dataset Settings --------------------------- #
 target_sample_rate = 24000

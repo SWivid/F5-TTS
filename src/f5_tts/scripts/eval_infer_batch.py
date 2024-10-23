@@ -36,6 +36,7 @@ target_rms = 0.1
 
 tokenizer = "pinyin"
 
+
 def main():
     # ---------------------- infer setting ---------------------- #
 
@@ -54,7 +55,6 @@ def main():
 
     args = parser.parse_args()
 
-
     seed = args.seed
     dataset_name = args.dataset
     exp_name = args.expname
@@ -67,13 +67,11 @@ def main():
 
     testset = args.testset
 
-
     infer_batch_size = 1  # max frames. 1 for ddp single inference (recommended)
     cfg_strength = 2.0
     speed = 1.0
     use_truth_duration = False
     no_ref_audio = False
-
 
     if exp_name == "F5TTS_Base":
         model_cls = DiT
@@ -83,22 +81,20 @@ def main():
         model_cls = UNetT
         model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
 
-
-    datapath = files('f5_tts').joinpath('data')
+    datapath = files("f5_tts").joinpath("data")
 
     if testset == "ls_pc_test_clean":
-        metalst = os.path.join(datapath,"librispeech_pc_test_clean_cross_sentence.lst")
+        metalst = os.path.join(datapath, "librispeech_pc_test_clean_cross_sentence.lst")
         librispeech_test_clean_path = "<SOME_PATH>/LibriSpeech/test-clean"  # test-clean path
         metainfo = get_librispeech_test_clean_metainfo(metalst, librispeech_test_clean_path)
 
     elif testset == "seedtts_test_zh":
-        metalst = os.path.join(datapath,"seedtts_testset/zh/meta.lst")
+        metalst = os.path.join(datapath, "seedtts_testset/zh/meta.lst")
         metainfo = get_seedtts_testset_metainfo(metalst)
 
     elif testset == "seedtts_test_en":
-        metalst = os.path.join(datapath,"seedtts_testset/en/meta.lst")
+        metalst = os.path.join(datapath, "seedtts_testset/en/meta.lst")
         metainfo = get_seedtts_testset_metainfo(metalst)
-
 
     # path to save genereted wavs
     if seed is None:
@@ -111,7 +107,6 @@ def main():
         f"{'_gt-dur' if use_truth_duration else ''}"
         f"{'_no-ref-audio' if no_ref_audio else ''}"
     )
-
 
     # -------------------------------------------------#
 
@@ -199,6 +194,7 @@ def main():
     if accelerator.is_main_process:
         timediff = time.time() - start
         print(f"Done batch inference in {timediff / 60 :.2f} minutes.")
+
 
 if __name__ == "__main__":
     main()
