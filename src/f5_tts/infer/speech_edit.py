@@ -10,8 +10,8 @@ from f5_tts.model.utils import (
     load_checkpoint,
     get_tokenizer,
     convert_char_to_pinyin,
-    save_spectrogram,
 )
+from f5_tts.infer.utils_infer import save_spectrogram
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 

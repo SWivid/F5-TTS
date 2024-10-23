@@ -11,7 +11,7 @@ import tomli
 from cached_path import cached_path
 
 from f5_tts.model import DiT, UNetT
-from f5_tts.model.utils_infer import (
+from f5_tts.infer.utils_infer import (
     load_vocoder,
     load_model,
     preprocess_ref_audio_text,

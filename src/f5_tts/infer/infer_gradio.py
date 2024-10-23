@@ -28,15 +28,13 @@ def gpu_decorator(func):
 
 
 from f5_tts.model import DiT, UNetT
-from f5_tts.model.utils import (
-    save_spectrogram,
-)
-from f5_tts.model.utils_infer import (
+from f5_tts.infer.utils_infer import (
     load_vocoder,
     load_model,
     preprocess_ref_audio_text,
     infer_process,
     remove_silence_for_generated_wav,
+    save_spectrogram,
 )
 
 vocos = load_vocoder()
