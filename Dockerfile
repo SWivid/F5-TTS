@@ -17,8 +17,7 @@ WORKDIR /workspace
 
 RUN git clone https://github.com/SWivid/F5-TTS.git \
     && cd F5-TTS \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir -r requirements_eval.txt
+    && pip install -e .[eval]
 
 ENV SHELL=/bin/bash
 
