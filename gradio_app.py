@@ -141,32 +141,6 @@ def generate_podcast(
 
     return podcast_path
 
-
-def parse_speechtypes_text(gen_text):
-    # Pattern to find (Emotion)
-    pattern = r"\((.*?)\)"
-
-    # Split the text by the pattern
-    tokens = re.split(pattern, gen_text)
-
-    segments = []
-
-    current_emotion = "Regular"
-
-    for i in range(len(tokens)):
-        if i % 2 == 0:
-            # This is text
-            text = tokens[i].strip()
-            if text:
-                segments.append({"emotion": current_emotion, "text": text})
-        else:
-            # This is emotion
-            emotion = tokens[i].strip()
-            current_emotion = emotion
-
-    return segments
-
-
 with gr.Blocks() as app_credits:
     gr.Markdown("""
 # Credits
@@ -273,10 +247,9 @@ with gr.Blocks() as app_podcast:
         outputs=podcast_output,
     )
 
-
-def parse_emotional_text(gen_text):
+def parse_speechtypes_text(gen_text):
     # Pattern to find (Emotion)
-    pattern = r"\((.*?)\)"
+    pattern = r"\{(.*?)\}"
 
     # Split the text by the pattern
     tokens = re.split(pattern, gen_text)
@@ -298,7 +271,6 @@ def parse_emotional_text(gen_text):
 
     return segments
 
-
 with gr.Blocks() as app_emotional:
     # New section for emotional generation
     gr.Markdown(
@@ -309,7 +281,7 @@ with gr.Blocks() as app_emotional:
 
     **Example Input:**
 
-    (Regular) Hello, I'd like to order a sandwich please. (Surprised) What do you mean you're out of bread? (Sad) I really wanted a sandwich though... (Angry) You know what, darn you and your little shop, you suck! (Whisper) I'll just go back home and cry now. (Shouting) Why me?!
+    {Regular} Hello, I'd like to order a sandwich please. {Surprised} What do you mean you're out of bread? {Sad} I really wanted a sandwich though... {Angry} You know what, darn you and your little shop, you suck! {Whisper} I'll just go back home and cry now. {Shouting} Why me?!
     """
     )
 
@@ -325,17 +297,19 @@ with gr.Blocks() as app_emotional:
 
     # Additional speech types (up to 99 more)
     max_speech_types = 100
+    speech_type_rows = []
     speech_type_names = []
     speech_type_audios = []
     speech_type_ref_texts = []
     speech_type_delete_btns = []
 
     for i in range(max_speech_types - 1):
-        with gr.Row():
-            name_input = gr.Textbox(label="Speech Type Name", visible=False)
-            audio_input = gr.Audio(label="Reference Audio", type="filepath", visible=False)
-            ref_text_input = gr.Textbox(label="Reference Text", lines=2, visible=False)
-            delete_btn = gr.Button("Delete", variant="secondary", visible=False)
+        with gr.Row(visible=False) as row:
+            name_input = gr.Textbox(label="Speech Type Name")
+            audio_input = gr.Audio(label="Reference Audio", type="filepath")
+            ref_text_input = gr.Textbox(label="Reference Text", lines=2)
+            delete_btn = gr.Button("Delete", variant="secondary")
+        speech_type_rows.append(row)
         speech_type_names.append(name_input)
         speech_type_audios.append(audio_input)
         speech_type_ref_texts.append(ref_text_input)
@@ -348,81 +322,52 @@ with gr.Blocks() as app_emotional:
     speech_type_count = gr.State(value=0)
 
     # Function to add a speech type
+    # Function to add a speech type
     def add_speech_type_fn(speech_type_count):
         if speech_type_count < max_speech_types - 1:
             speech_type_count += 1
-            # Prepare updates for the components
-            name_updates = []
-            audio_updates = []
-            ref_text_updates = []
-            delete_btn_updates = []
+            # Prepare updates for the rows
+            row_updates = []
             for i in range(max_speech_types - 1):
                 if i < speech_type_count:
-                    name_updates.append(gr.update(visible=True))
-                    audio_updates.append(gr.update(visible=True))
-                    ref_text_updates.append(gr.update(visible=True))
-                    delete_btn_updates.append(gr.update(visible=True))
+                    row_updates.append(gr.update(visible=True))
                 else:
-                    name_updates.append(gr.update())
-                    audio_updates.append(gr.update())
-                    ref_text_updates.append(gr.update())
-                    delete_btn_updates.append(gr.update())
+                    row_updates.append(gr.update())
         else:
             # Optionally, show a warning
-            # gr.Warning("Maximum number of speech types reached.")
-            name_updates = [gr.update() for _ in range(max_speech_types - 1)]
-            audio_updates = [gr.update() for _ in range(max_speech_types - 1)]
-            ref_text_updates = [gr.update() for _ in range(max_speech_types - 1)]
-            delete_btn_updates = [gr.update() for _ in range(max_speech_types - 1)]
-        return [speech_type_count] + name_updates + audio_updates + ref_text_updates + delete_btn_updates
+            row_updates = [gr.update() for _ in range(max_speech_types - 1)]
+        return [speech_type_count] + row_updates
 
     add_speech_type_btn.click(
         add_speech_type_fn,
         inputs=speech_type_count,
-        outputs=[speech_type_count]
-        + speech_type_names
-        + speech_type_audios
-        + speech_type_ref_texts
-        + speech_type_delete_btns,
+        outputs=[speech_type_count] + speech_type_rows
     )
 
     # Function to delete a speech type
     def make_delete_speech_type_fn(index):
         def delete_speech_type_fn(speech_type_count):
             # Prepare updates
-            name_updates = []
-            audio_updates = []
-            ref_text_updates = []
-            delete_btn_updates = []
-
+            row_updates = []
             for i in range(max_speech_types - 1):
                 if i == index:
-                    name_updates.append(gr.update(visible=False, value=""))
-                    audio_updates.append(gr.update(visible=False, value=None))
-                    ref_text_updates.append(gr.update(visible=False, value=""))
-                    delete_btn_updates.append(gr.update(visible=False))
+                    row_updates.append(gr.update(visible=False))
                 else:
-                    name_updates.append(gr.update())
-                    audio_updates.append(gr.update())
-                    ref_text_updates.append(gr.update())
-                    delete_btn_updates.append(gr.update())
+                    row_updates.append(gr.update())
 
             speech_type_count = max(0, speech_type_count - 1)
 
-            return [speech_type_count] + name_updates + audio_updates + ref_text_updates + delete_btn_updates
+            return [speech_type_count] + row_updates
 
         return delete_speech_type_fn
 
+    # Update delete button clicks
     for i, delete_btn in enumerate(speech_type_delete_btns):
         delete_fn = make_delete_speech_type_fn(i)
         delete_btn.click(
             delete_fn,
             inputs=speech_type_count,
-            outputs=[speech_type_count]
-            + speech_type_names
-            + speech_type_audios
-            + speech_type_ref_texts
-            + speech_type_delete_btns,
+            outputs=[speech_type_count] + speech_type_rows
         )
 
     # Text input for the prompt
@@ -434,7 +379,7 @@ with gr.Blocks() as app_emotional:
     with gr.Accordion("Advanced Settings", open=False):
         remove_silence_emotional = gr.Checkbox(
             label="Remove Silences",
-            value=True,
+            value=False,
         )
 
     # Generate button
@@ -506,11 +451,7 @@ with gr.Blocks() as app_emotional:
             regular_audio,
             regular_ref_text,
             gen_text_input_emotional,
-        ]
-        + speech_type_names
-        + speech_type_audios
-        + speech_type_ref_texts
-        + [
+        ] + speech_type_names + speech_type_audios + speech_type_ref_texts + [
             model_choice_emotional,
             remove_silence_emotional,
         ],
@@ -531,7 +472,7 @@ with gr.Blocks() as app_emotional:
                 speech_types_available.add(name_input)
 
         # Parse the gen_text to get the speech types used
-        segments = parse_emotional_text(gen_text)
+        segments = parse_speechtypes_text(gen_text)
         speech_types_in_text = set(segment["emotion"] for segment in segments)
 
         # Check if all speech types in text are available
@@ -549,6 +490,7 @@ with gr.Blocks() as app_emotional:
         inputs=[gen_text_input_emotional, regular_name] + speech_type_names,
         outputs=generate_emotional_btn,
     )
+    
 with gr.Blocks() as app:
     gr.Markdown(
         """
