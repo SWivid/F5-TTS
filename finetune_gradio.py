@@ -448,7 +448,7 @@ def create_metadata(name_project, progress=gr.Progress()):
     if not os.path.isfile(file_metadata):
         return "The file was not found in " + file_metadata
 
-    with open(file_metadata, "r", encoding="utf-8") as f:
+    with open(file_metadata, "r", encoding="utf-8-sig") as f:
         data = f.read()
 
     audio_path_list = []
@@ -672,7 +672,7 @@ def get_random_sample_transcribe(project_name):
         return "", None
 
     data = ""
-    with open(file_metadata, "r", encoding="utf-8") as f:
+    with open(file_metadata, "r", encoding="utf-8-sig") as f:
         data = f.read()
 
     list_data = []
