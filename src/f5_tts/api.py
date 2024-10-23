@@ -3,11 +3,11 @@ import torch
 import tqdm
 from cached_path import cached_path
 
-from model import DiT, UNetT
-from model.utils import save_spectrogram
+from f5_tts.model import DiT, UNetT
+from f5_tts.model.utils import save_spectrogram
 
-from model.utils_infer import load_vocoder, load_model, infer_process, remove_silence_for_generated_wav
-from model.utils import seed_everything
+from f5_tts.model.utils_infer import load_vocoder, load_model, infer_process, remove_silence_for_generated_wav
+from f5_tts.model.utils import seed_everything
 import random
 import sys
 

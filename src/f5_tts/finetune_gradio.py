@@ -17,14 +17,14 @@ import shutil
 import time
 
 import json
-from model.utils import convert_char_to_pinyin
+from f5_tts.model.utils import convert_char_to_pinyin
 import signal
 import psutil
 import platform
 import subprocess
 from datasets.arrow_writer import ArrowWriter
 from datasets import Dataset as Dataset_
-from api import F5TTS
+from f5_tts.api import F5TTS
 
 
 training_process = None

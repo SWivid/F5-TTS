@@ -1,15 +1,17 @@
 import argparse
 import codecs
 import re
+import os
 from pathlib import Path
+from importlib.resources import files
 
 import numpy as np
 import soundfile as sf
 import tomli
 from cached_path import cached_path
 
-from model import DiT, UNetT
-from model.utils_infer import (
+from f5_tts.model import DiT, UNetT
+from f5_tts.model.utils_infer import (
     load_vocoder,
     load_model,
     preprocess_ref_audio_text,
@@ -26,8 +28,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "-c",
     "--config",
-    help="Configuration file. Default=cli-config.toml",
-    default="inference-cli.toml",
+    help="Configuration file. Default=inference-cli.toml",
+    default=os.path.join(files('f5_tts').joinpath('data'), 'inference-cli.toml')
 )
 parser.add_argument(
     "-m",
@@ -166,5 +168,8 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence):
                 remove_silence_for_generated_wav(f.name)
             print(f.name)
 
+def main():
+    main_process(ref_audio, ref_text, gen_text, ema_model, remove_silence)
 
-main_process(ref_audio, ref_text, gen_text, ema_model, remove_silence)
+if __name__ == "__main__":
+    main()
