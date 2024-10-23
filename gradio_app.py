@@ -339,9 +339,7 @@ with gr.Blocks() as app_emotional:
         return [speech_type_count] + row_updates
 
     add_speech_type_btn.click(
-        add_speech_type_fn,
-        inputs=speech_type_count,
-        outputs=[speech_type_count] + speech_type_rows
+        add_speech_type_fn, inputs=speech_type_count, outputs=[speech_type_count] + speech_type_rows
     )
 
     # Function to delete a speech type
@@ -365,9 +363,7 @@ with gr.Blocks() as app_emotional:
     for i, delete_btn in enumerate(speech_type_delete_btns):
         delete_fn = make_delete_speech_type_fn(i)
         delete_btn.click(
-            delete_fn,
-            inputs=speech_type_count,
-            outputs=[speech_type_count] + speech_type_rows
+            delete_fn, inputs=speech_type_count, outputs=[speech_type_count] + speech_type_rows
         )
 
     # Text input for the prompt
@@ -451,7 +447,11 @@ with gr.Blocks() as app_emotional:
             regular_audio,
             regular_ref_text,
             gen_text_input_emotional,
-        ] + speech_type_names + speech_type_audios + speech_type_ref_texts + [
+        ] 
+        + speech_type_names 
+        + speech_type_audios 
+        + speech_type_ref_texts 
+        + [
             model_choice_emotional,
             remove_silence_emotional,
         ],
