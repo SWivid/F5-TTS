@@ -4,6 +4,11 @@
 import re
 import tempfile
 
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pylab as plt
 import numpy as np
 import torch
 import torchaudio
@@ -14,7 +19,6 @@ from vocos import Vocos
 
 from f5_tts.model import CFM
 from f5_tts.model.utils import (
-    load_checkpoint,
     get_tokenizer,
     convert_char_to_pinyin,
 )
@@ -102,6 +106,38 @@ def initialize_asr_pipeline(device=device):
         torch_dtype=torch.float16,
         device=device,
     )
+
+
+# load model checkpoint for inference
+
+
+def load_checkpoint(model, ckpt_path, device, use_ema=True):
+    if device == "cuda":
+        model = model.half()
+
+    ckpt_type = ckpt_path.split(".")[-1]
+    if ckpt_type == "safetensors":
+        from safetensors.torch import load_file
+
+        checkpoint = load_file(ckpt_path)
+    else:
+        checkpoint = torch.load(ckpt_path, weights_only=True)
+
+    if use_ema:
+        if ckpt_type == "safetensors":
+            checkpoint = {"ema_model_state_dict": checkpoint}
+        checkpoint["model_state_dict"] = {
+            k.replace("ema_model.", ""): v
+            for k, v in checkpoint["ema_model_state_dict"].items()
+            if k not in ["initted", "step"]
+        }
+        model.load_state_dict(checkpoint["model_state_dict"])
+    else:
+        if ckpt_type == "safetensors":
+            checkpoint = {"model_state_dict": checkpoint}
+        model.load_state_dict(checkpoint["model_state_dict"])
+
+    return model.to(device)
 
 
 # load model for inference
@@ -355,3 +391,14 @@ def remove_silence_for_generated_wav(filename):
         non_silent_wave += non_silent_seg
     aseg = non_silent_wave
     aseg.export(filename, format="wav")
+
+
+# save spectrogram
+
+
+def save_spectrogram(spectrogram, path):
+    plt.figure(figsize=(12, 4))
+    plt.imshow(spectrogram, origin="lower", aspect="auto")
+    plt.colorbar()
+    plt.savefig(path)
+    plt.close()
