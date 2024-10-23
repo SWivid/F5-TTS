@@ -418,7 +418,7 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
             except:  # noqa: E722
                 error_num += 1
 
-    with open(file_metadata, "w", encoding="utf-8") as f:
+    with open(file_metadata, "w", encoding="utf-8-sig") as f:
         f.write(data)
 
     if error_num != []:
