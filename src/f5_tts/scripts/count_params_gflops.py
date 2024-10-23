@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.getcwd())
 
-from f5_tts.model import M2_TTS, DiT
+from f5_tts.model import CFM, DiT
 
 import torch
 import thop
@@ -24,7 +24,7 @@ import thop
 transformer = DiT(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
 
 
-model = M2_TTS(transformer=transformer)
+model = CFM(transformer=transformer)
 target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
