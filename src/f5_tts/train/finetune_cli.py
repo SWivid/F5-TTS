@@ -93,14 +93,14 @@ def main():
         hop_length=hop_length,
     )
 
-    e2tts = CFM(
+    model = CFM(
         transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=mel_spec_kwargs,
         vocab_char_map=vocab_char_map,
     )
 
     trainer = Trainer(
-        e2tts,
+        model,
         args.epochs,
         args.learning_rate,
         num_warmup_updates=args.num_warmup_updates,

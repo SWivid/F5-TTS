@@ -29,18 +29,18 @@ pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https:/
 
 Then you can choose from a few options below:
 
-### 1. Local editable
+### 1. As a pip package (if just for inference)
+
+```bash
+pip install git+https://github.com/SWivid/F5-TTS.git
+```
+
+### 2. Local editable (if also do training, finetuning & evaluation)
 
 ```bash
 git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
 pip install -e .
-```
-
-### 2. As a pip package
-
-```bash
-pip install git+https://github.com/SWivid/F5-TTS.git
 ```
 
 ### 3. Build from dockerfile
