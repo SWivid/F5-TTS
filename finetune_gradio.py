@@ -547,7 +547,13 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
         if not os.path.isfile(file_vocab_finetune):
             return "Error: Vocabulary file 'Emilia_ZH_EN_pinyin' not found!"
         shutil.copy2(file_vocab_finetune, file_vocab)
-        vocab_size = 2545
+
+        with open(file_vocab, "r", encoding="utf-8-sig") as f:
+            vocab_char_map = {}
+            for i, char in enumerate(f):
+                vocab_char_map[char[:-1]] = i
+        vocab_size = len(vocab_char_map)
+
     else:
         with open(file_vocab, "w", encoding="utf-8-sig") as f:
             for vocab in sorted(text_vocab_set):
