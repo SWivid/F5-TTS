@@ -539,7 +539,7 @@ Have a conversation with an AI using your reference voice!
 
     def load_chat_model():
         global chat_model_state, chat_tokenizer_state
-        if chat_model_state == None:
+        if chat_model_state is None:
             show_info = gr.Info
             show_info("Loading chat model...")
             model_name = "Qwen/Qwen2.5-3B-Instruct"
@@ -548,12 +548,8 @@ Have a conversation with an AI using your reference voice!
             show_info("Chat model loaded.")
         
         return gr.update(visible=False), gr.update(visible=True)
-
-    load_chat_model_btn.click(
-        load_chat_model,
-        outputs=[load_chat_model_btn, chat_interface_container]
-    )
-
+ 
+    load_chat_model_btn.click(load_chat_model, outputs=[load_chat_model_btn, chat_interface_container])
 
     with chat_interface_container:
         with gr.Row():
