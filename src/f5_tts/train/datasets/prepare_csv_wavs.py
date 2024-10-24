@@ -60,7 +60,7 @@ def read_audio_text_pairs(csv_file_path):
     audio_text_pairs = []
 
     parent = Path(csv_file_path).parent
-    with open(csv_file_path, mode="r", newline="", encoding="utf-8") as csvfile:
+    with open(csv_file_path, mode="r", newline="", encoding="utf-8-sig") as csvfile:
         reader = csv.reader(csvfile, delimiter="|")
         next(reader)  # Skip the header row
         for row in reader:

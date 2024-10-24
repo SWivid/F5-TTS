@@ -183,6 +183,7 @@ Currently supported features:
 - Chunk inference
 - Podcast Generation
 - Multiple Speech-Type Generation
+- Voice Chat powered by Qwen2.5-3B-Instruct
 
 You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may also use local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
 
