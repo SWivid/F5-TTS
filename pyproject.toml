@@ -55,4 +55,5 @@ eval = [
 Homepage = "https://github.com/SWivid/F5-TTS"
 
 [project.scripts]
-"inference-cli" = "f5_tts.inference_cli:main"
+"f5-tts_infer-cli" = "f5_tts.infer.infer_cli:main"
+"f5-tts_infer-gradio" = "f5_tts.infer.infer_gradio:main"

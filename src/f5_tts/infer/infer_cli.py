@@ -21,15 +21,15 @@ from f5_tts.infer.utils_infer import (
 
 
 parser = argparse.ArgumentParser(
-    prog="python3 inference-cli.py",
+    prog="python3 infer-cli.py",
     description="Commandline interface for E2/F5 TTS with Advanced Batch Processing.",
-    epilog="Specify  options above  to override  one or more settings from config.",
+    epilog="Specify options above to override one or more settings from config.",
 )
 parser.add_argument(
     "-c",
     "--config",
-    help="Configuration file. Default=inference-cli.toml",
-    default=os.path.join(files("f5_tts").joinpath("data"), "inference-cli.toml"),
+    help="Configuration file. Default=infer/examples/basic/basic.toml",
+    default=os.path.join(files("f5_tts").joinpath("infer/examples/basic"), "basic.toml"),
 )
 parser.add_argument(
     "-m",
@@ -80,6 +80,8 @@ args = parser.parse_args()
 config = tomli.load(open(args.config, "rb"))
 
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
+if "src/f5_tts/infer/examples/basic" in ref_audio:  # for pip pkg user
+    ref_audio = str(files("f5_tts").joinpath(f"../../{ref_audio}"))
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
 gen_file = args.gen_file if args.gen_file else config["gen_file"]
@@ -90,8 +92,8 @@ model = args.model if args.model else config["model"]
 ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
-wave_path = Path(output_dir) / "out.wav"
-spectrogram_path = Path(output_dir) / "out.png"
+wave_path = Path(output_dir) / "infer_cli_out.wav"
+# spectrogram_path = Path(output_dir) / "infer_cli_out.png"
 vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
 
 vocos = load_vocoder(is_local=args.load_vocoder_from_local, local_path=vocos_local_path)
@@ -161,6 +163,10 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence):
 
     if generated_audio_segments:
         final_wave = np.concatenate(generated_audio_segments)
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         with open(wave_path, "wb") as f:
             sf.write(f.name, final_wave, final_sample_rate)
             # Remove silence
