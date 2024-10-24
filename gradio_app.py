@@ -12,7 +12,6 @@ import torchaudio
 from cached_path import cached_path
 from pydub import AudioSegment
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 
 try:
     import spaces
@@ -57,12 +56,9 @@ E2TTS_ema_model = load_model(
 
 # Initialize Qwen model and tokenizer
 model_name = "Qwen/Qwen2.5-3B-Instruct"
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype="auto",
-    device_map="auto"
-)
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
 tokenizer = AutoTokenizer.from_pretrained(model_name)
+
 
 def generate_response(messages):
     """Generate response using Qwen"""
@@ -81,10 +77,10 @@ def generate_response(messages):
     )
 
     generated_ids = [
-        output_ids[len(input_ids) :]
-        for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        output_ids[len(input_ids) :] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
     ]
     return tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
 
 @gpu_decorator
 def infer(ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15, speed=1):
@@ -523,7 +519,7 @@ with gr.Blocks() as app_emotional:
         inputs=[gen_text_input_emotional, regular_name] + speech_type_names,
         outputs=generate_emotional_btn,
     )
-    
+
 
 with gr.Blocks() as app_chat:
     gr.Markdown(
@@ -567,9 +563,7 @@ Have a conversation with an AI using your reference voice!
 
     with gr.Row():
         with gr.Column():
-            audio_output_chat = gr.Audio(
-                autoplay=True
-            )
+            audio_output_chat = gr.Audio(autoplay=True)
         with gr.Column():
             audio_input_chat = gr.Microphone(
                 label="Or speak your message",
@@ -592,7 +586,7 @@ Have a conversation with an AI using your reference voice!
         if not audio_path:
             return history, conv_state, ""
 
-        text = ''
+        text = ""
         text = preprocess_ref_audio_text(audio_path, text)[1]
 
         if not text.strip():
@@ -683,7 +677,10 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 **NOTE: Reference text will be automatically transcribed with Whisper if not provided. For best results, keep your reference clips short (<15s). Ensure the audio is fully uploaded before generating.**
 """
     )
-    gr.TabbedInterface([app_tts, app_podcast, app_emotional, app_chat, app_credits], ["TTS", "Podcast", "Multi-Style", "Voice-Chat", "Credits"])
+    gr.TabbedInterface(
+        [app_tts, app_podcast, app_emotional, app_chat, app_credits],
+        ["TTS", "Podcast", "Multi-Style", "Voice-Chat", "Credits"],
+    )
 
 
 @click.command()
