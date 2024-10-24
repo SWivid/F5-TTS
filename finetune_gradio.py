@@ -418,7 +418,7 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
             except:  # noqa: E722
                 error_num += 1
 
-    with open(file_metadata, "w", encoding="utf-8") as f:
+    with open(file_metadata, "w", encoding="utf-8-sig") as f:
         f.write(data)
 
     if error_num != []:
@@ -448,7 +448,7 @@ def create_metadata(name_project, progress=gr.Progress()):
     if not os.path.isfile(file_metadata):
         return "The file was not found in " + file_metadata
 
-    with open(file_metadata, "r", encoding="utf-8") as f:
+    with open(file_metadata, "r", encoding="utf-8-sig") as f:
         data = f.read()
 
     audio_path_list = []
@@ -627,7 +627,7 @@ def vocab_check(project_name):
     if not os.path.isfile(file_metadata):
         return f"the file {file_metadata} not found !"
 
-    with open(file_metadata, "r", encoding="utf-8") as f:
+    with open(file_metadata, "r", encoding="utf-8-sig") as f:
         data = f.read()
 
     miss_symbols = []
@@ -672,7 +672,7 @@ def get_random_sample_transcribe(project_name):
         return "", None
 
     data = ""
-    with open(file_metadata, "r", encoding="utf-8") as f:
+    with open(file_metadata, "r", encoding="utf-8-sig") as f:
         data = f.read()
 
     list_data = []
