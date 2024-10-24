@@ -186,13 +186,12 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=
         non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000)
         non_silent_wave = AudioSegment.silent(duration=0)
         for non_silent_seg in non_silent_segs:
+            if len(non_silent_wave) > 10000 and len(non_silent_wave + non_silent_seg) > 18000:
+                show_info("Audio is over 18s, clipping short.")
+                break
             non_silent_wave += non_silent_seg
         aseg = non_silent_wave
 
-        audio_duration = len(aseg)
-        if audio_duration > 15000:
-            show_info("Audio is over 15s, clipping to only first 15s.")
-            aseg = aseg[:15000]
         aseg.export(f.name, format="wav")
         ref_audio = f.name
 
