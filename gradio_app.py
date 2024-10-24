@@ -566,7 +566,7 @@ Have a conversation with an AI using your reference voice!
             audio_output_chat = gr.Audio(autoplay=True)
         with gr.Column():
             audio_input_chat = gr.Microphone(
-                label="Or speak your message",
+                label="Speak your message",
                 type="filepath",
             )
 
