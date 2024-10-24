@@ -1,14 +1,21 @@
 import random
 import sys
 import tqdm
+from importlib.resources import files
 
 import soundfile as sf
 import torch
 from cached_path import cached_path
 
 from f5_tts.model import DiT, UNetT
-from f5_tts.model.utils import seed_everything, save_spectrogram
-from f5_tts.model.utils_infer import load_vocoder, load_model, infer_process, remove_silence_for_generated_wav
+from f5_tts.model.utils import seed_everything
+from f5_tts.infer.utils_infer import (
+    load_vocoder,
+    load_model,
+    infer_process,
+    remove_silence_for_generated_wav,
+    save_spectrogram,
+)
 
 
 class F5TTS:
@@ -120,11 +127,11 @@ if __name__ == "__main__":
     f5tts = F5TTS()
 
     wav, sr, spect = f5tts.infer(
-        ref_file="tests/ref_audio/test_en_1_ref_short.wav",
+        ref_file=str(files("f5_tts").joinpath("infer/examples/basic/basic_ref_en.wav")),
         ref_text="some call me nature, others call me mother nature.",
         gen_text="""I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences.""",
-        file_wave="tests/out.wav",
-        file_spect="tests/out.png",
+        file_wave=str(files("f5_tts").joinpath("../../api_test_out.wav")),
+        file_spect=str(files("f5_tts").joinpath("../../api_test_out.png")),
         seed=-1,  # random seed = -1
     )
 
