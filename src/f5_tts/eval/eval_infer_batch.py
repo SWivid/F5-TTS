@@ -4,7 +4,6 @@ import os
 sys.path.append(os.getcwd())
 
 import time
-import random
 from tqdm import tqdm
 import argparse
 from importlib.resources import files
@@ -97,8 +96,6 @@ def main():
         metainfo = get_seedtts_testset_metainfo(metalst)
 
     # path to save genereted wavs
-    if seed is None:
-        seed = random.randint(-10000, 10000)
     output_dir = (
         f"results/{exp_name}_{ckpt_step}/{testset}/"
         f"seed{seed}_{ode_method}_nfe{nfe_step}"
