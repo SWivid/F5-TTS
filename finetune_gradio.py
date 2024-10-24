@@ -281,6 +281,7 @@ def start_training(
     yield "start train", gr.update(interactive=False), gr.update(interactive=False)
 
     # Command to run the training script with the specified arguments
+    dataset_name = dataset_name.replace("_pinyin", "").replace("_char", "")
     cmd = (
         f"accelerate launch finetune-cli.py --exp_name {exp_name} "
         f"--learning_rate {learning_rate} "
@@ -792,6 +793,7 @@ def check_finetune(finetune):
 def get_checkpoints_project(project_name, is_gradio=True):
     if project_name is None:
         return [], ""
+    project_name = project_name.replace("_pinyin", "").replace("_char", "")
     path_project_ckpts = os.path.join("ckpts", project_name)
 
     if os.path.isdir(path_project_ckpts):
