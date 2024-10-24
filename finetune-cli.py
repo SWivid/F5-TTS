@@ -19,9 +19,9 @@ def parse_args():
     # batch_size_per_gpu = 2000 settting for gpu 16GB
     # batch_size_per_gpu = 3200 settting for gpu 24GB
 
-    # num_warmup_updates 10000 sample = 500
+    # num_warmup_updates = 300 for 5000 sample about 10 hours
 
-    # change save_per_updates , last_per_steps what you need ,
+    # change save_per_updates , last_per_steps change this value what you need  ,
 
     parser = argparse.ArgumentParser(description="Train CFM Model")
 
@@ -38,11 +38,12 @@ def parse_args():
     parser.add_argument("--grad_accumulation_steps", type=int, default=1, help="Gradient accumulation steps")
     parser.add_argument("--max_grad_norm", type=float, default=1.0, help="Max gradient norm for clipping")
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
-    parser.add_argument("--num_warmup_updates", type=int, default=500, help="Warmup steps")
+    parser.add_argument("--num_warmup_updates", type=int, default=300, help="Warmup steps")
     parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X steps")
-    parser.add_argument("--last_per_steps", type=int, default=20000, help="Save last checkpoint every X steps")
+    parser.add_argument("--last_per_steps", type=int, default=50000, help="Save last checkpoint every X steps")
     parser.add_argument("--finetune", type=bool, default=True, help="Use Finetune")
     parser.add_argument("--pretrain", type=str, default=None, help="Use pretrain model for finetune")
+
     parser.add_argument(
         "--tokenizer", type=str, default="pinyin", choices=["pinyin", "char", "custom"], help="Tokenizer type"
     )
@@ -124,7 +125,7 @@ def main():
         max_samples=args.max_samples,
         grad_accumulation_steps=args.grad_accumulation_steps,
         max_grad_norm=args.max_grad_norm,
-        wandb_project="CFM-TTS",
+        wandb_project=args.dataset_name,
         wandb_run_name=args.exp_name,
         wandb_resume_id=wandb_resume_id,
         last_per_steps=args.last_per_steps,
