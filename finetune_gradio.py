@@ -250,6 +250,7 @@ def start_training(
     file_checkpoint_train="",
     tokenizer_type="pinyin",
     tokenizer_file="",
+    mixed_precision="fp16",
 ):
     global training_process, tts_api
 
@@ -281,9 +282,24 @@ def start_training(
     yield "start train", gr.update(interactive=False), gr.update(interactive=False)
 
     # Command to run the training script with the specified arguments
+
+    if tokenizer_file == "":
+        if dataset_name.endswith("_pinyin"):
+            tokenizer_type = "pinyin"
+        elif dataset_name.endswith("_char"):
+            tokenizer_type = "char"
+    else:
+        tokenizer_file = "custom"
+
     dataset_name = dataset_name.replace("_pinyin", "").replace("_char", "")
+
+    if mixed_precision != "none":
+        fp16 = f"--mixed_precision={mixed_precision}"
+    else:
+        fp16 = ""
+
     cmd = (
-        f"accelerate launch finetune-cli.py --exp_name {exp_name} "
+        f"accelerate launch {fp16} finetune-cli.py --exp_name {exp_name} "
         f"--learning_rate {learning_rate} "
         f"--batch_size_per_gpu {batch_size_per_gpu} "
         f"--batch_size_type {batch_size_type} "
@@ -304,7 +320,8 @@ def start_training(
 
     if tokenizer_file != "":
         cmd += f" --tokenizer_path {tokenizer_file}"
-        cmd += " --tokenizer custom"
+
+    cmd += f" --tokenizer {tokenizer_type}"
 
     print(cmd)
 
@@ -1060,6 +1077,7 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
                 last_per_steps = gr.Number(label="Last per Steps", value=50)
 
             with gr.Row():
+                mixed_precision = gr.Radio(label="mixed_precision", choices=["none", "fp16", "fpb16"], value="none")
                 start_button = gr.Button("Start Training")
                 stop_button = gr.Button("Stop Training", interactive=False)
 
@@ -1083,6 +1101,7 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
                     file_checkpoint_train,
                     tokenizer_type,
                     tokenizer_file,
+                    mixed_precision,
                 ],
                 outputs=[txt_info_train, start_button, stop_button],
             )
