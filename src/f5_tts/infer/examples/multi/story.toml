@@ -1,19 +1,19 @@
 # F5-TTS | E2-TTS
 model = "F5-TTS"
-ref_audio = "src/f5_tts/infer/examples/multi/main.flac"
+ref_audio = "infer/examples/multi/main.flac"
 # If an empty "", transcribes the reference audio automatically.
 ref_text = ""
 gen_text = ""
 # File with text to generate. Ignores the text above.
-gen_file = "src/f5_tts/infer/examples/multi/story.txt"
+gen_file = "infer/examples/multi/story.txt"
 remove_silence = true
 output_dir = "tests"
 
 [voices.town]
-ref_audio = "src/f5_tts/infer/examples/multi/town.flac"
+ref_audio = "infer/examples/multi/town.flac"
 ref_text = ""
 
 [voices.country]
-ref_audio = "src/f5_tts/infer/examples/multi/country.flac"
+ref_audio = "infer/examples/multi/country.flac"
 ref_text = ""
 
