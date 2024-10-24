@@ -827,7 +827,6 @@ def infer(file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step):
     else:
         device_test = None
 
-    device_test = "cpu"
     if last_checkpoint != file_checkpoint or last_device != device_test:
         if last_checkpoint != file_checkpoint:
             last_checkpoint = file_checkpoint
