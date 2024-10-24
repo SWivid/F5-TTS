@@ -1,14 +1,15 @@
 # generate audio text map for WenetSpeech4TTS
 # evaluate for vocab size
 
-import sys
 import os
+import sys
 
 sys.path.append(os.getcwd())
 
 import json
-from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
+from importlib.resources import files
+from tqdm import tqdm
 
 import torchaudio
 from datasets import Dataset
@@ -66,11 +67,11 @@ def main():
     if not os.path.exists("data"):
         os.makedirs("data")
 
-    print(f"\nSaving to data/{dataset_name}_{tokenizer} ...")
+    print(f"\nSaving to {save_dir} ...")
     dataset = Dataset.from_dict({"audio_path": audio_path_list, "text": text_list, "duration": duration_list})
-    dataset.save_to_disk(f"data/{dataset_name}_{tokenizer}/raw", max_shard_size="2GB")  # arrow format
+    dataset.save_to_disk(f"{save_dir}/raw", max_shard_size="2GB")  # arrow format
 
-    with open(f"data/{dataset_name}_{tokenizer}/duration.json", "w", encoding="utf-8") as f:
+    with open(f"{save_dir}/duration.json", "w", encoding="utf-8") as f:
         json.dump(
             {"duration": duration_list}, f, ensure_ascii=False
         )  # dup a json separately saving duration in case for DynamicBatchSampler ease
@@ -84,7 +85,7 @@ def main():
     if tokenizer == "pinyin":
         text_vocab_set.update([chr(i) for i in range(32, 127)] + [chr(i) for i in range(192, 256)])
 
-    with open(f"data/{dataset_name}_{tokenizer}/vocab.txt", "w") as f:
+    with open(f"{save_dir}/vocab.txt", "w") as f:
         for vocab in sorted(text_vocab_set):
             f.write(vocab + "\n")
     print(f"\nFor {dataset_name}, sample count: {len(text_list)}")
@@ -98,13 +99,18 @@ if __name__ == "__main__":
     polyphone = True
     dataset_choice = 1  # 1: Premium, 2: Standard, 3: Basic
 
-    dataset_name = ["WenetSpeech4TTS_Premium", "WenetSpeech4TTS_Standard", "WenetSpeech4TTS_Basic"][dataset_choice - 1]
+    dataset_name = (
+        ["WenetSpeech4TTS_Premium", "WenetSpeech4TTS_Standard", "WenetSpeech4TTS_Basic"][dataset_choice - 1]
+        + "_"
+        + tokenizer
+    )
     dataset_paths = [
         "<SOME_PATH>/WenetSpeech4TTS/Basic",
         "<SOME_PATH>/WenetSpeech4TTS/Standard",
         "<SOME_PATH>/WenetSpeech4TTS/Premium",
     ][-dataset_choice:]
-    print(f"\nChoose Dataset: {dataset_name}\n")
+    save_dir = str(files("f5_tts").joinpath("../../")) + f"/data/{dataset_name}"
+    print(f"\nChoose Dataset: {dataset_name}, will save to {save_dir}\n")
 
     main()
 

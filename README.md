@@ -65,70 +65,6 @@ pre-commit run --all-files
 
 Note: Some model components have linting exceptions for E722 to accommodate tensor notation
 
-## Prepare Dataset
-
-Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `f5_tts/model/dataset.py`.
-
-```bash
-# switch to the main directory
-cd f5_tts
-
-# prepare custom dataset up to your need
-# download corresponding dataset first, and fill in the path in scripts
-
-# Prepare the Emilia dataset
-python scripts/prepare_emilia.py
-
-# Prepare the Wenetspeech4TTS dataset
-python scripts/prepare_wenetspeech4tts.py
-
-# https://github.com/SWivid/F5-TTS/discussions/57#discussioncomment-10959029
-python scripts/prepare_csv_wavs.py
-```
-
-## Training & Finetuning
-
-Once your datasets are prepared, you can start the training process.
-
-```bash
-# switch to the main directory
-cd f5_tts
-
-# setup accelerate config, e.g. use multi-gpu ddp, fp16
-# will be to: ~/.cache/huggingface/accelerate/default_config.yaml     
-accelerate config
-accelerate launch train.py
-```
-An initial guidance on Finetuning [#57](https://github.com/SWivid/F5-TTS/discussions/57).
-
-Gradio UI finetuning with `f5_tts/finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
-
-### Wandb Logging
-
-By default, the training script does NOT use logging (assuming you didn't manually log in using `wandb login`).
-
-To turn on wandb logging, you can either:
-
-1. Manually login with `wandb login`: Learn more [here](https://docs.wandb.ai/ref/cli/wandb-login)
-2. Automatically login programmatically by setting an environment variable: Get an API KEY at https://wandb.ai/site/ and set the environment variable as follows:
-
-On Mac & Linux:
-
-```
-export WANDB_API_KEY=<YOUR WANDB API KEY>
-```
-
-On Windows:
-
-```
-set WANDB_API_KEY=<YOUR WANDB API KEY>
-```
-Moreover, if you couldn't access Wandb and want to log metrics offline, you can the environment variable as follows:
-
-```
-export WANDB_MODE=offline
-```
-
 ## Inference
 
 ```python
@@ -214,6 +150,8 @@ To test speech editing capabilities, use the following command.
 ```bash
 python f5_tts/speech_edit.py
 ```
+
+## [Training](src/f5_tts/train/README.md)
 
 ## [Evaluation](src/f5_tts/eval/README.md)
 

@@ -1,14 +1,15 @@
 import json
 import random
+from importlib.resources import files
 from tqdm import tqdm
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset, Sampler
 import torchaudio
+from torch import nn
+from torch.utils.data import Dataset, Sampler
 from datasets import load_from_disk
 from datasets import Dataset as Dataset_
-from torch import nn
 
 from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import default
@@ -221,16 +222,17 @@ def load_dataset(
     print("Loading dataset ...")
 
     if dataset_type == "CustomDataset":
+        rel_data_path = str(files("f5_tts").joinpath(f"../../data/{dataset_name}_{tokenizer}"))
         if audio_type == "raw":
             try:
-                train_dataset = load_from_disk(f"data/{dataset_name}_{tokenizer}/raw")
+                train_dataset = load_from_disk(f"{rel_data_path}/raw")
             except:  # noqa: E722
-                train_dataset = Dataset_.from_file(f"data/{dataset_name}_{tokenizer}/raw.arrow")
+                train_dataset = Dataset_.from_file(f"{rel_data_path}/raw.arrow")
             preprocessed_mel = False
         elif audio_type == "mel":
-            train_dataset = Dataset_.from_file(f"data/{dataset_name}_{tokenizer}/mel.arrow")
+            train_dataset = Dataset_.from_file(f"{rel_data_path}/mel.arrow")
             preprocessed_mel = True
-        with open(f"data/{dataset_name}_{tokenizer}/duration.json", "r", encoding="utf-8") as f:
+        with open(f"{rel_data_path}/duration.json", "r", encoding="utf-8") as f:
             data_dict = json.load(f)
         durations = data_dict["duration"]
         train_dataset = CustomDataset(
@@ -261,7 +263,7 @@ def load_dataset(
         )
         pre, post = dataset_name.split("_")
         train_dataset = HFDataset(
-            load_dataset(f"{pre}/{pre}", split=f"train.{post}", cache_dir="./data"),
+            load_dataset(f"{pre}/{pre}", split=f"train.{post}", cache_dir=str(files("f5_tts").joinpath("../../data"))),
         )
 
     return train_dataset
