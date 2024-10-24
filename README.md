@@ -66,14 +66,14 @@ f5-tts_infer-gradio
 
 ### 2. More instructions
 
-- In order to have better generation results, take a moment to read [detailed guidance](src/f5_tts/infer/README.md).
+- In order to have better generation results, take a moment to read [detailed guidance](src/f5_tts/infer).
 - The [Issues](https://github.com/SWivid/F5-TTS/issues?q=is%3Aissue) are very useful, please try to find the solution by properly searching the keywords of problem encountered. If no answer found, then feel free to open an issue.
 
 
-## [Training](src/f5_tts/train/README.md)
+## [Training](src/f5_tts/train)
 
 
-## [Evaluation](src/f5_tts/eval/README.md)
+## [Evaluation](src/f5_tts/eval)
 
 
 ## Development
