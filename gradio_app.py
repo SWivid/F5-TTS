@@ -58,6 +58,7 @@ E2TTS_ema_model = load_model(
 chat_model_state = None
 chat_tokenizer_state = None
 
+
 def generate_response(messages, model, tokenizer):
     """Generate response using Qwen"""
     text = tokenizer.apply_chat_template(
@@ -532,7 +533,6 @@ Have a conversation with an AI using your reference voice!
 """
     )
 
-
     load_chat_model_btn = gr.Button("Load Chat Model", variant="primary")
 
     chat_interface_container = gr.Column(visible=False)
@@ -546,9 +546,8 @@ Have a conversation with an AI using your reference voice!
             chat_model_state = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
             chat_tokenizer_state = AutoTokenizer.from_pretrained(model_name)
             show_info("Chat model loaded.")
-        
         return gr.update(visible=False), gr.update(visible=True)
- 
+
     load_chat_model_btn.click(load_chat_model, outputs=[load_chat_model_btn, chat_interface_container])
 
     with chat_interface_container:
