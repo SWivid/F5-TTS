@@ -1,8 +1,8 @@
-## Inference
+# Inference
 
 The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or will be automatically downloaded when running inference scripts.
 
-Currently support **30s for a single** generation, which is the **total length** including both prompt and output audio. However, you can leverage `infer_cli` and `infer_gradio` for longer text, will automatically do chunk generation. Long reference audio will be clip short to ~15s.
+Currently support **30s for a single** generation, which is the **total length** including both prompt and output audio. However, you can provide `infer_cli` and `infer_gradio` with longer text, will automatically do chunk generation. Long reference audio will be **clip short to ~15s**.
 
 To avoid possible inference failures, make sure you have seen through the following instructions.
 
@@ -10,68 +10,23 @@ To avoid possible inference failures, make sure you have seen through the follow
 - Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses.
 - Preprocess numbers to Chinese letters if you want to have them read in Chinese, otherwise in English.
 
-# TODO 👇 ...
 
-### CLI Inference
+## Gradio App
 
-It is possible to use cli `f5-tts_infer-cli` for following commands.
-
-Either you can specify everything in `inference-cli.toml` or override with flags. Leave `--ref_text ""` will have ASR model transcribe the reference audio automatically (use extra GPU memory). If encounter network error, consider use local ckpt, just set `ckpt_file` in `inference-cli.py`
-
-for change model use `--ckpt_file` to specify the model you want to load,  
-for change vocab.txt use `--vocab_file` to provide your vocab.txt file.
-
-```bash
-# switch to the main directory
-cd f5_tts
-
-python inference-cli.py \
---model "F5-TTS" \
---ref_audio "tests/ref_audio/test_en_1_ref_short.wav" \
---ref_text "Some call me nature, others call me mother nature." \
---gen_text "I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences."
-
-python inference-cli.py \
---model "E2-TTS" \
---ref_audio "tests/ref_audio/test_zh_1_ref_short.wav" \
---ref_text "对，这就是我，万人敬仰的太乙真人。" \
---gen_text "突然，身边一阵笑声。我看着他们，意气风发地挺直了胸膛，甩了甩那稍显肉感的双臂，轻笑道，我身上的肉，是为了掩饰我爆棚的魅力，否则，岂不吓坏了你们呢？"
-
-# Multi voice
-# https://github.com/SWivid/F5-TTS/pull/146#issue-2595207852
-python inference-cli.py -c samples/story.toml
-```
-
-### Gradio App
 Currently supported features:
-- Chunk inference
-- Podcast Generation
-- Multiple Speech-Type Generation
+
+- Basic TTS with Chunk Inference
+- Multi-Style / Multi-Speaker Generation
 - Voice Chat powered by Qwen2.5-3B-Instruct
 
-It is possible to use cli `f5-tts_infer-gradio` for following commands.
+The cli command `f5-tts_infer-gradio` equals to `python src/f5_tts/infer/infer_gradio.py`, which launches a Gradio APP (web interface) for inference.
 
-You can launch a Gradio app (web interface) to launch a GUI for inference (will load ckpt from Huggingface, you may also use local file in `gradio_app.py`). Currently load ASR model, F5-TTS and E2 TTS all in once, thus use more GPU memory than `inference-cli`.
+The script will load model checkpoints from Huggingface. You can also manually download files and update the path to `load_model()` in `infer_gradio.py`. Currently only load TTS models first, will load ASR model to do transcription if `ref_text` not provided, will load LLM model if use Voice Chat.
 
-```bash
-python f5_tts/gradio_app.py
-```
-
-You can specify the port/host:
-
-```bash
-python f5_tts/gradio_app.py --port 7860 --host 0.0.0.0
-```
-
-Or launch a share link:
-
-```bash
-python f5_tts/gradio_app.py --share
-```
-
+Could also be used as a component for larger application.
 ```python
 import gradio as gr
-from f5_tts.gradio_app import app
+from f5_tts.infer.infer_gradio import app
 
 with gr.Blocks() as main_app:
     gr.Markdown("# This is an example of using F5-TTS within a bigger Gradio app")
@@ -83,10 +38,74 @@ with gr.Blocks() as main_app:
 main_app.launch()
 ```
 
-### Speech Editing
 
-To test speech editing capabilities, use the following command.
+## CLI Inference
+
+The cli command `f5-tts_infer-cli` equals to `python src/f5_tts/infer/infer_cli.py`, which is a command line tool for inference.
+
+The script will load model checkpoints from Huggingface. You can also manually download files and use `--ckpt_file` to specify the model you want to load, or directly update in `infer_cli.py`.
+
+For change vocab.txt use `--vocab_file` to provide your `vocab.txt` file.
+
+Basically you can inference with flags:
+```bash
+# Leave --ref_text "" will have ASR model transcribe (extra GPU memory usage)
+f5-tts_infer-cli \
+--model "F5-TTS" \
+--ref_audio "ref_audio.wav" \
+--ref_text "The content, subtitle or transcription of reference audio." \
+--gen_text "Some text you want TTS model generate for you."
+```
+
+And a `.toml` file would help with more flexible usage.
 
 ```bash
-python f5_tts/speech_edit.py
+f5-tts_infer-cli -c custom.toml
+```
+
+For example, you can use `.toml` to pass in variables, refer to `src/f5_tts/infer/examples/basic/basic.toml`:
+
+```toml
+# F5-TTS | E2-TTS
+model = "F5-TTS"
+ref_audio = "infer/examples/basic/basic_ref_en.wav"
+# If an empty "", transcribes the reference audio automatically.
+ref_text = "Some call me nature, others call me mother nature."
+gen_text = "I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring."
+# File with text to generate. Ignores the text above.
+gen_file = ""
+remove_silence = false
+output_dir = "tests"
+```
+
+You can also leverage `.toml` file to do multi-style generation, refer to `src/f5_tts/infer/examples/multi/story.toml`.
+
+```toml
+# F5-TTS | E2-TTS
+model = "F5-TTS"
+ref_audio = "infer/examples/multi/main.flac"
+# If an empty "", transcribes the reference audio automatically.
+ref_text = ""
+gen_text = ""
+# File with text to generate. Ignores the text above.
+gen_file = "infer/examples/multi/story.txt"
+remove_silence = true
+output_dir = "tests"
+
+[voices.town]
+ref_audio = "infer/examples/multi/town.flac"
+ref_text = ""
+
+[voices.country]
+ref_audio = "infer/examples/multi/country.flac"
+ref_text = ""
+```
+You should mark the voice with `[main]` `[town]` `[country]` whenever you want to change voice, refer to `src/f5_tts/infer/examples/multi/story.txt`.
+
+## Speech Editing
+
+To test speech editing capabilities, use the following command:
+
+```bash
+python src/f5_tts/infer/speech_edit.py
 ```
