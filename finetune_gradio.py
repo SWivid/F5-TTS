@@ -392,7 +392,7 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
     path_project_wavs = os.path.join(path_project, "wavs")
     file_metadata = os.path.join(path_project, "metadata.csv")
 
-    if user == False:
+    if not user:
         if audio_files is None:
             return "You need to load an audio file."
 
@@ -625,7 +625,7 @@ def calculate_train(
     mini_batch_frames = frames_per_gpu * grad_accum * gpus
     mini_batch_hours = mini_batch_frames * mel_hop_length / mel_sampling_rate / 3600
     updates_per_epoch = total_hours / mini_batch_hours
-    steps_per_epoch = updates_per_epoch * grad_accum
+    # steps_per_epoch = updates_per_epoch * grad_accum
     epochs = wanted_max_updates / updates_per_epoch
 
     if finetune:
