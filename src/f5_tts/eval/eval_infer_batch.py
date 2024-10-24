@@ -14,9 +14,9 @@ from accelerate import Accelerator
 from vocos import Vocos
 
 from f5_tts.model import CFM, UNetT, DiT
-from f5_tts.model.utils import (
-    load_checkpoint,
-    get_tokenizer,
+from f5_tts.model.utils import get_tokenizer
+from f5_tts.infer.utils_infer import load_checkpoint
+from f5_tts.eval.utils_eval import (
     get_seedtts_testset_metainfo,
     get_librispeech_test_clean_metainfo,
     get_inference_prompt,
@@ -34,6 +34,7 @@ hop_length = 256
 target_rms = 0.1
 
 tokenizer = "pinyin"
+rel_path = str(files("f5_tts").joinpath("../../"))
 
 
 def main():
@@ -58,7 +59,7 @@ def main():
     dataset_name = args.dataset
     exp_name = args.expname
     ckpt_step = args.ckptstep
-    ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.pt"
+    ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
 
     nfe_step = args.nfestep
     ode_method = args.odemethod
@@ -80,23 +81,22 @@ def main():
         model_cls = UNetT
         model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
 
-    datapath = files("f5_tts").joinpath("data")
-
     if testset == "ls_pc_test_clean":
-        metalst = os.path.join(datapath, "librispeech_pc_test_clean_cross_sentence.lst")
+        metalst = rel_path + "/data/librispeech_pc_test_clean_cross_sentence.lst"
         librispeech_test_clean_path = "<SOME_PATH>/LibriSpeech/test-clean"  # test-clean path
         metainfo = get_librispeech_test_clean_metainfo(metalst, librispeech_test_clean_path)
 
     elif testset == "seedtts_test_zh":
-        metalst = os.path.join(datapath, "seedtts_testset/zh/meta.lst")
+        metalst = rel_path + "/data/seedtts_testset/zh/meta.lst"
         metainfo = get_seedtts_testset_metainfo(metalst)
 
     elif testset == "seedtts_test_en":
-        metalst = os.path.join(datapath, "seedtts_testset/en/meta.lst")
+        metalst = rel_path + "/data/seedtts_testset/en/meta.lst"
         metainfo = get_seedtts_testset_metainfo(metalst)
 
     # path to save genereted wavs
     output_dir = (
+        f"{rel_path}/"
         f"results/{exp_name}_{ckpt_step}/{testset}/"
         f"seed{seed}_{ode_method}_nfe{nfe_step}"
         f"{f'_ss{sway_sampling_coef}' if sway_sampling_coef else ''}"

@@ -81,6 +81,9 @@ python scripts/prepare_emilia.py
 
 # Prepare the Wenetspeech4TTS dataset
 python scripts/prepare_wenetspeech4tts.py
+
+# https://github.com/SWivid/F5-TTS/discussions/57#discussioncomment-10959029
+python scripts/prepare_csv_wavs.py
 ```
 
 ## Training & Finetuning
@@ -175,6 +178,7 @@ python inference-cli.py \
 --gen_text "突然，身边一阵笑声。我看着他们，意气风发地挺直了胸膛，甩了甩那稍显肉感的双臂，轻笑道，我身上的肉，是为了掩饰我爆棚的魅力，否则，岂不吓坏了你们呢？"
 
 # Multi voice
+# https://github.com/SWivid/F5-TTS/pull/146#issue-2595207852
 python inference-cli.py -c samples/story.toml
 ```
 
@@ -211,54 +215,7 @@ To test speech editing capabilities, use the following command.
 python f5_tts/speech_edit.py
 ```
 
-## Evaluation
-
-### Prepare Test Datasets
-
-1. Seed-TTS test set: Download from [seed-tts-eval](https://github.com/BytedanceSpeech/seed-tts-eval).
-2. LibriSpeech test-clean: Download from [OpenSLR](http://www.openslr.org/12/).
-3. Unzip the downloaded datasets and place them in the data/ directory.
-4. Update the path for the test-clean data in `scripts/eval_infer_batch.py`
-5. Our filtered LibriSpeech-PC 4-10s subset is already under data/ in this repo
-
-### Batch Inference for Test Set
-
-To run batch inference for evaluations, execute the following commands:
-
-```bash
-# switch to the main directory
-cd f5_tts
-
-# batch inference for evaluations
-accelerate config  # if not set before
-bash scripts/eval_infer_batch.sh
-```
-
-### Download Evaluation Model Checkpoints
-
-1. Chinese ASR Model: [Paraformer-zh](https://huggingface.co/funasr/paraformer-zh)
-2. English ASR Model: [Faster-Whisper](https://huggingface.co/Systran/faster-whisper-large-v3)
-3. WavLM Model: Download from [Google Drive](https://drive.google.com/file/d/1-aE1NfzpRCLxA4GUxX9ITI3F9LlbtEGP/view).
-
-### Objective Evaluation
-
-Install packages for evaluation:
-
-```bash
-pip install -e .[eval]
-```
-
-Update the path with your batch-inferenced results, and carry out WER / SIM evaluations:
-```bash
-# switch to the main directory
-cd f5_tts
-
-# Evaluation for Seed-TTS test set
-python scripts/eval_seedtts_testset.py
-
-# Evaluation for LibriSpeech-PC test-clean (cross-sentence)
-python scripts/eval_librispeech_test_clean.py
-```
+## [Evaluation](src/f5_tts/eval/README.md)
 
 ## Acknowledgements
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 import random
-from importlib.resources import files
 from collections import defaultdict
+from importlib.resources import files
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -109,7 +109,7 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
                 - if use "byte", set to 256 (unicode byte range)
     """
     if tokenizer in ["pinyin", "char"]:
-        tokenizer_path = os.path.join(files("f5_tts").joinpath("data"), f"{dataset_name}_{tokenizer}/vocab.txt")
+        tokenizer_path = os.path.join(files("f5_tts").joinpath("../../data"), f"{dataset_name}_{tokenizer}/vocab.txt")
         with open(tokenizer_path, "r", encoding="utf-8") as f:
             vocab_char_map = {}
             for i, char in enumerate(f):
@@ -120,6 +120,7 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
     elif tokenizer == "byte":
         vocab_char_map = None
         vocab_size = 256
+
     elif tokenizer == "custom":
         with open(dataset_name, "r", encoding="utf-8") as f:
             vocab_char_map = {}
