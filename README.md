@@ -54,17 +54,46 @@ docker build -t f5tts:v1 .
 
 ## Inference
 
-### 1. Basic usage
+### 1. Gradio App
+
+Currently supported features:
+
+- Basic TTS with Chunk Inference
+- Multi-Style / Multi-Speaker Generation
+- Voice Chat powered by Qwen2.5-3B-Instruct
 
 ```bash
-# cli inference
-f5-tts_infer-cli
-
-# gradio interface
+# Launch a Gradio app (web interface)
 f5-tts_infer-gradio
+
+# Specify the port/host
+f5-tts_infer-gradio --port 7860 --host 0.0.0.0
+
+# Launch a share link
+f5-tts_infer-gradio --share
 ```
 
-### 2. More instructions
+### 2. CLI Inference
+
+```bash
+# Run with flags
+# Leave --ref_text "" will have ASR model transcribe (extra GPU memory usage)
+f5-tts_infer-cli \
+--model "F5-TTS" \
+--ref_audio "ref_audio.wav" \
+--ref_text "The content, subtitle or transcription of reference audio." \
+--gen_text "Some text you want TTS model generate for you."
+
+# Run with default setting. src/f5_tts/infer/examples/basic/basic.toml
+f5-tts_infer-cli
+# Or with your own .toml file
+f5-tts_infer-cli -c custom.toml
+
+# Multi voice. See src/f5_tts/infer/README.md
+f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
+```
+
+### 3. More instructions
 
 - In order to have better generation results, take a moment to read [detailed guidance](src/f5_tts/infer).
 - The [Issues](https://github.com/SWivid/F5-TTS/issues?q=is%3Aissue) are very useful, please try to find the solution by properly searching the keywords of problem encountered. If no answer found, then feel free to open an issue.

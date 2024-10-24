@@ -1,11 +1,13 @@
 
-## Evaluation
+# Evaluation
 
 Install packages for evaluation:
 
 ```bash
 pip install -e .[eval]
 ```
+
+## Generating Samples for Evaluation
 
 ### Prepare Test Datasets
 
@@ -24,6 +26,8 @@ To run batch inference for evaluations, execute the following commands:
 accelerate config  # if not set before
 bash src/f5_tts/eval/eval_infer_batch.sh
 ```
+
+## Objective Evaluation on Generated Results
 
 ### Download Evaluation Model Checkpoints
 

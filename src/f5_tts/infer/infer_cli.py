@@ -80,11 +80,21 @@ args = parser.parse_args()
 config = tomli.load(open(args.config, "rb"))
 
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
-if "infer/examples/" in ref_audio:  # for pip pkg user
-    ref_audio = str(files("f5_tts").joinpath(f"{ref_audio}"))
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
 gen_file = args.gen_file if args.gen_file else config["gen_file"]
+
+# patches for pip pkg user
+if "infer/examples/" in ref_audio:
+    ref_audio = str(files("f5_tts").joinpath(f"{ref_audio}"))
+if "infer/examples/" in gen_file:
+    gen_file = str(files("f5_tts").joinpath(f"{gen_file}"))
+if "voices" in config:
+    for voice in config["voices"]:
+        voice_ref_audio = config["voices"][voice]["ref_audio"]
+        if "infer/examples/" in voice_ref_audio:
+            config["voices"][voice]["ref_audio"] = str(files("f5_tts").joinpath(f"{voice_ref_audio}"))
+
 if gen_file:
     gen_text = codecs.open(gen_file, "r", "utf-8").read()
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
