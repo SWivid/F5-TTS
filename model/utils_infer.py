@@ -13,7 +13,6 @@ from transformers import pipeline
 from vocos import Vocos
 
 import hashlib
-from functools import lru_cache
 
 from model import CFM
 from model.utils import (
@@ -163,7 +162,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=
         ref_audio = f.name
 
     # Compute a hash of the reference audio file
-    with open(ref_audio, 'rb') as audio_file:
+    with open(ref_audio, "rb") as audio_file:
         audio_data = audio_file.read()
         audio_hash = hashlib.md5(audio_data).hexdigest()
 
