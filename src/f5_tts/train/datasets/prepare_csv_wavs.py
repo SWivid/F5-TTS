@@ -1,14 +1,15 @@
-import sys
 import os
+import sys
 
 sys.path.append(os.getcwd())
 
-from pathlib import Path
+import argparse
+import csv
 import json
 import shutil
-import argparse
+from importlib.resources import files
+from pathlib import Path
 
-import csv
 import torchaudio
 from tqdm import tqdm
 from datasets.arrow_writer import ArrowWriter
@@ -17,7 +18,8 @@ from f5_tts.model.utils import (
     convert_char_to_pinyin,
 )
 
-PRETRAINED_VOCAB_PATH = Path(__file__).parent.parent / "data/Emilia_ZH_EN_pinyin/vocab.txt"
+
+PRETRAINED_VOCAB_PATH = files("f5_tts").joinpath("../../data/Emilia_ZH_EN_pinyin/vocab.txt")
 
 
 def is_csv_wavs_format(input_dataset_dir):
@@ -80,7 +82,7 @@ def save_prepped_dataset(out_dir, result, duration_list, text_vocab_set, is_fine
     print(f"\nSaving to {out_dir} ...")
 
     # dataset = Dataset.from_dict({"audio_path": audio_path_list, "text": text_list, "duration": duration_list})  # oom
-    # dataset.save_to_disk(f"data/{dataset_name}/raw", max_shard_size="2GB")
+    # dataset.save_to_disk(f"{out_dir}/raw", max_shard_size="2GB")
     raw_arrow_path = out_dir / "raw.arrow"
     with ArrowWriter(path=raw_arrow_path.as_posix(), writer_batch_size=1) as writer:
         for line in tqdm(result, desc="Writing to raw.arrow ..."):

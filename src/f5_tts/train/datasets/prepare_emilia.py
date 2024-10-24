@@ -4,15 +4,16 @@
 # generate audio text map for Emilia ZH & EN
 # evaluate for vocab size
 
-import sys
 import os
+import sys
 
 sys.path.append(os.getcwd())
 
-from pathlib import Path
 import json
-from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
+from importlib.resources import files
+from pathlib import Path
+from tqdm import tqdm
 
 from datasets.arrow_writer import ArrowWriter
 
@@ -173,24 +174,25 @@ def main():
     executor.shutdown()
 
     # save preprocessed dataset to disk
-    if not os.path.exists(f"data/{dataset_name}"):
-        os.makedirs(f"data/{dataset_name}")
-    print(f"\nSaving to data/{dataset_name} ...")
+    if not os.path.exists(f"{save_dir}"):
+        os.makedirs(f"{save_dir}")
+    print(f"\nSaving to {save_dir} ...")
+
     # dataset = Dataset.from_dict({"audio_path": audio_path_list, "text": text_list, "duration": duration_list})  # oom
-    # dataset.save_to_disk(f"data/{dataset_name}/raw", max_shard_size="2GB")
-    with ArrowWriter(path=f"data/{dataset_name}/raw.arrow") as writer:
+    # dataset.save_to_disk(f"{save_dir}/raw", max_shard_size="2GB")
+    with ArrowWriter(path=f"{save_dir}/raw.arrow") as writer:
         for line in tqdm(result, desc="Writing to raw.arrow ..."):
             writer.write(line)
 
     # dup a json separately saving duration in case for DynamicBatchSampler ease
-    with open(f"data/{dataset_name}/duration.json", "w", encoding="utf-8") as f:
+    with open(f"{save_dir}/duration.json", "w", encoding="utf-8") as f:
         json.dump({"duration": duration_list}, f, ensure_ascii=False)
 
     # vocab map, i.e. tokenizer
     # add alphabets and symbols (optional, if plan to ft on de/fr etc.)
     # if tokenizer == "pinyin":
     #     text_vocab_set.update([chr(i) for i in range(32, 127)] + [chr(i) for i in range(192, 256)])
-    with open(f"data/{dataset_name}/vocab.txt", "w") as f:
+    with open(f"{save_dir}/vocab.txt", "w") as f:
         for vocab in sorted(text_vocab_set):
             f.write(vocab + "\n")
 
@@ -212,7 +214,8 @@ if __name__ == "__main__":
     langs = ["ZH", "EN"]
     dataset_dir = "<SOME_PATH>/Emilia_Dataset/raw"
     dataset_name = f"Emilia_{'_'.join(langs)}_{tokenizer}"
-    print(f"\nPrepare for {dataset_name}\n")
+    save_dir = str(files("f5_tts").joinpath("../../")) + f"/data/{dataset_name}"
+    print(f"\nPrepare for {dataset_name}, will save to {save_dir}\n")
 
     main()
 
