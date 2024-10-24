@@ -12,6 +12,9 @@ from pydub import AudioSegment, silence
 from transformers import pipeline
 from vocos import Vocos
 
+import hashlib
+from functools import lru_cache
+
 from model import CFM
 from model.utils import (
     load_checkpoint,
@@ -19,6 +22,7 @@ from model.utils import (
     convert_char_to_pinyin,
 )
 
+_ref_audio_cache = {}
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -158,23 +162,36 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=
         aseg.export(f.name, format="wav")
         ref_audio = f.name
 
-    if not ref_text.strip():
-        global asr_pipe
-        if asr_pipe is None:
-            initialize_asr_pipeline(device=device)
-        show_info("No reference text provided, transcribing reference audio...")
-        ref_text = asr_pipe(
-            ref_audio,
-            chunk_length_s=30,
-            batch_size=128,
-            generate_kwargs={"task": "transcribe"},
-            return_timestamps=False,
-        )["text"].strip()
-        show_info("Finished transcription")
-    else:
-        show_info("Using custom reference text...")
+    # Compute a hash of the reference audio file
+    with open(ref_audio, 'rb') as audio_file:
+        audio_data = audio_file.read()
+        audio_hash = hashlib.md5(audio_data).hexdigest()
 
-    # Add the functionality to ensure it ends with ". "
+    global _ref_audio_cache
+    if audio_hash in _ref_audio_cache:
+        # Use cached reference text
+        show_info("Using cached reference text...")
+        ref_text = _ref_audio_cache[audio_hash]
+    else:
+        if not ref_text.strip():
+            global asr_pipe
+            if asr_pipe is None:
+                initialize_asr_pipeline(device=device)
+            show_info("No reference text provided, transcribing reference audio...")
+            ref_text = asr_pipe(
+                ref_audio,
+                chunk_length_s=30,
+                batch_size=128,
+                generate_kwargs={"task": "transcribe"},
+                return_timestamps=False,
+            )["text"].strip()
+            show_info("Finished transcription")
+        else:
+            show_info("Using custom reference text...")
+        # Cache the transcribed text
+        _ref_audio_cache[audio_hash] = ref_text
+
+    # Ensure ref_text ends with a proper sentence-ending punctuation
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
         if ref_text.endswith("."):
             ref_text += " "
