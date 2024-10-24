@@ -4,6 +4,7 @@
 import hashlib
 import re
 import tempfile
+from importlib.resources import files
 
 import matplotlib
 
@@ -147,10 +148,8 @@ def load_checkpoint(model, ckpt_path, device, use_ema=True):
 
 def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_method, use_ema=True, device=device):
     if vocab_file == "":
-        vocab_file = "Emilia_ZH_EN"
-        tokenizer = "pinyin"
-    else:
-        tokenizer = "custom"
+        vocab_file = str(files("f5_tts").joinpath("infer/examples/vocab.txt"))
+    tokenizer = "custom"
 
     print("\nvocab : ", vocab_file)
     print("tokenizer : ", tokenizer)
