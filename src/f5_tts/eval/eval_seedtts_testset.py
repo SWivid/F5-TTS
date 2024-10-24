@@ -6,19 +6,23 @@ import os
 sys.path.append(os.getcwd())
 
 import multiprocessing as mp
+from importlib.resources import files
+
 import numpy as np
 
-from f5_tts.model.utils import (
+from f5_tts.eval.utils_eval import (
     get_seed_tts_test,
     run_asr_wer,
     run_sim,
 )
 
+rel_path = str(files("f5_tts").joinpath("../../"))
+
 
 eval_task = "wer"  # sim | wer
 lang = "zh"  # zh | en
-metalst = f"data/seedtts_testset/{lang}/meta.lst"  # seed-tts testset
-# gen_wav_dir = f"data/seedtts_testset/{lang}/wavs"  # ground truth wavs
+metalst = rel_path + f"/data/seedtts_testset/{lang}/meta.lst"  # seed-tts testset
+# gen_wav_dir = rel_path + f"/data/seedtts_testset/{lang}/wavs"  # ground truth wavs
 gen_wav_dir = "PATH_TO_GENERATED"  # generated wavs
 
 

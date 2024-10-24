@@ -6,18 +6,22 @@ import os
 sys.path.append(os.getcwd())
 
 import multiprocessing as mp
+from importlib.resources import files
+
 import numpy as np
 
-from f5_tts.model.utils import (
+from f5_tts.eval.utils_eval import (
     get_librispeech_test,
     run_asr_wer,
     run_sim,
 )
 
+rel_path = str(files("f5_tts").joinpath("../../"))
+
 
 eval_task = "wer"  # sim | wer
 lang = "en"
-metalst = "data/librispeech_pc_test_clean_cross_sentence.lst"
+metalst = rel_path + "/data/librispeech_pc_test_clean_cross_sentence.lst"
 librispeech_test_clean_path = "<SOME_PATH>/LibriSpeech/test-clean"  # test-clean path
 gen_wav_dir = "PATH_TO_GENERATED"  # generated wavs
 
