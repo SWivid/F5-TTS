@@ -567,7 +567,7 @@ Have a conversation with an AI using your reference voice!
 
             last_user_message, last_ai_response = history[-1]
             if not last_ai_response:
-                return None, gr.update(interactive=True)
+                return None
 
             audio_result, _ = infer(
                 ref_audio,
@@ -579,7 +579,7 @@ Have a conversation with an AI using your reference voice!
                 speed=1.0,
                 show_info=print,  # show_info=print no pull to top when generating
             )
-            return audio_result, gr.update(interactive=True)
+            return audio_result
 
         def clear_conversation():
             """Reset the conversation"""
@@ -603,7 +603,11 @@ Have a conversation with an AI using your reference voice!
         ).then(
             generate_audio_response,
             inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, model_choice_chat, remove_silence_chat],
-            outputs=[audio_output_chat, audio_input_chat],
+            outputs=[audio_output_chat],
+        ).then(
+            lambda: None,
+            None,
+            audio_input_chat,
         )
 
         # Handle clear button
