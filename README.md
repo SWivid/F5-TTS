@@ -46,9 +46,13 @@ cd F5-TTS
 pip install -e .
 ```
 
-### 3. Build from dockerfile
+### 3. Docker usage
 ```bash
+# Build from Dockerfile
 docker build -t f5tts:v1 .
+
+# Or pull from GitHub Container Registry
+docker pull ghcr.io/SWivid/F5-TTS:main
 ```
 
 
@@ -103,14 +107,12 @@ f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 
 ### 1. Gradio App
 
+Read [training guidance](src/f5_tts/train) for more instructions.
+
 ```bash
-# Launch a Gradio app (web interface)
+# Quick start with Gradio web interface
 f5-tts_train-gradio
 ```
-
-### 2. CLI Training
-
-- In order to have better training results, take a moment to read [detailed guidance](src/f5_tts/train).
 
 
 ## [Evaluation](src/f5_tts/eval)
