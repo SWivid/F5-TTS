@@ -52,7 +52,7 @@ pip install -e .
 docker build -t f5tts:v1 .
 
 # Or pull from GitHub Container Registry
-docker pull ghcr.io/SWivid/F5-TTS:main
+docker pull ghcr.io/swivid/f5-tts:main
 ```
 
 
