@@ -99,7 +99,18 @@ f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 - The [Issues](https://github.com/SWivid/F5-TTS/issues?q=is%3Aissue) are very useful, please try to find the solution by properly searching the keywords of problem encountered. If no answer found, then feel free to open an issue.
 
 
-## [Training](src/f5_tts/train)
+## Training
+
+### 1. Gradio App
+
+```bash
+# Launch a Gradio app (web interface)
+f5-tts_train-gradio
+```
+
+### 2. CLI Training
+
+- In order to have better training results, take a moment to read [detailed guidance](src/f5_tts/train).
 
 
 ## [Evaluation](src/f5_tts/eval)
