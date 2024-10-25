@@ -107,11 +107,11 @@ f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 
 ### 1. Gradio App
 
-Read [training guidance](src/f5_tts/train) for more instructions.
+Read [training & finetuning guidance](src/f5_tts/train) for more instructions.
 
 ```bash
 # Quick start with Gradio web interface
-f5-tts_train-gradio
+f5-tts_finetune-gradio
 ```
 
 
