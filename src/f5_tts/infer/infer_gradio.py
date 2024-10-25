@@ -380,7 +380,9 @@ with gr.Blocks() as app_multistyle:
             ref_text = speech_types[current_style].get("ref_text", "")
 
             # Generate speech for this segment
-            audio, _ = infer(ref_audio, ref_text, text, model_choice, remove_silence, 0, show_info=None)
+            audio, _ = infer(
+                ref_audio, ref_text, text, model_choice, remove_silence, 0, show_info=print
+            )  # show_info=print no pull to top when generating
             sr, audio_data = audio
 
             generated_audio_segments.append(audio_data)
@@ -482,12 +484,9 @@ Have a conversation with an AI using your reference voice!
         chat_interface_container = gr.Column()
 
         if chat_model_state is None:
-            show_info = gr.Info
-            show_info("Loading chat model...")
             model_name = "Qwen/Qwen2.5-3B-Instruct"
             chat_model_state = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
             chat_tokenizer_state = AutoTokenizer.from_pretrained(model_name)
-            show_info("Chat model loaded.")
 
     with chat_interface_container:
         with gr.Row():
@@ -578,7 +577,7 @@ Have a conversation with an AI using your reference voice!
                 remove_silence,
                 cross_fade_duration=0.15,
                 speed=1.0,
-                show_info=None,
+                show_info=print,  # show_info=print no pull to top when generating
             )
             return audio_result
 
