@@ -57,3 +57,5 @@ Homepage = "https://github.com/SWivid/F5-TTS"
 [project.scripts]
 "f5-tts_infer-cli" = "f5_tts.infer.infer_cli:main"
 "f5-tts_infer-gradio" = "f5_tts.infer.infer_gradio:main"
+"f5-tts_finetune-cli" = "f5_tts.train.finetune_cli:main"
+"f5-tts_finetune-gradio" = "f5_tts.train.finetune_gradio:main"
