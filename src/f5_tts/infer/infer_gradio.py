@@ -201,7 +201,7 @@ def parse_speechtypes_text(gen_text):
 with gr.Blocks() as app_multistyle:
     # New section for emotional generation
     gr.Markdown(
-    """
+        """
     # Multiple Speech-Type Generation
 
     This section allows you to generate multiple speech types or multiple people's voices. Enter your text in the format shown below, and the system will generate speech using the appropriate type. If unspecified, the model will use the regular speech type. The current speech type will be used until the next speech type is specified.
@@ -254,7 +254,6 @@ with gr.Blocks() as app_multistyle:
             with gr.Column():
                 name_input = gr.Textbox(label="Speech Type Name")
                 delete_btn = gr.Button("Delete", variant="secondary")
-            
             audio_input = gr.Audio(label="Reference Audio", type="filepath")
             ref_text_input = gr.Textbox(label="Reference Text", lines=2)
         speech_type_rows.append(row)
@@ -262,7 +261,6 @@ with gr.Blocks() as app_multistyle:
         speech_type_audios.append(audio_input)
         speech_type_ref_texts.append(ref_text_input)
         speech_type_delete_btns.append(delete_btn)
-
 
     # Button to add speech type
     add_speech_type_btn = gr.Button("Add Speech Type")
