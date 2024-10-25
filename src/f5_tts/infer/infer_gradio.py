@@ -10,7 +10,6 @@ import numpy as np
 import soundfile as sf
 import torchaudio
 from cached_path import cached_path
-from pydub import AudioSegment
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 try:
@@ -114,58 +113,6 @@ def infer(ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_
     return (final_sample_rate, final_wave), spectrogram_path
 
 
-@gpu_decorator
-def generate_podcast(
-    script, speaker1_name, ref_audio1, ref_text1, speaker2_name, ref_audio2, ref_text2, model, remove_silence
-):
-    # Split the script into speaker blocks
-    speaker_pattern = re.compile(f"^({re.escape(speaker1_name)}|{re.escape(speaker2_name)}):", re.MULTILINE)
-    speaker_blocks = speaker_pattern.split(script)[1:]  # Skip the first empty element
-
-    generated_audio_segments = []
-
-    for i in range(0, len(speaker_blocks), 2):
-        speaker = speaker_blocks[i]
-        text = speaker_blocks[i + 1].strip()
-
-        # Determine which speaker is talking
-        if speaker == speaker1_name:
-            ref_audio = ref_audio1
-            ref_text = ref_text1
-        elif speaker == speaker2_name:
-            ref_audio = ref_audio2
-            ref_text = ref_text2
-        else:
-            continue  # Skip if the speaker is neither speaker1 nor speaker2
-
-        # Generate audio for this block
-        audio, _ = infer(ref_audio, ref_text, text, model, remove_silence)
-
-        # Convert the generated audio to a numpy array
-        sr, audio_data = audio
-
-        # Save the audio data as a WAV file
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-            sf.write(temp_file.name, audio_data, sr)
-            audio_segment = AudioSegment.from_wav(temp_file.name)
-
-        generated_audio_segments.append(audio_segment)
-
-        # Add a short pause between speakers
-        pause = AudioSegment.silent(duration=500)  # 500ms pause
-        generated_audio_segments.append(pause)
-
-    # Concatenate all audio segments
-    final_podcast = sum(generated_audio_segments)
-
-    # Export the final podcast
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-        podcast_path = temp_file.name
-        final_podcast.export(podcast_path, format="wav")
-
-    return podcast_path
-
-
 with gr.Blocks() as app_credits:
     gr.Markdown("""
 # Credits
@@ -225,53 +172,6 @@ with gr.Blocks() as app_tts:
         outputs=[audio_output, spectrogram_output],
     )
 
-with gr.Blocks() as app_podcast:
-    gr.Markdown("# Podcast Generation")
-    speaker1_name = gr.Textbox(label="Speaker 1 Name")
-    ref_audio_input1 = gr.Audio(label="Reference Audio (Speaker 1)", type="filepath")
-    ref_text_input1 = gr.Textbox(label="Reference Text (Speaker 1)", lines=2)
-
-    speaker2_name = gr.Textbox(label="Speaker 2 Name")
-    ref_audio_input2 = gr.Audio(label="Reference Audio (Speaker 2)", type="filepath")
-    ref_text_input2 = gr.Textbox(label="Reference Text (Speaker 2)", lines=2)
-
-    script_input = gr.Textbox(
-        label="Podcast Script",
-        lines=10,
-        placeholder="Enter the script with speaker names at the start of each block, e.g.:\nSean: How did you start studying...\n\nMeghan: I came to my interest in technology...\nIt was a long journey...\n\nSean: That's fascinating. Can you elaborate...",
-    )
-
-    podcast_model_choice = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
-    podcast_remove_silence = gr.Checkbox(
-        label="Remove Silences",
-        value=True,
-    )
-    generate_podcast_btn = gr.Button("Generate Podcast", variant="primary")
-    podcast_output = gr.Audio(label="Generated Podcast")
-
-    def podcast_generation(
-        script, speaker1, ref_audio1, ref_text1, speaker2, ref_audio2, ref_text2, model, remove_silence
-    ):
-        return generate_podcast(
-            script, speaker1, ref_audio1, ref_text1, speaker2, ref_audio2, ref_text2, model, remove_silence
-        )
-
-    generate_podcast_btn.click(
-        podcast_generation,
-        inputs=[
-            script_input,
-            speaker1_name,
-            ref_audio_input1,
-            ref_text_input1,
-            speaker2_name,
-            ref_audio_input2,
-            ref_text_input2,
-            podcast_model_choice,
-            podcast_remove_silence,
-        ],
-        outputs=podcast_output,
-    )
-
 
 def parse_speechtypes_text(gen_text):
     # Pattern to find {speechtype}
@@ -298,7 +198,7 @@ def parse_speechtypes_text(gen_text):
     return segments
 
 
-with gr.Blocks() as app_emotional:
+with gr.Blocks() as app_multistyle:
     # New section for emotional generation
     gr.Markdown(
         """
@@ -306,9 +206,13 @@ with gr.Blocks() as app_emotional:
 
     This section allows you to upload different audio clips for each speech type. 'Regular' emotion is mandatory. You can add additional speech types by clicking the "Add Speech Type" button. Enter your text in the format shown below, and the system will generate speech using the appropriate emotions. If unspecified, the model will use the regular speech type. The current speech type will be used until the next speech type is specified.
 
-    **Example Input:**
-
-    {Regular} Hello, I'd like to order a sandwich please. {Surprised} What do you mean you're out of bread? {Sad} I really wanted a sandwich though... {Angry} You know what, darn you and your little shop, you suck! {Whisper} I'll just go back home and cry now. {Shouting} Why me?!
+    **Example Input:**     
+    {Regular} Hello, I'd like to order a sandwich please.     
+    {Surprised} What do you mean you're out of bread?     
+    {Sad} I really wanted a sandwich though...     
+    {Angry} You know what, darn you and your little shop!     
+    {Whisper} I'll just go back home and cry now.     
+    {Shouting} Why me?!     
     """
     )
 
@@ -392,7 +296,11 @@ with gr.Blocks() as app_emotional:
         delete_btn.click(delete_fn, inputs=speech_type_count, outputs=[speech_type_count] + speech_type_rows)
 
     # Text input for the prompt
-    gen_text_input_emotional = gr.Textbox(label="Text to Generate", lines=10)
+    gen_text_input_emotional = gr.Textbox(
+        label="Text to Generate ( Make sure the type names you entered match the Speech Type Name above ! ! ! )",
+        lines=10,
+        placeholder="Enter the script with speaker names (or emotion types) at the start of each block, e.g.:\n\n{Regular} Hello, I'd like to order a sandwich please.\n{Surprised} What do you mean you're out of bread?\n{Sad} I really wanted a sandwich though...\n{Angry} You know what, darn you and your little shop!\n{Whisper} I'll just go back home and cry now.\n{Shouting} Why me?!",
+    )
 
     # Model choice
     model_choice_emotional = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
@@ -694,8 +602,8 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 """
     )
     gr.TabbedInterface(
-        [app_tts, app_podcast, app_emotional, app_chat, app_credits],
-        ["TTS", "Podcast", "Multi-Style", "Voice-Chat", "Credits"],
+        [app_tts, app_multistyle, app_chat, app_credits],
+        ["TTS", "Multi-Style", "Voice-Chat", "Credits"],
     )
 
 
