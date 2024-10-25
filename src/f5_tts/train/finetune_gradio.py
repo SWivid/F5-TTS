@@ -35,7 +35,10 @@ tts_api = None
 last_checkpoint = ""
 last_device = ""
 
-path_data = "data"
+path_basic = os.path.abspath(os.path.join(__file__, "../../../.."))
+path_data = os.path.join(path_basic, "data")
+path_project_ckpts = os.path.join(path_basic, "ckpts")
+file_train = "f5_tts/train/finetune_cli.py"
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -290,7 +293,7 @@ def start_training(
         elif dataset_name.endswith("_char"):
             tokenizer_type = "char"
     else:
-        tokenizer_file = "custom"
+        tokenizer_type = "custom"
 
     dataset_name = dataset_name.replace("_pinyin", "").replace("_char", "")
 
@@ -300,7 +303,7 @@ def start_training(
         fp16 = ""
 
     cmd = (
-        f"accelerate launch {fp16} finetune-cli.py --exp_name {exp_name} "
+        f"accelerate launch {fp16} {file_train} --exp_name {exp_name} "
         f"--learning_rate {learning_rate} "
         f"--batch_size_per_gpu {batch_size_per_gpu} "
         f"--batch_size_type {batch_size_type} "
@@ -362,8 +365,8 @@ def stop_training():
 
 def get_list_projects():
     project_list = []
-    for folder in os.listdir("data"):
-        path_folder = os.path.join("data", folder)
+    for folder in os.listdir(path_data):
+        path_folder = os.path.join(path_data, folder)
         if not os.path.isdir(path_folder):
             continue
         folder = folder.lower()
@@ -560,9 +563,9 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
 
     new_vocal = ""
     if not ch_tokenizer:
-        file_vocab_finetune = "data/Emilia_ZH_EN_pinyin/vocab.txt"
+        file_vocab_finetune = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
         if not os.path.isfile(file_vocab_finetune):
-            return "Error: Vocabulary file 'Emilia_ZH_EN_pinyin' not found!"
+            return "Error: Vocabulary file 'Emilia_ZH_EN_pinyin' not found!", ""
         shutil.copy2(file_vocab_finetune, file_vocab)
 
         with open(file_vocab, "r", encoding="utf-8-sig") as f:
@@ -732,7 +735,7 @@ def vocab_check(project_name):
 
     file_metadata = os.path.join(path_project, "metadata.csv")
 
-    file_vocab = "data/Emilia_ZH_EN_pinyin/vocab.txt"
+    file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !"
 
@@ -850,10 +853,9 @@ def get_checkpoints_project(project_name, is_gradio=True):
     if project_name is None:
         return [], ""
     project_name = project_name.replace("_pinyin", "").replace("_char", "")
-    path_project_ckpts = os.path.join("ckpts", project_name)
 
     if os.path.isdir(path_project_ckpts):
-        files_checkpoints = glob(os.path.join(path_project_ckpts, "*.pt"))
+        files_checkpoints = glob(os.path.join(path_project_ckpts, project_name, "*.pt"))
         files_checkpoints = sorted(
             files_checkpoints,
             key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0])
@@ -1037,7 +1039,7 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
             random_sample_prepare = gr.Button("random sample")
 
             with gr.Row():
-                random_text_prepare = gr.Text(label="Pinyin")
+                random_text_prepare = gr.Text(label="Tokenizer")
                 random_audio_prepare = gr.Audio(label="Audio", type="filepath")
 
             random_sample_prepare.click(
