@@ -1039,7 +1039,7 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
             random_sample_prepare = gr.Button("random sample")
 
             with gr.Row():
-                random_text_prepare = gr.Text(label="vocab")
+                random_text_prepare = gr.Text(label="Tokenizer")
                 random_audio_prepare = gr.Audio(label="Audio", type="filepath")
 
             random_sample_prepare.click(
