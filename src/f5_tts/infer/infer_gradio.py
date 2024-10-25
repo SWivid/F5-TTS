@@ -55,6 +55,7 @@ chat_model_state = None
 chat_tokenizer_state = None
 
 
+@gpu_decorator
 def generate_response(messages, model, tokenizer):
     """Generate response using Qwen"""
     text = tokenizer.apply_chat_template(
@@ -457,6 +458,7 @@ Have a conversation with an AI using your reference voice!
 
     chat_interface_container = gr.Column(visible=False)
 
+    @gpu_decorator
     def load_chat_model():
         global chat_model_state, chat_tokenizer_state
         if chat_model_state is None:
@@ -520,6 +522,7 @@ Have a conversation with an AI using your reference voice!
         )
 
         # Modify process_audio_input to use model and tokenizer from state
+        @gpu_decorator
         def process_audio_input(audio_path, history, conv_state):
             """Handle audio input from user"""
             if not audio_path:
@@ -541,6 +544,7 @@ Have a conversation with an AI using your reference voice!
 
             return history, conv_state, ""
 
+        @gpu_decorator
         def generate_audio_response(history, ref_audio, ref_text, model, remove_silence):
             """Generate TTS audio for AI response"""
             if not history or not ref_audio:
