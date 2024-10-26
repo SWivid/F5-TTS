@@ -1188,7 +1188,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
         with gr.TabItem("reduse checkpoint"):
             gr.Markdown("""```plaintext 
-Reduce the model size from 5GB to 1.3GB. If you do this, you can continue training! the new checkpoint you can use it for inference or fine-tuning afterward.
+Reduce the model size from 5GB to 1.3GB. The new checkpoint can be used for inference or fine-tuning afterward, but it cannot be used to continue training..
 ```""")
             txt_path_checkpoint = gr.Text(label="path checkpoint :")
             txt_path_checkpoint_small = gr.Text(label="path output :")
