@@ -663,12 +663,14 @@ def calculate_train(
 
     num_warmup_updates = int(samples * 0.05)
     save_per_updates = int(samples * 0.10)
-    last_per_steps = int(save_per_updates * 5)
+    last_per_steps = int(save_per_updates * 0.25)
 
     max_samples = (lambda num: num + 1 if num % 2 != 0 else num)(max_samples)
     num_warmup_updates = (lambda num: num + 1 if num % 2 != 0 else num)(num_warmup_updates)
     save_per_updates = (lambda num: num + 1 if num % 2 != 0 else num)(save_per_updates)
     last_per_steps = (lambda num: num + 1 if num % 2 != 0 else num)(last_per_steps)
+    if last_per_steps <= 0:
+        last_per_steps = 2
 
     total_hours = hours
     mel_hop_length = 256
@@ -1046,7 +1048,19 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
                 fn=get_random_sample_prepare, inputs=[cm_project], outputs=[random_text_prepare, random_audio_prepare]
             )
 
+        with gr.TabItem("vocab check"):
+            gr.Markdown("""```plaintext 
+check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. for finetune new language
+```""")
+            check_button = gr.Button("check vocab")
+            txt_info_check = gr.Text(label="info", value="")
+            check_button.click(fn=vocab_check, inputs=[cm_project], outputs=[txt_info_check])
+
         with gr.TabItem("train Data"):
+            gr.Markdown("""```plaintext 
+The auto-setting is still experimental. Please make sure that the epochs , save per updates , and last per steps are set correctly, or change them manually as needed.
+If you encounter a memory error, try reducing the batch size per GPU to a smaller number.
+```""")
             with gr.Row():
                 bt_calculate = bt_create = gr.Button("Auto Settings")
                 lb_samples = gr.Label(label="samples")
@@ -1136,23 +1150,6 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
                 check_finetune, inputs=[ch_finetune], outputs=[file_checkpoint_train, tokenizer_file, tokenizer_type]
             )
 
-        with gr.TabItem("reduse checkpoint"):
-            txt_path_checkpoint = gr.Text(label="path checkpoint :")
-            txt_path_checkpoint_small = gr.Text(label="path output :")
-            ch_safetensors = gr.Checkbox(label="safetensors", value="")
-            txt_info_reduse = gr.Text(label="info", value="")
-            reduse_button = gr.Button("reduse")
-            reduse_button.click(
-                fn=extract_and_save_ema_model,
-                inputs=[txt_path_checkpoint, txt_path_checkpoint_small, ch_safetensors],
-                outputs=[txt_info_reduse],
-            )
-
-        with gr.TabItem("vocab check"):
-            check_button = gr.Button("check vocab")
-            txt_info_check = gr.Text(label="info", value="")
-            check_button.click(fn=vocab_check, inputs=[cm_project], outputs=[txt_info_check])
-
         with gr.TabItem("test model"):
             exp_name = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
@@ -1188,6 +1185,21 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
 
             bt_checkpoint_refresh.click(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])
             cm_project.change(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])
+
+        with gr.TabItem("reduse checkpoint"):
+            gr.Markdown("""```plaintext 
+Reduce the model size from 5GB to 1.3GB. The new checkpoint can be used for inference or fine-tuning afterward, but it cannot be used to continue training..
+```""")
+            txt_path_checkpoint = gr.Text(label="path checkpoint :")
+            txt_path_checkpoint_small = gr.Text(label="path output :")
+            ch_safetensors = gr.Checkbox(label="safetensors", value="")
+            txt_info_reduse = gr.Text(label="info", value="")
+            reduse_button = gr.Button("reduse")
+            reduse_button.click(
+                fn=extract_and_save_ema_model,
+                inputs=[txt_path_checkpoint, txt_path_checkpoint_small, ch_safetensors],
+                outputs=[txt_info_reduse],
+            )
 
         with gr.TabItem("system info"):
             output_box = gr.Textbox(label="GPU and CPU Information", lines=20)
