@@ -333,7 +333,7 @@ with gr.Blocks() as app_multistyle:
             speech_type_name = speech_type_name or "None"
             updated_text = current_text + f"{{{speech_type_name}}} "
             return gr.update(value=updated_text)
-        
+
         return insert_speech_type_fn
 
     for i, insert_btn in enumerate(speech_type_insert_btns):
