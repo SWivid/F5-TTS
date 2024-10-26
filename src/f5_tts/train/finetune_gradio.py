@@ -38,7 +38,7 @@ last_device = ""
 path_basic = os.path.abspath(os.path.join(__file__, "../../../.."))
 path_data = os.path.join(path_basic, "data")
 path_project_ckpts = os.path.join(path_basic, "ckpts")
-file_train = "f5_tts/train/finetune_cli.py"
+file_train = "src/f5_tts/train/finetune_cli.py"
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
