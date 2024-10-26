@@ -663,12 +663,14 @@ def calculate_train(
 
     num_warmup_updates = int(samples * 0.05)
     save_per_updates = int(samples * 0.10)
-    last_per_steps = int(save_per_updates * 5)
+    last_per_steps = int(save_per_updates * 0.25)
 
     max_samples = (lambda num: num + 1 if num % 2 != 0 else num)(max_samples)
     num_warmup_updates = (lambda num: num + 1 if num % 2 != 0 else num)(num_warmup_updates)
     save_per_updates = (lambda num: num + 1 if num % 2 != 0 else num)(save_per_updates)
     last_per_steps = (lambda num: num + 1 if num % 2 != 0 else num)(last_per_steps)
+    if last_per_steps <= 0:
+        last_per_steps = 2
 
     total_hours = hours
     mel_hop_length = 256
@@ -1047,6 +1049,10 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
             )
 
         with gr.TabItem("train Data"):
+            gr.Markdown("""```plaintext 
+The auto-setting is still experimental. Please make sure that the epochs , save per updates , and last per steps are set correctly, or change them manually as needed.
+If you encounter a memory error, try reducing the batch size per GPU to a smaller number.
+```""")
             with gr.Row():
                 bt_calculate = bt_create = gr.Button("Auto Settings")
                 lb_samples = gr.Label(label="samples")
