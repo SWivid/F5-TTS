@@ -240,23 +240,28 @@ with gr.Blocks() as app_multistyle:
 
     # Regular speech type (mandatory)
     with gr.Row():
-        regular_name = gr.Textbox(value="Regular", label="Speech Type Name")
+        with gr.Column():
+            regular_name = gr.Textbox(value="Regular", label="Speech Type Name")
+            regular_insert = gr.Button("Insert", variant="secondary")
         regular_audio = gr.Audio(label="Regular Reference Audio", type="filepath")
         regular_ref_text = gr.Textbox(label="Reference Text (Regular)", lines=2)
 
     # Additional speech types (up to 99 more)
     max_speech_types = 100
     speech_type_rows = []
-    speech_type_names = []
+    speech_type_names = [regular_name]
     speech_type_audios = []
     speech_type_ref_texts = []
     speech_type_delete_btns = []
+    speech_type_insert_btns = []
+    speech_type_insert_btns.append(regular_insert)
 
     for i in range(max_speech_types - 1):
         with gr.Row(visible=False) as row:
             with gr.Column():
                 name_input = gr.Textbox(label="Speech Type Name")
                 delete_btn = gr.Button("Delete", variant="secondary")
+                insert_btn = gr.Button("Insert", variant="secondary")
             audio_input = gr.Audio(label="Reference Audio", type="filepath")
             ref_text_input = gr.Textbox(label="Reference Text", lines=2)
         speech_type_rows.append(row)
@@ -264,6 +269,7 @@ with gr.Blocks() as app_multistyle:
         speech_type_audios.append(audio_input)
         speech_type_ref_texts.append(ref_text_input)
         speech_type_delete_btns.append(delete_btn)
+        speech_type_insert_btns.append(insert_btn)
 
     # Button to add speech type
     add_speech_type_btn = gr.Button("Add Speech Type")
@@ -321,6 +327,22 @@ with gr.Blocks() as app_multistyle:
         placeholder="Enter the script with speaker names (or emotion types) at the start of each block, e.g.:\n\n{Regular} Hello, I'd like to order a sandwich please.\n{Surprised} What do you mean you're out of bread?\n{Sad} I really wanted a sandwich though...\n{Angry} You know what, darn you and your little shop!\n{Whisper} I'll just go back home and cry now.\n{Shouting} Why me?!",
     )
 
+    def make_insert_speech_type_fn(index):
+        def insert_speech_type_fn(current_text, speech_type_name):
+            current_text = current_text or ""
+            speech_type_name = speech_type_name or "None"
+            updated_text = current_text + f"{{{speech_type_name}}} "
+            return gr.update(value=updated_text)
+        return insert_speech_type_fn
+
+    for i, insert_btn in enumerate(speech_type_insert_btns):
+        insert_fn = make_insert_speech_type_fn(i)
+        insert_btn.click(
+            insert_fn,
+            inputs=[gen_text_input_multistyle, speech_type_names[i]],
+            outputs=gen_text_input_multistyle,
+        )
+
     # Model choice
     model_choice_multistyle = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
 
@@ -347,7 +369,7 @@ with gr.Blocks() as app_multistyle:
         speech_type_names_list = args[:num_additional_speech_types]
         speech_type_audios_list = args[num_additional_speech_types : 2 * num_additional_speech_types]
         speech_type_ref_texts_list = args[2 * num_additional_speech_types : 3 * num_additional_speech_types]
-        model_choice = args[3 * num_additional_speech_types]
+        model_choice = args[3 * num_additional_speech_types + 1]
         remove_silence = args[3 * num_additional_speech_types + 1]
 
         # Collect the speech types and their audios into a dict
