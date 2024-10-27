@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X steps")
     parser.add_argument("--last_per_steps", type=int, default=50000, help="Save last checkpoint every X steps")
     parser.add_argument("--finetune", type=bool, default=True, help="Use Finetune")
-    parser.add_argument("--pretrain", type=str, default=None, help="Use pretrain model for finetune")
+    parser.add_argument("--pretrain", type=str, default=None, help="the path to the checkpoint")
     parser.add_argument(
         "--tokenizer", type=str, default="pinyin", choices=["pinyin", "char", "custom"], help="Tokenizer type"
     )
@@ -89,7 +89,11 @@ def main():
     if args.finetune:
         if not os.path.isdir(checkpoint_path):
             os.makedirs(checkpoint_path, exist_ok=True)
-            shutil.copy2(ckpt_path, os.path.join(checkpoint_path, os.path.basename(ckpt_path)))
+
+        file_checkpoint = os.path.join(checkpoint_path, os.path.basename(ckpt_path))
+        if not os.path.isfile(file_checkpoint):
+            shutil.copy2(ckpt_path, file_checkpoint)
+            print("copy checkpoint for finetune")
 
     # Use the tokenizer and tokenizer_path provided in the command line arguments
     tokenizer = args.tokenizer
