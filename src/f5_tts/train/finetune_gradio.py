@@ -801,9 +801,11 @@ def vocab_extend(project_name, symbols, model_type):
         return "Symbols are okay no need to extend."
 
     size_vocab = len(vocab)
-
+    vocab.pop()
     for item in miss_symbols:
         vocab.append(item)
+
+    vocab.append("")
 
     with open(file_vocab_project, "w", encoding="utf-8") as f:
         f.write("\n".join(vocab))
