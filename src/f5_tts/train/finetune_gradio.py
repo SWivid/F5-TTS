@@ -564,10 +564,11 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
 
     new_vocal = ""
     if not ch_tokenizer:
-        file_vocab_finetune = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
-        if not os.path.isfile(file_vocab_finetune):
-            return "Error: Vocabulary file 'Emilia_ZH_EN_pinyin' not found!", ""
-        shutil.copy2(file_vocab_finetune, file_vocab)
+        if not os.path.isfile(file_vocab):
+            file_vocab_finetune = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+            if not os.path.isfile(file_vocab_finetune):
+                return "Error: Vocabulary file 'Emilia_ZH_EN_pinyin' not found!", ""
+            shutil.copy2(file_vocab_finetune, file_vocab)
 
         with open(file_vocab, "r", encoding="utf-8-sig") as f:
             vocab_char_map = {}
