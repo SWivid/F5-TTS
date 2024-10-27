@@ -801,11 +801,11 @@ def vocab_extend(project_name, symbols, model_type):
         return "Symbols are okay no need to extend."
 
     size_vocab = len(vocab)
-    vocab.pop()  # fix empty space leave
+
     for item in miss_symbols:
         vocab.append(item)
 
-    with open(file_vocab_project, "w", encoding="utf-8-sig") as f:
+    with open(file_vocab_project, "w", encoding="utf-8") as f:
         f.write("\n".join(vocab))
 
     if model_type == "F5-TTS":
@@ -813,14 +813,17 @@ def vocab_extend(project_name, symbols, model_type):
     else:
         ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
 
-    new_ckpt_path = os.path.join(path_project_ckpts, name_project)
+    vocab_size_new = len(miss_symbols)
+
+    dataset_name = name_project.replace("_pinyin", "").replace("_char", "")
+    new_ckpt_path = os.path.join(path_project_ckpts, dataset_name)
     os.makedirs(new_ckpt_path, exist_ok=True)
     new_ckpt_file = os.path.join(new_ckpt_path, "model_1200000.pt")
 
-    size = expand_model_embeddings(ckpt_path, new_ckpt_file, num_new_tokens=len(miss_symbols))
+    size = expand_model_embeddings(ckpt_path, new_ckpt_file, num_new_tokens=vocab_size_new)
 
     vocab_new = "\n".join(miss_symbols)
-    return f"vocab old size : {size_vocab}\nvocab new size : {size}\nvocab add : {len(miss_symbols)}\nnew symbols :\n{vocab_new}"
+    return f"vocab old size : {size_vocab}\nvocab new size : {size}\nvocab add : {vocab_size_new}\nnew symbols :\n{vocab_new}"
 
 
 def vocab_check(project_name):
