@@ -1103,6 +1103,38 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
                 outputs=[random_text_transcribe, random_audio_transcribe],
             )
 
+        with gr.TabItem("vocab check"):
+            gr.Markdown("""```plaintext 
+check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. for finetune new language
+```""")
+
+            check_button = gr.Button("check vocab")
+            txt_info_check = gr.Text(label="info", value="")
+
+            gr.Markdown("""```plaintext 
+Using the extended model, you can fine-tune to a new language that is missing symbols in the vocab , this create a new model with a new vocabulary size and save it in your ckpts/project folder.
+```""")
+
+            exp_name_extend = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
+
+            with gr.Row():
+                txt_extend = gr.Textbox(
+                    label="Symbols",
+                    value="",
+                    placeholder="To add new symbols, make sure to use ',' for each symbol",
+                    scale=6,
+                )
+                txt_count_symbol = gr.Textbox(label="new size vocab", value="", scale=1)
+
+            extend_button = gr.Button("Extended")
+            txt_info_extend = gr.Text(label="info", value="")
+
+            txt_extend.change(vocab_count, inputs=[txt_extend], outputs=[txt_count_symbol])
+            check_button.click(fn=vocab_check, inputs=[cm_project], outputs=[txt_info_check, txt_extend])
+            extend_button.click(
+                fn=vocab_extend, inputs=[cm_project, txt_extend, exp_name_extend], outputs=[txt_info_extend]
+            )
+
         with gr.TabItem("prepare Data"):
             gr.Markdown(
                 """```plaintext    
@@ -1124,7 +1156,7 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
 
      ```"""
             )
-            ch_tokenizern = gr.Checkbox(label="create vocabulary from dataset", value=False)
+            ch_tokenizern = gr.Checkbox(label="create vocabulary", value=False, visible=False)
             bt_prepare = bt_create = gr.Button("prepare")
             txt_info_prepare = gr.Text(label="info", value="")
             txt_vocab_prepare = gr.Text(label="vocab", value="")
@@ -1140,38 +1172,6 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
 
             random_sample_prepare.click(
                 fn=get_random_sample_prepare, inputs=[cm_project], outputs=[random_text_prepare, random_audio_prepare]
-            )
-
-        with gr.TabItem("vocab check"):
-            gr.Markdown("""```plaintext 
-check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. for finetune new language
-```""")
-
-            check_button = gr.Button("check vocab")
-            txt_info_check = gr.Text(label="info", value="")
-
-            gr.Markdown("""```plaintext 
-Using the extended model, create a new model with a new vocabulary size and save it in your ckpts/project folder.
-```""")
-
-            exp_name_extend = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
-
-            with gr.Row():
-                txt_extend = gr.Textbox(
-                    label="Symbols",
-                    value="",
-                    placeholder="To add new symbols, make sure to use ',' for each symbol",
-                    scale=6,
-                )
-                txt_count_symbol = gr.Textbox(label="new size vocab", value="", scale=1)
-
-            extend_button = gr.Button("Extended")
-            txt_info_extend = gr.Text(label="info", value="")
-
-            txt_extend.change(vocab_count, inputs=[txt_extend], outputs=[txt_count_symbol])
-            check_button.click(fn=vocab_check, inputs=[cm_project], outputs=[txt_info_check, txt_extend])
-            extend_button.click(
-                fn=vocab_extend, inputs=[cm_project, txt_extend, exp_name_extend], outputs=[txt_info_extend]
             )
 
         with gr.TabItem("train Data"):
