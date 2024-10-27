@@ -1472,6 +1472,9 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             )
 
         with gr.TabItem("test model"):
+            gr.Markdown("""```plaintext 
+SOS : check the use_ema setting (True or False) for your model to see what works best for you. 
+```""")
             exp_name = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
 
