@@ -861,7 +861,7 @@ def vocab_check(project_name):
         vocab_miss = ""
         info = "You can train using your language !"
     else:
-        vocab_miss = "\n".join(miss_symbols)
+        vocab_miss = ",".join(miss_symbols)
         info = f"The following symbols are missing in your language {len(miss_symbols)}\n\n"
 
     return info, vocab_miss
