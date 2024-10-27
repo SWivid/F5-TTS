@@ -91,7 +91,7 @@ def main():
             os.makedirs(checkpoint_path, exist_ok=True)
 
         file_checkpoint = os.path.join(checkpoint_path, os.path.basename(ckpt_path))
-        if os.path.isfile(file_checkpoint) == False:
+        if not os.path.isfile(file_checkpoint):
             shutil.copy2(ckpt_path, file_checkpoint)
             print("copy checkpoint for finetune")
 
