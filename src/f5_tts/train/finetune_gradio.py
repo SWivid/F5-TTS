@@ -34,6 +34,7 @@ python_executable = sys.executable or "python"
 tts_api = None
 last_checkpoint = ""
 last_device = ""
+last_ema = None
 
 path_basic = os.path.abspath(os.path.join(__file__, "../../../.."))
 path_data = os.path.join(path_basic, "data")
@@ -800,7 +801,7 @@ def vocab_extend(project_name, symbols, model_type):
         return "Symbols are okay no need to extend."
 
     size_vocab = len(vocab)
-
+    vocab.pop()  # fix empty space leave
     for item in miss_symbols:
         vocab.append(item)
 
@@ -915,8 +916,8 @@ def get_random_sample_infer(project_name):
     )
 
 
-def infer(file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step):
-    global last_checkpoint, last_device, tts_api
+def infer(file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step, use_ema):
+    global last_checkpoint, last_device, tts_api, last_ema
 
     if not os.path.isfile(file_checkpoint):
         return None, "checkpoint not found!"
@@ -926,15 +927,19 @@ def infer(file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step):
     else:
         device_test = None
 
-    if last_checkpoint != file_checkpoint or last_device != device_test:
+    if last_checkpoint != file_checkpoint or last_device != device_test or last_ema != use_ema:
         if last_checkpoint != file_checkpoint:
             last_checkpoint = file_checkpoint
+
         if last_device != device_test:
             last_device = device_test
 
-        tts_api = F5TTS(model_type=exp_name, ckpt_file=file_checkpoint, device=device_test)
+        if last_ema != use_ema:
+            last_ema = use_ema
 
-        print("update", device_test, file_checkpoint)
+        tts_api = F5TTS(model_type=exp_name, ckpt_file=file_checkpoint, device=device_test, use_ema=use_ema)
+
+        print("update >> ", device_test, file_checkpoint, use_ema)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         tts_api.infer(gen_text=gen_text, ref_text=ref_text, ref_file=ref_audio, nfe_step=nfe_step, file_wave=f.name)
@@ -1273,7 +1278,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
 
             nfe_step = gr.Number(label="n_step", value=32)
-
+            ch_use_ema = gr.Checkbox(label="use ema", value=True)
             with gr.Row():
                 cm_checkpoint = gr.Dropdown(
                     choices=list_checkpoints, value=checkpoint_select, label="checkpoints", allow_custom_value=True
@@ -1285,6 +1290,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             ref_text = gr.Textbox(label="ref text")
             ref_audio = gr.Audio(label="audio ref", type="filepath")
             gen_text = gr.Textbox(label="gen text")
+
             random_sample_infer.click(
                 fn=get_random_sample_infer, inputs=[cm_project], outputs=[ref_text, gen_text, ref_audio]
             )
@@ -1297,7 +1303,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             check_button_infer.click(
                 fn=infer,
-                inputs=[cm_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step],
+                inputs=[cm_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step, ch_use_ema],
                 outputs=[gen_audio, txt_info_gpu],
             )
 
