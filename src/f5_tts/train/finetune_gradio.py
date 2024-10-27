@@ -46,6 +46,119 @@ device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is
 pipe = None
 
 
+# Save settings from a JSON file
+def save_settings(
+    project_name,
+    exp_name,
+    learning_rate,
+    batch_size_per_gpu,
+    batch_size_type,
+    max_samples,
+    grad_accumulation_steps,
+    max_grad_norm,
+    epochs,
+    num_warmup_updates,
+    save_per_updates,
+    last_per_steps,
+    finetune,
+    file_checkpoint_train,
+    tokenizer_type,
+    tokenizer_file,
+    mixed_precision,
+):
+    path_project = os.path.join(path_project_ckpts, project_name)
+    os.makedirs(path_project, exist_ok=True)
+    file_setting = os.path.join(path_project, "setting.json")
+
+    settings = {
+        "exp_name": exp_name,
+        "learning_rate": learning_rate,
+        "batch_size_per_gpu": batch_size_per_gpu,
+        "batch_size_type": batch_size_type,
+        "max_samples": max_samples,
+        "grad_accumulation_steps": grad_accumulation_steps,
+        "max_grad_norm": max_grad_norm,
+        "epochs": epochs,
+        "num_warmup_updates": num_warmup_updates,
+        "save_per_updates": save_per_updates,
+        "last_per_steps": last_per_steps,
+        "finetune": finetune,
+        "file_checkpoint_train": file_checkpoint_train,
+        "tokenizer_type": tokenizer_type,
+        "tokenizer_file": tokenizer_file,
+        "mixed_precision": mixed_precision,
+    }
+    with open(file_setting, "w") as f:
+        json.dump(settings, f, indent=4)
+    return "Settings saved!"
+
+
+# Load settings from a JSON file
+def load_settings(project_name):
+    project_name = project_name.replace("_pinyin", "").replace("_char", "")
+    path_project = os.path.join(path_project_ckpts, project_name)
+    file_setting = os.path.join(path_project, "setting.json")
+
+    if os.path.isfile(file_setting) == False:
+        settings = {
+            "exp_name": "F5TTS_Base",
+            "learning_rate": 1e-05,
+            "batch_size_per_gpu": 1000,
+            "batch_size_type": "frame",
+            "max_samples": 64,
+            "grad_accumulation_steps": 1,
+            "max_grad_norm": 1,
+            "epochs": 100,
+            "num_warmup_updates": 2,
+            "save_per_updates": 300,
+            "last_per_steps": 200,
+            "finetune": True,
+            "file_checkpoint_train": "",
+            "tokenizer_type": "pinyin",
+            "tokenizer_file": "",
+            "mixed_precision": "none",
+        }
+        return (
+            settings["exp_name"],
+            settings["learning_rate"],
+            settings["batch_size_per_gpu"],
+            settings["batch_size_type"],
+            settings["max_samples"],
+            settings["grad_accumulation_steps"],
+            settings["max_grad_norm"],
+            settings["epochs"],
+            settings["num_warmup_updates"],
+            settings["save_per_updates"],
+            settings["last_per_steps"],
+            settings["finetune"],
+            settings["file_checkpoint_train"],
+            settings["tokenizer_type"],
+            settings["tokenizer_file"],
+            settings["mixed_precision"],
+        )
+
+    with open(file_setting, "r") as f:
+        settings = json.load(f)
+    return (
+        settings["exp_name"],
+        settings["learning_rate"],
+        settings["batch_size_per_gpu"],
+        settings["batch_size_type"],
+        settings["max_samples"],
+        settings["grad_accumulation_steps"],
+        settings["max_grad_norm"],
+        settings["epochs"],
+        settings["num_warmup_updates"],
+        settings["save_per_updates"],
+        settings["last_per_steps"],
+        settings["finetune"],
+        settings["file_checkpoint_train"],
+        settings["tokenizer_type"],
+        settings["tokenizer_file"],
+        settings["mixed_precision"],
+    )
+
+
 # Load metadata
 def get_audio_duration(audio_path):
     """Calculate the duration of an audio file."""
@@ -329,6 +442,26 @@ def start_training(
     cmd += f" --tokenizer {tokenizer_type} "
 
     print(cmd)
+
+    save_settings(
+        dataset_name,
+        exp_name,
+        learning_rate,
+        batch_size_per_gpu,
+        batch_size_type,
+        max_samples,
+        grad_accumulation_steps,
+        max_grad_norm,
+        epochs,
+        num_warmup_updates,
+        save_per_updates,
+        last_per_steps,
+        finetune,
+        file_checkpoint_train,
+        tokenizer_type,
+        tokenizer_file,
+        mixed_precision,
+    )
 
     try:
         # Start the training process
@@ -1225,6 +1358,42 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 start_button = gr.Button("Start Training")
                 stop_button = gr.Button("Stop Training", interactive=False)
 
+            if projects_selelect is not None:
+                (
+                    exp_namev,
+                    learning_ratev,
+                    batch_size_per_gpuv,
+                    batch_size_typev,
+                    max_samplesv,
+                    grad_accumulation_stepsv,
+                    max_grad_normv,
+                    epochsv,
+                    num_warmupv_updatesv,
+                    save_per_updatesv,
+                    last_per_stepsv,
+                    finetunev,
+                    file_checkpoint_trainv,
+                    tokenizer_typev,
+                    tokenizer_filev,
+                    mixed_precisionv,
+                ) = load_settings(projects_selelect)
+                exp_name.value = exp_namev
+                learning_rate.value = learning_ratev
+                batch_size_per_gpu.value = batch_size_per_gpuv
+                batch_size_type.value = batch_size_typev
+                max_samples.value = max_samplesv
+                grad_accumulation_steps.value = grad_accumulation_stepsv
+                max_grad_norm.value = max_grad_normv
+                epochs.value = epochsv
+                num_warmup_updates.value = num_warmupv_updatesv
+                save_per_updates.value = save_per_updatesv
+                last_per_steps.value = last_per_stepsv
+                ch_finetune.value = finetunev
+                file_checkpoint_train.value = file_checkpoint_train
+                tokenizer_type.value = tokenizer_typev
+                tokenizer_file.value = tokenizer_filev
+                mixed_precision.value = mixed_precisionv
+
             txt_info_train = gr.Text(label="info", value="")
             start_button.click(
                 fn=start_training,
@@ -1277,6 +1446,29 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             ch_finetune.change(
                 check_finetune, inputs=[ch_finetune], outputs=[file_checkpoint_train, tokenizer_file, tokenizer_type]
+            )
+
+            cm_project.change(
+                fn=load_settings,
+                inputs=[cm_project],
+                outputs=[
+                    exp_name,
+                    learning_rate,
+                    batch_size_per_gpu,
+                    batch_size_type,
+                    max_samples,
+                    grad_accumulation_steps,
+                    max_grad_norm,
+                    epochs,
+                    num_warmup_updates,
+                    save_per_updates,
+                    last_per_steps,
+                    ch_finetune,
+                    file_checkpoint_train,
+                    tokenizer_type,
+                    tokenizer_file,
+                    mixed_precision,
+                ],
             )
 
         with gr.TabItem("test model"):

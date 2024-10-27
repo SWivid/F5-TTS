@@ -89,7 +89,11 @@ def main():
     if args.finetune:
         if not os.path.isdir(checkpoint_path):
             os.makedirs(checkpoint_path, exist_ok=True)
-            shutil.copy2(ckpt_path, os.path.join(checkpoint_path, os.path.basename(ckpt_path)))
+
+        file_checkpoint = os.path.join(checkpoint_path, os.path.basename(ckpt_path))
+        if os.path.isfile(file_checkpoint) == False:
+            shutil.copy2(ckpt_path, file_checkpoint)
+            print("copy checkpoint for finetune")
 
     # Use the tokenizer and tokenizer_path provided in the command line arguments
     tokenizer = args.tokenizer
