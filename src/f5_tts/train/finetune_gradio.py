@@ -99,7 +99,7 @@ def load_settings(project_name):
     path_project = os.path.join(path_project_ckpts, project_name)
     file_setting = os.path.join(path_project, "setting.json")
 
-    if os.path.isfile(file_setting) == False:
+    if not os.path.isfile(file_setting):
         settings = {
             "exp_name": "F5TTS_Base",
             "learning_rate": 1e-05,
