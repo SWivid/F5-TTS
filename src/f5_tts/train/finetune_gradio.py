@@ -1389,7 +1389,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 save_per_updates.value = save_per_updatesv
                 last_per_steps.value = last_per_stepsv
                 ch_finetune.value = finetunev
-                file_checkpoint_train.value = file_checkpoint_train
+                file_checkpoint_train.value = file_checkpoint_trainv
                 tokenizer_type.value = tokenizer_typev
                 tokenizer_file.value = tokenizer_filev
                 mixed_precision.value = mixed_precisionv
