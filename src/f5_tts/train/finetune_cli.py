@@ -106,6 +106,8 @@ def main():
 
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
 
+    print("\nvocab : ", vocab_size)
+
     mel_spec_kwargs = dict(
         target_sample_rate=target_sample_rate,
         n_mel_channels=n_mel_channels,
