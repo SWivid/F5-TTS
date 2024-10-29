@@ -186,17 +186,17 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=
         non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000)
         non_silent_wave = AudioSegment.silent(duration=0)
         for non_silent_seg in non_silent_segs:
-            if len(non_silent_wave) > 10000 and len(non_silent_wave + non_silent_seg) > 15000:
+            if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 16000:
                 show_info("Audio is over 15s, clipping short.")
                 break
             non_silent_wave += non_silent_seg
 
         # 2. try to find short silence for clipping if 1. failed
         if len(non_silent_wave) > 15000:
-            non_silent_segs = silence.split_on_silence(aseg, min_silence_len=200, silence_thresh=-45, keep_silence=1000)
+            non_silent_segs = silence.split_on_silence(aseg, min_silence_len=100, silence_thresh=-40, keep_silence=1000)
             non_silent_wave = AudioSegment.silent(duration=0)
             for non_silent_seg in non_silent_segs:
-                if len(non_silent_wave) > 10000 and len(non_silent_wave + non_silent_seg) > 15000:
+                if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 16000:
                     show_info("Audio is over 15s, clipping short.")
                     break
                 non_silent_wave += non_silent_seg
