@@ -194,6 +194,7 @@ def normalize_and_colorize_spectrogram(mel_org):
     mel_norm = (mel_org - mel_min) / (mel_max - mel_min + 1e-8)
     mel_colored = plt.get_cmap("viridis")(mel_norm.detach().cpu().numpy())[:, :, :3]
     mel_colored = np.transpose(mel_colored, (2, 0, 1))
+    mel_colored = np.flip(mel_colored, axis=1)
     return mel_colored
 
 
