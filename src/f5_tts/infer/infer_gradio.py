@@ -541,14 +541,18 @@ Have a conversation with an AI using your reference voice!
 
         with gr.Row():
             with gr.Column():
-                audio_output_chat = gr.Audio(autoplay=True)
-            with gr.Column():
                 audio_input_chat = gr.Microphone(
                     label="Speak your message",
                     type="filepath",
                 )
-
-        clear_btn_chat = gr.Button("Clear Conversation")
+                audio_output_chat = gr.Audio(autoplay=True)
+            with gr.Column():
+                text_input_chat = gr.Textbox(
+                    label="Type your message",
+                    lines=1,
+                )
+                send_btn_chat = gr.Button("Send")
+                clear_btn_chat = gr.Button("Clear Conversation")
 
         conversation_state = gr.State(
             value=[
@@ -561,13 +565,14 @@ Have a conversation with an AI using your reference voice!
 
         # Modify process_audio_input to use model and tokenizer from state
         @gpu_decorator
-        def process_audio_input(audio_path, history, conv_state):
-            """Handle audio input from user"""
-            if not audio_path:
+        def process_audio_input(audio_path, text, history, conv_state):
+            """Handle audio or text input from user"""
+
+            if not audio_path and not text.strip():
                 return history, conv_state, ""
 
-            text = ""
-            text = preprocess_ref_audio_text(audio_path, text, clip_short=False)[1]
+            if audio_path:
+                text = preprocess_ref_audio_text(audio_path, text)[1]
 
             if not text.strip():
                 return history, conv_state, ""
@@ -621,7 +626,7 @@ Have a conversation with an AI using your reference voice!
         # Handle audio input
         audio_input_chat.stop_recording(
             process_audio_input,
-            inputs=[audio_input_chat, chatbot_interface, conversation_state],
+            inputs=[audio_input_chat, text_input_chat, chatbot_interface, conversation_state],
             outputs=[chatbot_interface, conversation_state],
         ).then(
             generate_audio_response,
@@ -631,6 +636,36 @@ Have a conversation with an AI using your reference voice!
             lambda: None,
             None,
             audio_input_chat,
+        )
+
+        # Handle text input
+        text_input_chat.submit(
+            process_audio_input,
+            inputs=[audio_input_chat, text_input_chat, chatbot_interface, conversation_state],
+            outputs=[chatbot_interface, conversation_state],
+        ).then(
+            generate_audio_response,
+            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, model_choice_chat, remove_silence_chat],
+            outputs=[audio_output_chat],
+        ).then(
+            lambda: None,
+            None,
+            text_input_chat,
+        )
+
+        # Handle send button
+        send_btn_chat.click(
+            process_audio_input,
+            inputs=[audio_input_chat, text_input_chat, chatbot_interface, conversation_state],
+            outputs=[chatbot_interface, conversation_state],
+        ).then(
+            generate_audio_response,
+            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, model_choice_chat, remove_silence_chat],
+            outputs=[audio_output_chat],
+        ).then(
+            lambda: None,
+            None,
+            text_input_chat,
         )
 
         # Handle clear button
