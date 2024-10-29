@@ -19,7 +19,7 @@ from f5_tts.model import CFM
 from f5_tts.model.utils import exists, default
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
 from f5_tts.infer.utils_infer import target_sample_rate, hop_length, nfe_step, cfg_strength, sway_sampling_coef, vocos
-from f5_tts.model.utils import gen_sample
+from f5_tts.model.utils import get_sample
 
 # trainer
 
@@ -315,7 +315,7 @@ class Trainer:
                         and self.export_samples
                         and global_step % (int(self.save_per_updates * 0.25) * self.grad_accumulation_steps) == 0
                     ):
-                        wave_org, wave_gen, mel_org, mel_gen = gen_sample(
+                        wave_org, wave_gen, mel_org, mel_gen = get_sample(
                             vocos,
                             self.model,
                             self.file_path_samples,
