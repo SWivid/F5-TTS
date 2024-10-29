@@ -6,6 +6,7 @@ Currently support **30s for a single** generation, which is the **total length**
 
 To avoid possible inference failures, make sure you have seen through the following instructions.
 
+- Use reference audio <15s and leave some silence (e.g. 1s) at the end. Otherwise there is a risk of truncating in the middle of word, leading to suboptimal generation.
 - Uppercased letters will be uttered letter by letter, so use lowercased letters for normal words. 
 - Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses.
 - Preprocess numbers to Chinese letters if you want to have them read in Chinese, otherwise in English.
