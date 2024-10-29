@@ -177,36 +177,41 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_me
 # preprocess reference audio and text
 
 
-def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=device):
+def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_info=print, device=device):
     show_info("Converting audio...")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
 
-        # 1. try to find long silence for clipping
-        non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000)
-        non_silent_wave = AudioSegment.silent(duration=0)
-        for non_silent_seg in non_silent_segs:
-            if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 16000:
-                show_info("Audio is over 15s, clipping short.")
-                break
-            non_silent_wave += non_silent_seg
-
-        # 2. try to find short silence for clipping if 1. failed
-        if len(non_silent_wave) > 15000:
-            non_silent_segs = silence.split_on_silence(aseg, min_silence_len=100, silence_thresh=-40, keep_silence=1000)
+        if clip_short:
+            # 1. try to find long silence for clipping
+            non_silent_segs = silence.split_on_silence(
+                aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000
+            )
             non_silent_wave = AudioSegment.silent(duration=0)
             for non_silent_seg in non_silent_segs:
-                if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 16000:
-                    show_info("Audio is over 15s, clipping short.")
+                if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 15000:
+                    show_info("Audio is over 15s, clipping short. (1)")
                     break
                 non_silent_wave += non_silent_seg
 
-        aseg = non_silent_wave
+            # 2. try to find short silence for clipping if 1. failed
+            if len(non_silent_wave) > 15000:
+                non_silent_segs = silence.split_on_silence(
+                    aseg, min_silence_len=100, silence_thresh=-40, keep_silence=1000
+                )
+                non_silent_wave = AudioSegment.silent(duration=0)
+                for non_silent_seg in non_silent_segs:
+                    if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 15000:
+                        show_info("Audio is over 15s, clipping short. (2)")
+                        break
+                    non_silent_wave += non_silent_seg
 
-        # 3. if no proper silence found for clipping
-        if len(aseg) > 15000:
-            aseg = aseg[:15000]
-            show_info("Audio is over 15s, clipping short.")
+            aseg = non_silent_wave
+
+            # 3. if no proper silence found for clipping
+            if len(aseg) > 15000:
+                aseg = aseg[:15000]
+                show_info("Audio is over 15s, clipping short. (3)")
 
         aseg.export(f.name, format="wav")
         ref_audio = f.name

@@ -567,7 +567,7 @@ Have a conversation with an AI using your reference voice!
                 return history, conv_state, ""
 
             text = ""
-            text = preprocess_ref_audio_text(audio_path, text)[1]
+            text = preprocess_ref_audio_text(audio_path, text, clip_short=False)[1]
 
             if not text.strip():
                 return history, conv_state, ""
