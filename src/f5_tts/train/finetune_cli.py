@@ -56,6 +56,14 @@ def parse_args():
         help="Path to custom tokenizer vocab file (only used if tokenizer = 'custom')",
     )
 
+    parser.add_argument(
+        "--export_samples",
+        type=bool,
+        default=False,
+        help="Export 4 audio and spect samples for the checkpoint audio, per step.",
+    )
+    parser.add_argument("--logger", type=str, default="wandb", choices=["none", "wandb", "tensorboard"], help="logger")
+
     return parser.parse_args()
 
 
@@ -64,6 +72,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+
     checkpoint_path = str(files("f5_tts").joinpath(f"../../ckpts/{args.dataset_name}"))
 
     # Model parameters based on experiment name
@@ -136,6 +145,8 @@ def main():
         wandb_run_name=args.exp_name,
         wandb_resume_id=wandb_resume_id,
         last_per_steps=args.last_per_steps,
+        logger=args.logger,
+        export_samples=args.export_samples,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

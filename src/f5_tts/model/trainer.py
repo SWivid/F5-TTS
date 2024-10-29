@@ -3,7 +3,11 @@ from __future__ import annotations
 import os
 import gc
 from tqdm import tqdm
-import wandb
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ImportError:
+    print("TensorBoard is not installed")
 
 import torch
 from torch.optim import AdamW
@@ -19,8 +23,25 @@ from f5_tts.model import CFM
 from f5_tts.model.utils import exists, default
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
 
-
+import numpy as np
+import matplotlib.pyplot as plt
 # trainer
+
+# audio imports
+import torchaudio
+import soundfile as sf
+from vocos import Vocos
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+# -----------------------------------------
+target_sample_rate = 24000
+hop_length = 256
+nfe_step = 16
+cfg_strength = 2.0
+sway_sampling_coef = -1.0
+# -----------------------------------------
 
 
 class Trainer:
@@ -39,6 +60,8 @@ class Trainer:
         max_grad_norm=1.0,
         noise_scheduler: str | None = None,
         duration_predictor: torch.nn.Module | None = None,
+        logger: str = "wandb",  # Add logger parameter wandb,tensorboard , none
+        log_dir: str = "logs",  # Add log directory parameter
         wandb_project="test_e2-tts",
         wandb_run_name="test_run",
         wandb_resume_id: str = None,
@@ -46,24 +69,24 @@ class Trainer:
         accelerate_kwargs: dict = dict(),
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
+        export_samples=False,
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
-        logger = "wandb" if wandb.api.api_key else None
-        print(f"Using logger: {logger}")
+        self.logger = logger
+        if self.logger == "wandb":
+            self.accelerator = Accelerator(
+                log_with="wandb",
+                kwargs_handlers=[ddp_kwargs],
+                gradient_accumulation_steps=grad_accumulation_steps,
+                **accelerate_kwargs,
+            )
 
-        self.accelerator = Accelerator(
-            log_with=logger,
-            kwargs_handlers=[ddp_kwargs],
-            gradient_accumulation_steps=grad_accumulation_steps,
-            **accelerate_kwargs,
-        )
-
-        if logger == "wandb":
             if exists(wandb_resume_id):
                 init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name, "id": wandb_resume_id}}
             else:
                 init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name}}
+
             self.accelerator.init_trackers(
                 project_name=wandb_project,
                 init_kwargs=init_kwargs,
@@ -80,12 +103,37 @@ class Trainer:
                     "noise_scheduler": noise_scheduler,
                 },
             )
+        elif self.logger == "tensorboard":
+            self.accelerator = Accelerator(
+                kwargs_handlers=[ddp_kwargs],
+                gradient_accumulation_steps=grad_accumulation_steps,
+                **accelerate_kwargs,
+            )
+            if self.is_main:
+                path_log_dir = os.path.join(log_dir, wandb_project)
+                os.makedirs(path_log_dir, exist_ok=True)
+                existing_folders = [folder for folder in os.listdir(path_log_dir) if folder.startswith("exp")]
+                next_number = len(existing_folders) + 2
+                folder_name = f"exp{next_number}"
+                folder_path = os.path.join(path_log_dir, folder_name)
+                os.makedirs(folder_path, exist_ok=True)
+
+                self.writer = SummaryWriter(log_dir=folder_path)
+
+        # export audio and mel
+        self.export_samples = export_samples
+        if self.export_samples:
+            self.path_ckpts_project = checkpoint_path
+
+            self.vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
+            self.vocos.to("cpu")
+            self.file_path_samples = os.path.join(self.path_ckpts_project, "samples")
+            os.makedirs(self.file_path_samples, exist_ok=True)
 
         self.model = model
 
         if self.is_main:
             self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
-
             self.ema_model.to(self.accelerator.device)
 
         self.epochs = epochs
@@ -174,6 +222,82 @@ class Trainer:
         del checkpoint
         gc.collect()
         return step
+
+    def log(self, metrics, step):
+        """Unified logging method for both WandB and TensorBoard"""
+        if self.logger == "none":
+            return
+        if self.logger == "wandb":
+            self.accelerator.log(metrics, step=step)
+        elif self.is_main:
+            for key, value in metrics.items():
+                self.writer.add_scalar(key, value, step)
+
+    def export_add_log(self, global_step, mel_org, text_inputs):
+        try:
+            generated_wave_org = self.vocos.decode(mel_org.unsqueeze(0).cpu())
+            generated_wave_org = generated_wave_org.squeeze().cpu().numpy()
+            file_wav_org = os.path.join(self.file_path_samples, f"step_{global_step}_org.wav")
+            sf.write(file_wav_org, generated_wave_org, target_sample_rate)
+
+            audio, sr = torchaudio.load(file_wav_org)
+            audio = audio.to("cuda")
+
+            ref_audio_len = audio.shape[-1] // hop_length
+            text = [text_inputs[0] + [" . "] + text_inputs[0]]
+            duration = int((audio.shape[1] / 256) * 2.0)
+
+            with torch.inference_mode():
+                generated_gen, _ = self.model.sample(
+                    cond=audio,
+                    text=text,
+                    duration=duration,
+                    steps=nfe_step,
+                    cfg_strength=cfg_strength,
+                    sway_sampling_coef=sway_sampling_coef,
+                )
+
+            generated_gen = generated_gen.to(torch.float32)
+            generated_gen = generated_gen[:, ref_audio_len:, :]
+            generated_mel_spec_gen = generated_gen.permute(0, 2, 1)
+            generated_wave_gen = self.vocos.decode(generated_mel_spec_gen.cpu())
+            generated_wave_gen = generated_wave_gen.squeeze().cpu().numpy()
+            file_wav_gen = os.path.join(self.file_path_samples, f"step_{global_step}_gen.wav")
+            sf.write(file_wav_gen, generated_wave_gen, target_sample_rate)
+
+            if self.logger == "tensorboard":
+                self.writer.add_audio("Audio/original", generated_wave_org, global_step, sample_rate=target_sample_rate)
+
+                self.writer.add_audio("Audio/generate", generated_wave_gen, global_step, sample_rate=target_sample_rate)
+
+            mel_org = mel_org
+            mel_min, mel_max = mel_org.min(), mel_org.max()
+            mel_norm = (mel_org - mel_min) / (mel_max - mel_min + 1e-8)
+            mel_colored = plt.get_cmap("viridis")(mel_norm.detach().cpu().numpy())[:, :, :3]
+            mel_colored = np.transpose(mel_colored, (2, 0, 1))
+
+            if self.logger == "tensorboard":
+                self.writer.add_image("Mel/oginal", mel_colored, global_step, dataformats="CHW")
+
+            mel_colored_hwc = np.transpose(mel_colored, (1, 2, 0))
+            file_gen_org = os.path.join(self.file_path_samples, f"step_{global_step}_org.png")
+            plt.imsave(file_gen_org, mel_colored_hwc)
+
+            mel_gen = generated_mel_spec_gen[0]
+            mel_min, mel_max = mel_gen.min(), mel_gen.max()
+            mel_norm = (mel_gen - mel_min) / (mel_max - mel_min + 1e-8)
+            mel_colored = plt.get_cmap("viridis")(mel_norm.detach().cpu().numpy())[:, :, :3]
+            mel_colored = np.transpose(mel_colored, (2, 0, 1))
+
+            if self.logger == "tensorboard":
+                self.writer.add_image("Mel/generate", mel_colored, global_step, dataformats="CHW")
+
+            mel_colored_hwc = np.transpose(mel_colored, (1, 2, 0))
+            file_gen_gen = os.path.join(self.file_path_samples, f"step_{global_step}_gen.png")
+            plt.imsave(file_gen_gen, mel_colored_hwc)
+
+        except Exception as e:
+            print("An error occurred:", e)
 
     def train(self, train_dataset: Dataset, num_workers=16, resumable_with_seed: int = None):
         if exists(resumable_with_seed):
@@ -270,6 +394,15 @@ class Trainer:
                     loss, cond, pred = self.model(
                         mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
                     )
+
+                    # save 4 audio per save step
+                    if (
+                        self.accelerator.is_local_main_process
+                        and self.export_samples
+                        and global_step % (int(self.save_per_updates * 0.25) * self.grad_accumulation_steps) == 0
+                    ):
+                        self.export_add_log(global_step, batch["mel"][0], text_inputs)
+
                     self.accelerator.backward(loss)
 
                     if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
@@ -285,7 +418,7 @@ class Trainer:
                 global_step += 1
 
                 if self.accelerator.is_local_main_process:
-                    self.accelerator.log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_step)
+                    self.log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_step)
 
                 progress_bar.set_postfix(step=str(global_step), loss=loss.item())
 

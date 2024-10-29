@@ -447,6 +447,8 @@ def start_training(
 
     cmd += f" --tokenizer {tokenizer_type} "
 
+    cmd += " --export_samples True --logger wandb "
+
     print(cmd)
 
     save_settings(
@@ -1223,6 +1225,27 @@ def get_checkpoints_project(project_name, is_gradio=True):
     return files_checkpoints, selelect_checkpoint
 
 
+def get_audio_project(project_name, is_gradio=True):
+    if project_name is None:
+        return [], ""
+    project_name = project_name.replace("_pinyin", "").replace("_char", "")
+
+    if os.path.isdir(path_project_ckpts):
+        files_audios = glob(os.path.join(path_project_ckpts, project_name, "samples", "*.wav"))
+        files_audios = sorted(files_audios, key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0]))
+
+        files_audios = [item.replace("_gen.wav", "") for item in files_audios if item.endswith("_gen.wav")]
+    else:
+        files_audios = []
+
+    selelect_checkpoint = None if not files_audios else files_audios[0]
+
+    if is_gradio:
+        return gr.update(choices=files_audios, value=selelect_checkpoint)
+
+    return files_audios, selelect_checkpoint
+
+
 def get_gpu_stats():
     gpu_stats = ""
 
@@ -1288,6 +1311,21 @@ def get_combined_stats():
     cpu_stats = get_cpu_stats()
     combined_stats = f"### GPU Stats\n{gpu_stats}\n\n### CPU Stats\n{cpu_stats}"
     return combined_stats
+
+
+def get_audio_select(file_sample):
+    select_audio_org = file_sample
+    select_audio_gen = file_sample
+    select_image_org = file_sample
+    select_image_gen = file_sample
+
+    if file_sample is not None:
+        select_audio_org += "_org.wav"
+        select_audio_gen += "_gen.wav"
+        select_image_org += "_org.png"
+        select_image_gen += "_gen.png"
+
+    return select_audio_org, select_audio_gen, select_image_org, select_image_gen
 
 
 with gr.Blocks() as app:
@@ -1511,6 +1549,47 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             ch_stream = gr.Checkbox(label="stream output experiment.", value=True)
             txt_info_train = gr.Text(label="info", value="")
+
+            list_audios, select_audio = get_audio_project(projects_selelect, False)
+
+            select_audio_org = select_audio
+            select_audio_gen = select_audio
+            select_image_org = select_audio
+            select_image_gen = select_audio
+
+            if select_audio is not None:
+                select_audio_org += "_org.wav"
+                select_audio_gen += "_gen.wav"
+                select_image_org += "_org.png"
+                select_image_gen += "_gen.png"
+
+            with gr.Row():
+                ch_list_audio = gr.Dropdown(
+                    choices=list_audios,
+                    value=select_audio,
+                    label="audios",
+                    allow_custom_value=True,
+                    scale=6,
+                    interactive=True,
+                )
+                bt_stream_audio = gr.Button("refresh", scale=1)
+                bt_stream_audio.click(fn=get_audio_project, inputs=[cm_project], outputs=[ch_list_audio])
+                cm_project.change(fn=get_audio_project, inputs=[cm_project], outputs=[ch_list_audio])
+
+            with gr.Row():
+                audio_org_stream = gr.Audio(label="original", type="filepath", value=select_audio_org)
+                mel_org_stream = gr.Image(label="original", type="filepath", value=select_image_org)
+
+            with gr.Row():
+                audio_gen_stream = gr.Audio(label="generate", type="filepath", value=select_audio_gen)
+                mel_gen_stream = gr.Image(label="generate", type="filepath", value=select_image_gen)
+
+            ch_list_audio.change(
+                fn=get_audio_select,
+                inputs=[ch_list_audio],
+                outputs=[audio_org_stream, audio_gen_stream, mel_org_stream, mel_gen_stream],
+            )
+
             start_button.click(
                 fn=start_training,
                 inputs=[
