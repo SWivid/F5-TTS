@@ -37,7 +37,7 @@ from f5_tts.infer.utils_infer import (
     save_spectrogram,
 )
 
-vocos = load_vocoder()
+vocoder = load_vocoder()
 
 
 # load models
@@ -94,6 +94,7 @@ def infer(
         ref_text,
         gen_text,
         ema_model,
+        vocoder,
         cross_fade_duration=cross_fade_duration,
         speed=speed,
         show_info=show_info,

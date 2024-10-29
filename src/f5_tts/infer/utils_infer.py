@@ -29,9 +29,6 @@ _ref_audio_cache = {}
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
-vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
-
-
 # -----------------------------------------
 
 target_sample_rate = 24000
@@ -263,6 +260,7 @@ def infer_process(
     ref_text,
     gen_text,
     model_obj,
+    vocoder,
     show_info=print,
     progress=tqdm,
     target_rms=target_rms,
@@ -287,6 +285,7 @@ def infer_process(
         ref_text,
         gen_text_batches,
         model_obj,
+        vocoder,
         progress=progress,
         target_rms=target_rms,
         cross_fade_duration=cross_fade_duration,
@@ -307,6 +306,7 @@ def infer_batch_process(
     ref_text,
     gen_text_batches,
     model_obj,
+    vocoder,
     progress=tqdm,
     target_rms=0.1,
     cross_fade_duration=0.15,
@@ -362,7 +362,7 @@ def infer_batch_process(
         generated = generated.to(torch.float32)
         generated = generated[:, ref_audio_len:, :]
         generated_mel_spec = generated.permute(0, 2, 1)
-        generated_wave = vocos.decode(generated_mel_spec.cpu())
+        generated_wave = vocoder.decode(generated_mel_spec.cpu())
         if rms < target_rms:
             generated_wave = generated_wave * rms / target_rms
 
