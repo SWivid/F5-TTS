@@ -188,8 +188,9 @@ class Trainer:
 
     def train(self, train_dataset: Dataset, num_workers=16, resumable_with_seed: int = None):
         if self.log_samples:
-            from f5_tts.infer.utils_infer import vocos, nfe_step, cfg_strength, sway_sampling_coef
+            from f5_tts.infer.utils_infer import load_vocoder, nfe_step, cfg_strength, sway_sampling_coef
 
+            vocoder = load_vocoder()
             target_sample_rate = self.model.mel_spec.mel_stft.sample_rate
             log_samples_path = f"{self.checkpoint_path}/samples"
             os.makedirs(log_samples_path, exist_ok=True)
@@ -314,7 +315,7 @@ class Trainer:
                     self.save_checkpoint(global_step)
 
                     if self.log_samples:
-                        ref_audio, ref_audio_len = vocos.decode([batch["mel"][0]].cpu()), mel_lengths[0]
+                        ref_audio, ref_audio_len = vocoder.decode([batch["mel"][0]].cpu()), mel_lengths[0]
                         torchaudio.save(f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio, target_sample_rate)
                         with torch.inference_mode():
                             generated, _ = self.model.sample(
@@ -326,7 +327,7 @@ class Trainer:
                                 sway_sampling_coef=sway_sampling_coef,
                             )
                         generated = generated.to(torch.float32)
-                        gen_audio = vocos.decode(generated[:, ref_audio_len:, :].permute(0, 2, 1).cpu())
+                        gen_audio = vocoder.decode(generated[:, ref_audio_len:, :].permute(0, 2, 1).cpu())
                         torchaudio.save(f"{log_samples_path}/step_{global_step}_gen.wav", gen_audio, target_sample_rate)
 
                 if global_step % self.last_per_steps == 0:
