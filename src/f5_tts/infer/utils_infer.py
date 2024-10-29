@@ -182,7 +182,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         aseg = AudioSegment.from_file(ref_audio_orig)
 
-        non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000)
+        non_silent_segs = silence.split_on_silence(aseg, min_silence_len=500, silence_thresh=-50, keep_silence=1000)
         non_silent_wave = AudioSegment.silent(duration=0)
         for non_silent_seg in non_silent_segs:
             if len(non_silent_wave) > 10000 and len(non_silent_wave + non_silent_seg) > 18000:
@@ -190,6 +190,9 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print, device=
                 break
             non_silent_wave += non_silent_seg
         aseg = non_silent_wave
+        if len(aseg) > 18000:  # if no proper silence found for clipping
+            aseg = aseg[:18000]
+            show_info("Audio is over 18s, clipping short.")
 
         aseg.export(f.name, format="wav")
         ref_audio = f.name
