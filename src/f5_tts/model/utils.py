@@ -11,10 +11,6 @@ from torch.nn.utils.rnn import pad_sequence
 import jieba
 from pypinyin import lazy_pinyin, Style
 
-import numpy as np
-import matplotlib.pyplot as plt
-import soundfile as sf
-import torchaudio
 
 # seed everything
 
@@ -187,74 +183,3 @@ def repetition_found(text, length=2, tolerance=10):
         if count > tolerance:
             return True
     return False
-
-
-def normalize_and_colorize_spectrogram(mel_org):
-    mel_min, mel_max = mel_org.min(), mel_org.max()
-    mel_norm = (mel_org - mel_min) / (mel_max - mel_min + 1e-8)
-    mel_colored = plt.get_cmap("viridis")(mel_norm.detach().cpu().numpy())[:, :, :3]
-    mel_colored = np.transpose(mel_colored, (2, 0, 1))
-    mel_colored = np.flip(mel_colored, axis=1)
-    return mel_colored
-
-
-def export_audio(file_out, wav, target_sample_rate):
-    sf.write(file_out, wav, samplerate=target_sample_rate)
-
-
-def export_mel(mel_colored_hwc, file_out):
-    plt.imsave(file_out, mel_colored_hwc)
-
-
-def gen_sample(model, vocos, file_wav_org, text_inputs, hop_length, nfe_step, cfg_strength, sway_sampling_coef):
-    audio, sr = torchaudio.load(file_wav_org)
-    audio = audio.to("cuda")
-    ref_audio_len = audio.shape[-1] // hop_length
-    text = [text_inputs[0] + [" . "] + text_inputs[0]]
-    duration = int((audio.shape[1] / 256) * 2.0)
-    with torch.inference_mode():
-        generated_gen, _ = model.sample(
-            cond=audio,
-            text=text,
-            duration=duration,
-            steps=nfe_step,
-            cfg_strength=cfg_strength,
-            sway_sampling_coef=sway_sampling_coef,
-        )
-    generated_gen = generated_gen.to(torch.float32)
-    generated_gen = generated_gen[:, ref_audio_len:, :]
-    generated_mel_spec_gen = generated_gen.permute(0, 2, 1)
-    generated_wave_gen = vocos.decode(generated_mel_spec_gen.cpu())
-    generated_wave_gen = generated_wave_gen.squeeze().cpu().numpy()
-    return generated_wave_gen, generated_mel_spec_gen
-
-
-def get_sample(
-    vocos,
-    model,
-    file_path_samples,
-    global_step,
-    mel_org,
-    text_inputs,
-    target_sample_rate,
-    hop_length,
-    nfe_step,
-    cfg_strength,
-    sway_sampling_coef,
-):
-    generated_wave_org = vocos.decode(mel_org.unsqueeze(0).cpu())
-    generated_wave_org = generated_wave_org.squeeze().cpu().numpy()
-    file_wav_org = os.path.join(file_path_samples, f"step_{global_step}_org.wav")
-    export_audio(file_wav_org, generated_wave_org, target_sample_rate)
-    generated_wave_gen, generated_mel_spec_gen = gen_sample(
-        model, vocos, file_wav_org, text_inputs, hop_length, nfe_step, cfg_strength, sway_sampling_coef
-    )
-    file_wav_gen = os.path.join(file_path_samples, f"step_{global_step}_gen.wav")
-    export_audio(file_wav_gen, generated_wave_gen, target_sample_rate)
-    mel_org = normalize_and_colorize_spectrogram(mel_org)
-    mel_gen = normalize_and_colorize_spectrogram(generated_mel_spec_gen[0])
-    file_gen_org = os.path.join(file_path_samples, f"step_{global_step}_org.png")
-    export_mel(np.transpose(mel_org, (1, 2, 0)), file_gen_org)
-    file_gen_gen = os.path.join(file_path_samples, f"step_{global_step}_gen.png")
-    export_mel(np.transpose(mel_gen, (1, 2, 0)), file_gen_gen)
-    return generated_wave_org, generated_wave_gen, mel_org, mel_gen
