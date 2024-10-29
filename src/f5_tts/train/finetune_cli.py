@@ -57,12 +57,12 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--export_samples",
+        "--log_samples",
         type=bool,
         default=False,
-        help="Export 4 audio and spect samples for the checkpoint audio, per step.",
+        help="Log inferenced samples per ckpt save steps",
     )
-    parser.add_argument("--logger", type=str, default="wandb", choices=["none", "wandb", "tensorboard"], help="logger")
+    parser.add_argument("--logger", type=str, default=None, choices=["wandb", "tensorboard"], help="logger")
 
     return parser.parse_args()
 
@@ -141,12 +141,12 @@ def main():
         max_samples=args.max_samples,
         grad_accumulation_steps=args.grad_accumulation_steps,
         max_grad_norm=args.max_grad_norm,
+        logger=args.logger,
         wandb_project=args.dataset_name,
         wandb_run_name=args.exp_name,
         wandb_resume_id=wandb_resume_id,
+        log_samples=args.log_samples,
         last_per_steps=args.last_per_steps,
-        logger=args.logger,
-        export_samples=args.export_samples,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

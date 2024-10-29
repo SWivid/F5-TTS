@@ -453,7 +453,7 @@ def start_training(
 
     cmd += f" --tokenizer {tokenizer_type} "
 
-    cmd += f" --export_samples True --logger {logger} "
+    cmd += f" --log_samples True --logger {logger} "
 
     print(cmd)
 
@@ -1321,18 +1321,14 @@ def get_combined_stats():
 
 
 def get_audio_select(file_sample):
-    select_audio_org = file_sample
+    select_audio_ref = file_sample
     select_audio_gen = file_sample
-    select_image_org = file_sample
-    select_image_gen = file_sample
 
     if file_sample is not None:
-        select_audio_org += "_org.wav"
+        select_audio_ref += "_ref.wav"
         select_audio_gen += "_gen.wav"
-        select_image_org += "_org.png"
-        select_image_gen += "_gen.png"
 
-    return select_audio_org, select_audio_gen, select_image_org, select_image_gen
+    return select_audio_ref, select_audio_gen
 
 
 with gr.Blocks() as app:
@@ -1515,7 +1511,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             with gr.Row():
                 mixed_precision = gr.Radio(label="mixed_precision", choices=["none", "fp16", "fpb16"], value="none")
-                cd_logger = gr.Radio(label="logger", choices=["none", "wandb", "tensorboard"], value="wandb")
+                cd_logger = gr.Radio(label="logger", choices=["wandb", "tensorboard"], value="wandb")
                 start_button = gr.Button("Start Training")
                 stop_button = gr.Button("Stop Training", interactive=False)
 
@@ -1562,16 +1558,12 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             list_audios, select_audio = get_audio_project(projects_selelect, False)
 
-            select_audio_org = select_audio
+            select_audio_ref = select_audio
             select_audio_gen = select_audio
-            select_image_org = select_audio
-            select_image_gen = select_audio
 
             if select_audio is not None:
-                select_audio_org += "_org.wav"
+                select_audio_ref += "_ref.wav"
                 select_audio_gen += "_gen.wav"
-                select_image_org += "_org.png"
-                select_image_gen += "_gen.png"
 
             with gr.Row():
                 ch_list_audio = gr.Dropdown(
@@ -1587,17 +1579,13 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 cm_project.change(fn=get_audio_project, inputs=[cm_project], outputs=[ch_list_audio])
 
             with gr.Row():
-                audio_org_stream = gr.Audio(label="original", type="filepath", value=select_audio_org)
-                mel_org_stream = gr.Image(label="original", type="filepath", value=select_image_org)
-
-            with gr.Row():
+                audio_ref_stream = gr.Audio(label="original", type="filepath", value=select_audio_ref)
                 audio_gen_stream = gr.Audio(label="generate", type="filepath", value=select_audio_gen)
-                mel_gen_stream = gr.Image(label="generate", type="filepath", value=select_image_gen)
 
             ch_list_audio.change(
                 fn=get_audio_select,
                 inputs=[ch_list_audio],
-                outputs=[audio_org_stream, audio_gen_stream, mel_org_stream, mel_gen_stream],
+                outputs=[audio_ref_stream, audio_gen_stream],
             )
 
             start_button.click(
