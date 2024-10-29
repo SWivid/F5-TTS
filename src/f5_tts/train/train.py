@@ -83,6 +83,7 @@ def main():
         wandb_run_name=exp_name,
         wandb_resume_id=wandb_resume_id,
         last_per_steps=last_per_steps,
+        log_samples=True,
     )
 
     train_dataset = load_dataset(dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
