@@ -141,7 +141,7 @@ print(f"Using {model}...")
 ema_model = load_model(model_cls, model_cfg, ckpt_file, vocab_file)
 
 
-def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed, output_dir, wave_path):
+def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed):
     main_voice = {"ref_audio": ref_audio, "ref_text": ref_text}
     if "voices" not in config:
         voices = {"main": main_voice}
