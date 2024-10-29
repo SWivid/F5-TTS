@@ -18,8 +18,6 @@ from ema_pytorch import EMA
 from f5_tts.model import CFM
 from f5_tts.model.utils import exists, default
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
-from f5_tts.infer.utils_infer import target_sample_rate, hop_length, nfe_step, cfg_strength, sway_sampling_coef, vocos
-from f5_tts.model.utils import get_sample
 
 # trainer
 
@@ -51,6 +49,11 @@ class Trainer:
         bnb_optimizer: bool = False,
         export_samples=False,
     ):
+        # export audio and mel
+        self.export_samples = export_samples
+        if export_samples:
+            self.path_ckpts_project = checkpoint_path
+
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
         self.logger = logger
@@ -101,13 +104,6 @@ class Trainer:
                 os.makedirs(folder_path, exist_ok=True)
 
                 self.writer = SummaryWriter(log_dir=folder_path)
-
-        # export audio and mel
-        self.export_samples = export_samples
-        if self.export_samples:
-            self.path_ckpts_project = checkpoint_path
-            self.file_path_samples = os.path.join(self.path_ckpts_project, "samples")
-            os.makedirs(self.file_path_samples, exist_ok=True)
 
         self.model = model
 
@@ -213,6 +209,21 @@ class Trainer:
                 self.writer.add_scalar(key, value, step)
 
     def train(self, train_dataset: Dataset, num_workers=16, resumable_with_seed: int = None):
+        # import only when export_sample True
+        if self.export_samples:
+            from f5_tts.infer.utils_infer import (
+                target_sample_rate,
+                hop_length,
+                nfe_step,
+                cfg_strength,
+                sway_sampling_coef,
+                vocos,
+            )
+            from f5_tts.model.utils import get_sample
+
+            self.file_path_samples = os.path.join(self.path_ckpts_project, "samples")
+            os.makedirs(self.file_path_samples, exist_ok=True)
+
         if exists(resumable_with_seed):
             generator = torch.Generator()
             generator.manual_seed(resumable_with_seed)
