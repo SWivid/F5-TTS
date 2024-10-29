@@ -47,7 +47,7 @@ class F5TTS:
         self.load_ema_model(model_type, ckpt_file, vocab_file, ode_method, use_ema)
 
     def load_vocoder_model(self, local_path):
-        self.vocos = load_vocoder(local_path is not None, local_path, self.device)
+        self.vocoder = load_vocoder(local_path is not None, local_path, self.device)
 
     def load_ema_model(self, model_type, ckpt_file, vocab_file, ode_method, use_ema):
         if model_type == "F5-TTS":
@@ -102,6 +102,7 @@ class F5TTS:
             ref_text,
             gen_text,
             self.ema_model,
+            self.vocoder,
             show_info=show_info,
             progress=progress,
             target_rms=target_rms,
