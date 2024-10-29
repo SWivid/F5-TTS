@@ -113,7 +113,7 @@ wave_path = Path(output_dir) / "infer_cli_out.wav"
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
 vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
 
-vocos = load_vocoder(is_local=args.load_vocoder_from_local, local_path=vocos_local_path)
+vocoder = load_vocoder(is_local=args.load_vocoder_from_local, local_path=vocos_local_path)
 
 
 # load models
@@ -175,7 +175,9 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed
         ref_audio = voices[voice]["ref_audio"]
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
-        audio, final_sample_rate, spectragram = infer_process(ref_audio, ref_text, gen_text, model_obj, speed=speed)
+        audio, final_sample_rate, spectragram = infer_process(
+            ref_audio, ref_text, gen_text, model_obj, vocoder, speed=speed
+        )
         generated_audio_segments.append(audio)
 
     if generated_audio_segments:

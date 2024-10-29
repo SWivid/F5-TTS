@@ -56,6 +56,14 @@ def parse_args():
         help="Path to custom tokenizer vocab file (only used if tokenizer = 'custom')",
     )
 
+    parser.add_argument(
+        "--log_samples",
+        type=bool,
+        default=False,
+        help="Log inferenced samples per ckpt save steps",
+    )
+    parser.add_argument("--logger", type=str, default=None, choices=["wandb", "tensorboard"], help="logger")
+
     return parser.parse_args()
 
 
@@ -64,6 +72,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+
     checkpoint_path = str(files("f5_tts").joinpath(f"../../ckpts/{args.dataset_name}"))
 
     # Model parameters based on experiment name
@@ -132,9 +141,11 @@ def main():
         max_samples=args.max_samples,
         grad_accumulation_steps=args.grad_accumulation_steps,
         max_grad_norm=args.max_grad_norm,
+        logger=args.logger,
         wandb_project=args.dataset_name,
         wandb_run_name=args.exp_name,
         wandb_resume_id=wandb_resume_id,
+        log_samples=args.log_samples,
         last_per_steps=args.last_per_steps,
     )
 
