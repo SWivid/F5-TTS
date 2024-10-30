@@ -1471,10 +1471,10 @@ Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.tx
      │
      └── metadata.csv
       
-     file format metadata.csv
+     file format metadata.csv 
 
-     audio1|text1
-     audio2|text1
+     audio1|text1 or audio1.wav|text1 or your_path/audio1.wav|text1 
+     audio2|text1 or audio2.wav|text1 or your_path/audio1.wav|text1 
      ...
 
      ```"""
