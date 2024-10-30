@@ -735,6 +735,22 @@ def format_seconds_to_hms(seconds):
     return "{:02d}:{:02d}:{:02d}".format(hours, minutes, int(seconds))
 
 
+def get_correct_audio_path(audio_input, base_path="wavs"):
+    # Case 1: If it's a full path, use it directly
+    if os.path.isabs(audio_input):
+        file_audio = audio_input
+
+    # Case 2: If it has .wav but is not a full path
+    elif audio_input.endswith(".wav") and not os.path.isabs(audio_input):
+        file_audio = os.path.join(base_path, audio_input)
+
+    # Case 3: If only the name (no .wav and not a full path)
+    elif not audio_input.endswith(".wav") and not os.path.isabs(audio_input):
+        file_audio = os.path.join(base_path, audio_input + ".wav")
+
+    return file_audio
+
+
 def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_project_wavs = os.path.join(path_project, "wavs")
@@ -764,7 +780,7 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
             continue
         name_audio, text = sp_line[:2]
 
-        file_audio = os.path.join(path_project_wavs, name_audio + ".wav")
+        file_audio = get_correct_audio_path(name_audio, path_project_wavs)
 
         if not os.path.isfile(file_audio):
             error_files.append([file_audio, "error path"])
