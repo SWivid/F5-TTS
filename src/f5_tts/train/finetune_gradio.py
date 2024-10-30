@@ -147,6 +147,8 @@ def load_settings(project_name):
 
     with open(file_setting, "r") as f:
         settings = json.load(f)
+        if "logger" not in settings:
+            settings["logger"] = "wandb"
     return (
         settings["exp_name"],
         settings["learning_rate"],
