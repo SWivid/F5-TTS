@@ -279,7 +279,6 @@ def infer_process(
     for i, gen_text in enumerate(gen_text_batches):
         print(f"gen_text {i}", gen_text)
 
-    show_info(f"Generating audio in {len(gen_text_batches)} batches...")
     return infer_batch_process(
         (audio, sr),
         ref_text,
