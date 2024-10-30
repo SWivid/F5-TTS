@@ -80,9 +80,9 @@ def generate_response(messages, model, tokenizer):
 
 @gpu_decorator
 def infer(
-    ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15, speed=1, show_info=gr.Info
+    ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15, speed=1
 ):
-    ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=show_info)
+    ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=gr.Info)
 
     if model == "F5-TTS":
         ema_model = F5TTS_ema_model
@@ -97,7 +97,6 @@ def infer(
         vocoder,
         cross_fade_duration=cross_fade_duration,
         speed=speed,
-        show_info=show_info,
         progress=gr.Progress(),
     )
 
@@ -405,7 +404,7 @@ with gr.Blocks() as app_multistyle:
 
             # Generate speech for this segment
             audio, _ = infer(
-                ref_audio, ref_text, text, model_choice, remove_silence, 0, show_info=print
+                ref_audio, ref_text, text, model_choice, remove_silence, 0
             )  # show_info=print no pull to top when generating
             sr, audio_data = audio
 
