@@ -1216,7 +1216,7 @@ def infer(project, file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe
     else:
         device_test = None
 
-    if last_checkpoint != file_checkpoint or last_device != device_test or last_ema != use_ema:
+    if last_checkpoint != file_checkpoint or last_device != device_test or last_ema != use_ema or tts_api is None:
         if last_checkpoint != file_checkpoint:
             last_checkpoint = file_checkpoint
 
