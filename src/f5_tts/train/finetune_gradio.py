@@ -1379,6 +1379,10 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
 
     with gr.Tabs():
         with gr.TabItem("transcribe Data"):
+            gr.Markdown("""```plaintext 
+Skip this step if you have your dataset, metadata.csv, and a folder wavs with all the audio files.                 
+```""")
+
             ch_manual = gr.Checkbox(label="audio from path", value=False)
 
             mark_info_transcribe = gr.Markdown(
@@ -1451,6 +1455,10 @@ Using the extended model, you can fine-tune to a new language that is missing sy
             )
 
         with gr.TabItem("prepare Data"):
+            gr.Markdown("""```plaintext 
+Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.txt
+```""")
+
             gr.Markdown(
                 """```plaintext    
      place all your wavs folder and your metadata.csv file in {your name project}                                 
