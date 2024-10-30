@@ -737,19 +737,36 @@ def format_seconds_to_hms(seconds):
     return "{:02d}:{:02d}:{:02d}".format(hours, minutes, int(seconds))
 
 
-def get_correct_audio_path(audio_input, base_path="wavs"):
-    # Case 1: If it's a full path, use it directly
-    if os.path.isabs(audio_input):
+def get_correct_audio_path(
+    audio_input,
+    base_path="wavs",
+    supported_formats=("wav", "mp3", "aac", "flac", "m4a", "alac", "ogg", "aiff", "wma", "amr"),
+):
+    file_audio = None
+
+    # Helper function to check if file has a supported extension
+    def has_supported_extension(file_name):
+        return any(file_name.endswith(f".{ext}") for ext in supported_formats)
+
+    # Case 1: If it's a full path with a valid extension, use it directly
+    if os.path.isabs(audio_input) and has_supported_extension(audio_input):
         file_audio = audio_input
 
-    # Case 2: If it has .wav but is not a full path
-    elif audio_input.endswith(".wav") and not os.path.isabs(audio_input):
+    # Case 2: If it has a supported extension but is not a full path
+    elif has_supported_extension(audio_input) and not os.path.isabs(audio_input):
         file_audio = os.path.join(base_path, audio_input)
+        print("2")
 
-    # Case 3: If only the name (no .wav and not a full path)
-    elif not audio_input.endswith(".wav") and not os.path.isabs(audio_input):
-        file_audio = os.path.join(base_path, audio_input + ".wav")
-
+    # Case 3: If only the name is given (no extension and not a full path)
+    elif not has_supported_extension(audio_input) and not os.path.isabs(audio_input):
+        print("3")
+        for ext in supported_formats:
+            potential_file = os.path.join(base_path, f"{audio_input}.{ext}")
+            if os.path.exists(potential_file):
+                file_audio = potential_file
+                break
+        else:
+            file_audio = os.path.join(base_path, f"{audio_input}.{supported_formats[0]}")
     return file_audio
 
 
@@ -1463,7 +1480,11 @@ Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.tx
 
             gr.Markdown(
                 """```plaintext    
-     place all your wavs folder and your metadata.csv file in {your name project}                                 
+     place all your wavs folder and your metadata.csv file in {your name project}  
+
+     suport format for audio "wav", "mp3", "aac", "flac", "m4a", "alac", "ogg", "aiff", "wma", "amr"
+
+     example wav format                               
      my_speak/
      │
      ├── wavs/
