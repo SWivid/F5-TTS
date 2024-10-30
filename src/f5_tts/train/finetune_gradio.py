@@ -147,6 +147,8 @@ def load_settings(project_name):
 
     with open(file_setting, "r") as f:
         settings = json.load(f)
+        if "logger" not in settings:
+            settings["logger"] = "wandb"
     return (
         settings["exp_name"],
         settings["learning_rate"],
@@ -735,6 +737,22 @@ def format_seconds_to_hms(seconds):
     return "{:02d}:{:02d}:{:02d}".format(hours, minutes, int(seconds))
 
 
+def get_correct_audio_path(audio_input, base_path="wavs"):
+    # Case 1: If it's a full path, use it directly
+    if os.path.isabs(audio_input):
+        file_audio = audio_input
+
+    # Case 2: If it has .wav but is not a full path
+    elif audio_input.endswith(".wav") and not os.path.isabs(audio_input):
+        file_audio = os.path.join(base_path, audio_input)
+
+    # Case 3: If only the name (no .wav and not a full path)
+    elif not audio_input.endswith(".wav") and not os.path.isabs(audio_input):
+        file_audio = os.path.join(base_path, audio_input + ".wav")
+
+    return file_audio
+
+
 def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_project_wavs = os.path.join(path_project, "wavs")
@@ -764,7 +782,7 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
             continue
         name_audio, text = sp_line[:2]
 
-        file_audio = os.path.join(path_project_wavs, name_audio + ".wav")
+        file_audio = get_correct_audio_path(name_audio, path_project_wavs)
 
         if not os.path.isfile(file_audio):
             error_files.append([file_audio, "error path"])
@@ -1363,6 +1381,10 @@ for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussion
 
     with gr.Tabs():
         with gr.TabItem("transcribe Data"):
+            gr.Markdown("""```plaintext 
+Skip this step if you have your dataset, metadata.csv, and a folder wavs with all the audio files.                 
+```""")
+
             ch_manual = gr.Checkbox(label="audio from path", value=False)
 
             mark_info_transcribe = gr.Markdown(
@@ -1435,6 +1457,10 @@ Using the extended model, you can fine-tune to a new language that is missing sy
             )
 
         with gr.TabItem("prepare Data"):
+            gr.Markdown("""```plaintext 
+Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.txt
+```""")
+
             gr.Markdown(
                 """```plaintext    
      place all your wavs folder and your metadata.csv file in {your name project}                                 
@@ -1447,10 +1473,10 @@ Using the extended model, you can fine-tune to a new language that is missing sy
      │
      └── metadata.csv
       
-     file format metadata.csv
+     file format metadata.csv 
 
-     audio1|text1
-     audio2|text1
+     audio1|text1 or audio1.wav|text1 or your_path/audio1.wav|text1 
+     audio2|text1 or audio2.wav|text1 or your_path/audio1.wav|text1 
      ...
 
      ```"""
