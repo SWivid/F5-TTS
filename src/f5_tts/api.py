@@ -7,10 +7,16 @@ import torch
 import tqdm
 from cached_path import cached_path
 
-from f5_tts.infer.utils_infer import (hop_length, infer_process, load_model,
-                                      load_vocoder, preprocess_ref_audio_text,
-                                      remove_silence_for_generated_wav,
-                                      save_spectrogram, target_sample_rate)
+from f5_tts.infer.utils_infer import (
+    hop_length,
+    infer_process,
+    load_model,
+    load_vocoder,
+    preprocess_ref_audio_text,
+    remove_silence_for_generated_wav,
+    save_spectrogram,
+    target_sample_rate,
+)
 from f5_tts.model import DiT, UNetT
 from f5_tts.model.utils import seed_everything
 
@@ -32,6 +38,7 @@ class F5TTS:
         self.target_sample_rate = target_sample_rate
         self.hop_length = hop_length
         self.seed = -1
+        self.extract_backend = vocoder_name
 
         # Set device
         self.device = device or (
@@ -40,12 +47,12 @@ class F5TTS:
 
         # Load models
         self.load_vocoder_model(vocoder_name, local_path)
-        self.load_ema_model(model_type, ckpt_file, vocab_file, ode_method, use_ema)
+        self.load_ema_model(model_type, ckpt_file, vocoder_name, vocab_file, ode_method, use_ema)
 
     def load_vocoder_model(self, vocoder_name, local_path):
         self.vocoder = load_vocoder(vocoder_name, local_path is not None, local_path, self.device)
 
-    def load_ema_model(self, model_type, ckpt_file, vocab_file, ode_method, use_ema):
+    def load_ema_model(self, model_type, ckpt_file, extract_backend, vocab_file, ode_method, use_ema):
         if model_type == "F5-TTS":
             if not ckpt_file:
                 ckpt_file = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))
@@ -59,7 +66,9 @@ class F5TTS:
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
-        self.ema_model = load_model(model_cls, model_cfg, ckpt_file, vocab_file, ode_method, use_ema, self.device)
+        self.ema_model = load_model(
+            model_cls, model_cfg, ckpt_file, extract_backend, vocab_file, ode_method, use_ema, self.device
+        )
 
     def export_wav(self, wav, file_wave, remove_silence=False):
         sf.write(file_wave, wav, self.target_sample_rate)
@@ -102,6 +111,7 @@ class F5TTS:
             gen_text,
             self.ema_model,
             self.vocoder,
+            self.extract_backend,
             show_info=show_info,
             progress=progress,
             target_rms=target_rms,

@@ -187,8 +187,7 @@ class Trainer:
 
     def train(self, train_dataset: Dataset, num_workers=16, resumable_with_seed: int = None):
         if self.log_samples:
-            from f5_tts.infer.utils_infer import (cfg_strength, load_vocoder,
-                                                  nfe_step, sway_sampling_coef)
+            from f5_tts.infer.utils_infer import cfg_strength, load_vocoder, nfe_step, sway_sampling_coef
 
             vocoder = load_vocoder(vocoder_name=self.vocoder_name)
             target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.mel_stft.sample_rate
@@ -315,7 +314,7 @@ class Trainer:
                     self.save_checkpoint(global_step)
 
                     if self.log_samples and self.accelerator.is_local_main_process:
-                        ref_audio, ref_audio_len = vocoder.decode(batch["mel"][0].unsqueeze(0).cpu()), mel_lengths[0]
+                        ref_audio, ref_audio_len = vocoder.decode(batch["mel"][0].unsqueeze(0)), mel_lengths[0]
                         torchaudio.save(f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio, target_sample_rate)
                         with torch.inference_mode():
                             generated, _ = self.accelerator.unwrap_model(self.model).sample(

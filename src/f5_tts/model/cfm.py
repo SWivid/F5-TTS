@@ -19,8 +19,14 @@ from torch.nn.utils.rnn import pad_sequence
 from torchdiffeq import odeint
 
 from f5_tts.model.modules import MelSpec
-from f5_tts.model.utils import (default, exists, lens_to_mask, list_str_to_idx,
-                                list_str_to_tensor, mask_from_frac_lengths)
+from f5_tts.model.utils import (
+    default,
+    exists,
+    lens_to_mask,
+    list_str_to_idx,
+    list_str_to_tensor,
+    mask_from_frac_lengths,
+)
 
 
 class CFM(nn.Module):
@@ -92,18 +98,17 @@ class CFM(nn.Module):
         edit_mask=None,
     ):
         self.eval()
-
-        assert next(self.parameters()).dtype == torch.float32 or next(self.parameters()).dtype == torch.float16, print(
-            "Only support fp16 and fp32 inference currently"
-        )
-        cond = cond.to(next(self.parameters()).dtype)
-
         # raw wave
 
         if cond.ndim == 2:
             cond = self.mel_spec(cond)
             cond = cond.permute(0, 2, 1)
             assert cond.shape[-1] == self.num_channels
+
+        assert next(self.parameters()).dtype == torch.float32 or next(self.parameters()).dtype == torch.float16, print(
+            "Only support fp16 and fp32 inference currently"
+        )
+        cond = cond.to(next(self.parameters()).dtype)
 
         batch, cond_seq_len, device = *cond.shape[:2], cond.device
         if not exists(lens):

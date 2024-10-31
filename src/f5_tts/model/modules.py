@@ -123,7 +123,7 @@ def get_vocos_mel_spectrogram(
         center=True,
         normalized=False,
         norm=None,
-    )
+    ).to(waveform.device)
     if len(waveform.shape) == 3:
         waveform = waveform.squeeze(1)  # 'b 1 nw -> b nw'
 
