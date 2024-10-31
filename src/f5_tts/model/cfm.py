@@ -8,25 +8,19 @@ d - dimension
 """
 
 from __future__ import annotations
-from typing import Callable
+
 from random import random
+from typing import Callable
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 from torch.nn.utils.rnn import pad_sequence
-
 from torchdiffeq import odeint
 
 from f5_tts.model.modules import MelSpec
-from f5_tts.model.utils import (
-    default,
-    exists,
-    list_str_to_idx,
-    list_str_to_tensor,
-    lens_to_mask,
-    mask_from_frac_lengths,
-)
+from f5_tts.model.utils import (default, exists, lens_to_mask, list_str_to_idx,
+                                list_str_to_tensor, mask_from_frac_lengths)
 
 
 class CFM(nn.Module):
@@ -99,8 +93,10 @@ class CFM(nn.Module):
     ):
         self.eval()
 
-        if next(self.parameters()).dtype == torch.float16:
-            cond = cond.half()
+        assert next(self.parameters()).dtype == torch.float32 or next(self.parameters()).dtype == torch.float16, print(
+            "Only support fp16 and fp32 inference currently"
+        )
+        cond = cond.to(next(self.parameters()).dtype)
 
         # raw wave
 
