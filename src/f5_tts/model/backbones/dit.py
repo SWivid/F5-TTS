@@ -48,7 +48,7 @@ class TextEmbedding(nn.Module):
         text = text + 1  # use 0 as filler token. preprocess of batch pad -1, see list_str_to_idx()
         text = text[:, :seq_len]  # curtail if character tokens are more than the mel spec tokens
         batch, text_len = text.shape[0], text.shape[1]
-        text = F.pad(text, (0, seq_len - text_len), value=0)
+        text = F.pad(text, (0, max(0, seq_len - text_len)), value=0)
 
         if drop_text:  # cfg for text
             text = torch.zeros_like(text)
