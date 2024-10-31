@@ -99,8 +99,7 @@ class F5TTS:
         seed_everything(seed)
         self.seed = seed
 
-        if ref_text == "":
-            ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text, device=self.device)
+        ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text, device=self.device)
 
         wav, sr, spect = infer_process(
             ref_file,
