@@ -4,8 +4,7 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 
-from f5_tts.infer.utils_infer import (load_checkpoint, load_vocoder,
-                                      save_spectrogram)
+from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder, save_spectrogram
 from f5_tts.model import CFM, DiT, UNetT
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
@@ -173,20 +172,20 @@ with torch.inference_mode():
         seed=seed,
         edit_mask=edit_mask,
     )
-print(f"Generated mel: {generated.shape}")
+    print(f"Generated mel: {generated.shape}")
 
-# Final result
-generated = generated.to(torch.float32)
-generated = generated[:, ref_audio_len:, :]
-gen_mel_spec = generated.permute(0, 2, 1)
-if extract_backend == "vocos":
-    generated_wave = vocoder.decode(gen_mel_spec.cpu())
-elif extract_backend == "bigvgan":
-    generated_wave = vocoder(gen_mel_spec)
+    # Final result
+    generated = generated.to(torch.float32)
+    generated = generated[:, ref_audio_len:, :]
+    gen_mel_spec = generated.permute(0, 2, 1)
+    if extract_backend == "vocos":
+        generated_wave = vocoder.decode(gen_mel_spec)
+    elif extract_backend == "bigvgan":
+        generated_wave = vocoder(gen_mel_spec)
 
-if rms < target_rms:
-    generated_wave = generated_wave * rms / target_rms
+    if rms < target_rms:
+        generated_wave = generated_wave * rms / target_rms
 
-save_spectrogram(gen_mel_spec[0].cpu().numpy(), f"{output_dir}/speech_edit_out.png")
-torchaudio.save(f"{output_dir}/speech_edit_out.wav", generated_wave.squeeze(0).cpu(), target_sample_rate)
-print(f"Generated wav: {generated_wave.shape}")
+    save_spectrogram(gen_mel_spec[0].cpu().numpy(), f"{output_dir}/speech_edit_out.png")
+    torchaudio.save(f"{output_dir}/speech_edit_out.wav", generated_wave.squeeze(0).cpu(), target_sample_rate)
+    print(f"Generated wav: {generated_wave.shape}")

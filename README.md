@@ -44,20 +44,18 @@ pip install git+https://github.com/SWivid/F5-TTS.git
 git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
 pip install -e .
-```
 
-### 3. Init submodule( optional, if you want to change the vocoder from vocos to bigvgan)
-
-```bash
+# Init submodule(optional, if you want to change the vocoder from vocos to bigvgan)
 git submodule update --init --recursive
 ```
-After that, you need to change the `src/third_party/BigVGAN/bigvgan.py` by adding the following code at the beginning of the file.
+
+After init submodule, you need to change the `src/third_party/BigVGAN/bigvgan.py` by adding the following code at the beginning of the file.
 ```python
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ```
 
-### 4. Docker usage
+### 3. Docker usage
 ```bash
 # Build from Dockerfile
 docker build -t f5tts:v1 .
@@ -106,6 +104,10 @@ f5-tts_infer-cli -c custom.toml
 
 # Multi voice. See src/f5_tts/infer/README.md
 f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
+
+# Choose Vocoder
+f5-tts_infer-cli --vocoder_name bigvgan --load_vocoder_from_local --ckpt_file <YOUR_CKPT_PATH, eg:ckpts/model_1250000.pt >
+f5-tts_infer-cli --vocoder_name vocos --load_vocoder_from_local --ckpt_file <YOUR_CKPT_PATH, eg:ckpts/F5TTS_Base/model_1200000.safetensors  >
 ```
 
 ### 3. More instructions

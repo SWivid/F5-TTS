@@ -12,9 +12,11 @@ import torchaudio
 from accelerate import Accelerator
 from tqdm import tqdm
 
-from f5_tts.eval.utils_eval import (get_inference_prompt,
-                                    get_librispeech_test_clean_metainfo,
-                                    get_seedtts_testset_metainfo)
+from f5_tts.eval.utils_eval import (
+    get_inference_prompt,
+    get_librispeech_test_clean_metainfo,
+    get_seedtts_testset_metainfo,
+)
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder
 from f5_tts.model import CFM, DiT, UNetT
 from f5_tts.model.utils import get_tokenizer
@@ -185,7 +187,7 @@ def main():
                     gen = gen[ref_mel_lens[i] : total_mel_lens[i], :].unsqueeze(0)
                     gen_mel_spec = gen.permute(0, 2, 1)
                     if extract_backend == "vocos":
-                        generated_wave = vocoder.decode(gen_mel_spec.cpu())
+                        generated_wave = vocoder.decode(gen_mel_spec)
                     elif extract_backend == "bigvgan":
                         generated_wave = vocoder(gen_mel_spec)
 

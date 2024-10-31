@@ -94,7 +94,6 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=dev
             vocoder = Vocos.from_hparams(f"{local_path}/config.yaml")
             state_dict = torch.load(f"{local_path}/pytorch_model.bin", map_location="cpu")
             vocoder.load_state_dict(state_dict)
-            vocoder.eval()
             vocoder = vocoder.eval().to(device)
         else:
             print("Download Vocos from huggingface charactr/vocos-mel-24khz")
@@ -148,6 +147,11 @@ def load_checkpoint(model, ckpt_path, device, dtype, use_ema=True):
             for k, v in checkpoint["ema_model_state_dict"].items()
             if k not in ["initted", "step"]
         }
+
+        for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
+            if key in checkpoint["model_state_dict"]:
+                del checkpoint["model_state_dict"][key]
+
         model.load_state_dict(checkpoint["model_state_dict"])
     else:
         if ckpt_type == "safetensors":
@@ -160,7 +164,9 @@ def load_checkpoint(model, ckpt_path, device, dtype, use_ema=True):
 # load model for inference
 
 
-def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_method, use_ema=True, device=device):
+def load_model(
+    model_cls, model_cfg, ckpt_path, extract_backend, vocab_file="", ode_method=ode_method, use_ema=True, device=device
+):
     if vocab_file == "":
         vocab_file = str(files("f5_tts").joinpath("infer/examples/vocab.txt"))
     tokenizer = "custom"
@@ -282,6 +288,7 @@ def infer_process(
     gen_text,
     model_obj,
     vocoder,
+    extract_backend,
     show_info=print,
     progress=tqdm,
     target_rms=target_rms,
@@ -307,6 +314,7 @@ def infer_process(
         gen_text_batches,
         model_obj,
         vocoder,
+        extract_backend,
         progress=progress,
         target_rms=target_rms,
         cross_fade_duration=cross_fade_duration,
@@ -328,6 +336,7 @@ def infer_batch_process(
     gen_text_batches,
     model_obj,
     vocoder,
+    extract_backend,
     progress=tqdm,
     target_rms=0.1,
     cross_fade_duration=0.15,
@@ -384,7 +393,7 @@ def infer_batch_process(
             generated = generated[:, ref_audio_len:, :]
             generated_mel_spec = generated.permute(0, 2, 1)
             if extract_backend == "vocos":
-                generated_wave = vocoder.decode(generated_mel_spec.cpu())
+                generated_wave = vocoder.decode(generated_mel_spec)
             elif extract_backend == "bigvgan":
                 generated_wave = vocoder(generated_mel_spec)
             if rms < target_rms:
