@@ -1,6 +1,10 @@
 # A unified script for inference process
 # Make adjustments inside functions, and consider both gradio and cli scripts if need to change func output format
+import os
+import sys
 
+sys.path.append(f"../../{os.path.dirname(os.path.abspath(__file__))}/third_party/BigVGAN/")
+from third_party.BigVGAN import bigvgan
 import hashlib
 import re
 import tempfile
@@ -34,6 +38,9 @@ device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is
 target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
+win_length = 1024
+n_fft = 1024
+extract_backend = "bigvgan"  # 'vocos' or 'bigvgan'
 target_rms = 0.1
 cross_fade_duration = 0.15
 ode_method = "euler"
@@ -80,17 +87,28 @@ def chunk_text(text, max_chars=135):
 
 
 # load vocoder
-def load_vocoder(is_local=False, local_path="", device=device):
-    if is_local:
-        print(f"Load vocos from local path {local_path}")
-        vocos = Vocos.from_hparams(f"{local_path}/config.yaml")
-        state_dict = torch.load(f"{local_path}/pytorch_model.bin", map_location=device)
-        vocos.load_state_dict(state_dict)
-        vocos.eval()
-    else:
-        print("Download Vocos from huggingface charactr/vocos-mel-24khz")
-        vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
-    return vocos
+def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=device):
+    if vocoder_name == "vocos":
+        if is_local:
+            print(f"Load vocos from local path {local_path}")
+            vocoder = Vocos.from_hparams(f"{local_path}/config.yaml")
+            state_dict = torch.load(f"{local_path}/pytorch_model.bin", map_location="cpu")
+            vocoder.load_state_dict(state_dict)
+            vocoder.eval()
+            vocoder = vocoder.eval().to(device)
+        else:
+            print("Download Vocos from huggingface charactr/vocos-mel-24khz")
+            vocoder = Vocos.from_pretrained("charactr/vocos-mel-24khz")
+    elif vocoder_name == "bigvgan":
+        if is_local:
+            """download from https://huggingface.co/nvidia/bigvgan_v2_24khz_100band_256x/tree/main"""
+            vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
+        else:
+            vocoder = bigvgan.BigVGAN.from_pretrained("nvidia/bigvgan_v2_24khz_100band_256x", use_cuda_kernel=False)
+
+        vocoder.remove_weight_norm()
+        vocoder = vocoder.eval().to(device)
+    return vocoder
 
 
 # load asr pipeline
@@ -111,9 +129,8 @@ def initialize_asr_pipeline(device=device):
 # load model checkpoint for inference
 
 
-def load_checkpoint(model, ckpt_path, device, use_ema=True):
-    if device == "cuda":
-        model = model.half()
+def load_checkpoint(model, ckpt_path, device, dtype, use_ema=True):
+    model = model.to(dtype)
 
     ckpt_type = ckpt_path.split(".")[-1]
     if ckpt_type == "safetensors":
@@ -156,9 +173,12 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_me
     model = CFM(
         transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=dict(
-            target_sample_rate=target_sample_rate,
-            n_mel_channels=n_mel_channels,
+            n_fft=n_fft,
             hop_length=hop_length,
+            win_length=win_length,
+            n_mel_channels=n_mel_channels,
+            target_sample_rate=target_sample_rate,
+            extract_backend=extract_backend,
         ),
         odeint_kwargs=dict(
             method=ode_method,
@@ -166,7 +186,8 @@ def load_model(model_cls, model_cfg, ckpt_path, vocab_file="", ode_method=ode_me
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    model = load_checkpoint(model, ckpt_path, device, use_ema=use_ema)
+    dtype = torch.float16 if extract_backend == "vocos" else torch.float32
+    model = load_checkpoint(model, ckpt_path, device, dtype, use_ema=use_ema)
 
     return model
 
@@ -359,18 +380,21 @@ def infer_batch_process(
                 sway_sampling_coef=sway_sampling_coef,
             )
 
-        generated = generated.to(torch.float32)
-        generated = generated[:, ref_audio_len:, :]
-        generated_mel_spec = generated.permute(0, 2, 1)
-        generated_wave = vocoder.decode(generated_mel_spec.cpu())
-        if rms < target_rms:
-            generated_wave = generated_wave * rms / target_rms
+            generated = generated.to(torch.float32)
+            generated = generated[:, ref_audio_len:, :]
+            generated_mel_spec = generated.permute(0, 2, 1)
+            if extract_backend == "vocos":
+                generated_wave = vocoder.decode(generated_mel_spec.cpu())
+            elif extract_backend == "bigvgan":
+                generated_wave = vocoder(generated_mel_spec)
+            if rms < target_rms:
+                generated_wave = generated_wave * rms / target_rms
 
-        # wav -> numpy
-        generated_wave = generated_wave.squeeze().cpu().numpy()
+            # wav -> numpy
+            generated_wave = generated_wave.squeeze().cpu().numpy()
 
-        generated_waves.append(generated_wave)
-        spectrograms.append(generated_mel_spec[0].cpu().numpy())
+            generated_waves.append(generated_wave)
+            spectrograms.append(generated_mel_spec[0].cpu().numpy())
 
     # Combine all generated waves with cross-fading
     if cross_fade_duration <= 0:

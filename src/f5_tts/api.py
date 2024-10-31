@@ -1,24 +1,18 @@
 import random
 import sys
-import tqdm
 from importlib.resources import files
 
 import soundfile as sf
 import torch
+import tqdm
 from cached_path import cached_path
 
+from f5_tts.infer.utils_infer import (hop_length, infer_process, load_model,
+                                      load_vocoder, preprocess_ref_audio_text,
+                                      remove_silence_for_generated_wav,
+                                      save_spectrogram, target_sample_rate)
 from f5_tts.model import DiT, UNetT
 from f5_tts.model.utils import seed_everything
-from f5_tts.infer.utils_infer import (
-    load_vocoder,
-    load_model,
-    infer_process,
-    remove_silence_for_generated_wav,
-    save_spectrogram,
-    preprocess_ref_audio_text,
-    target_sample_rate,
-    hop_length,
-)
 
 
 class F5TTS:
@@ -29,6 +23,7 @@ class F5TTS:
         vocab_file="",
         ode_method="euler",
         use_ema=True,
+        vocoder_name="vocos",
         local_path=None,
         device=None,
     ):
@@ -44,11 +39,11 @@ class F5TTS:
         )
 
         # Load models
-        self.load_vocoder_model(local_path)
+        self.load_vocoder_model(vocoder_name, local_path)
         self.load_ema_model(model_type, ckpt_file, vocab_file, ode_method, use_ema)
 
-    def load_vocoder_model(self, local_path):
-        self.vocoder = load_vocoder(local_path is not None, local_path, self.device)
+    def load_vocoder_model(self, vocoder_name, local_path):
+        self.vocoder = load_vocoder(vocoder_name, local_path is not None, local_path, self.device)
 
     def load_ema_model(self, model_type, ckpt_file, vocab_file, ode_method, use_ema):
         if model_type == "F5-TTS":

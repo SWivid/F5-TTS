@@ -46,7 +46,18 @@ cd F5-TTS
 pip install -e .
 ```
 
-### 3. Docker usage
+### 3. Init submodule( optional, if you want to change the vocoder from vocos to bigvgan)
+
+```bash
+git submodule update --init --recursive
+```
+After that, you need to change the `src/third_party/BigVGAN/bigvgan.py` by adding the following code at the beginning of the file.
+```python
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+```
+
+### 4. Docker usage
 ```bash
 # Build from Dockerfile
 docker build -t f5tts:v1 .

@@ -3,17 +3,11 @@ import os
 import torch
 import torch.nn.functional as F
 import torchaudio
-from vocos import Vocos
 
-from f5_tts.model import CFM, UNetT, DiT
-from f5_tts.model.utils import (
-    get_tokenizer,
-    convert_char_to_pinyin,
-)
-from f5_tts.infer.utils_infer import (
-    load_checkpoint,
-    save_spectrogram,
-)
+from f5_tts.infer.utils_infer import (load_checkpoint, load_vocoder,
+                                      save_spectrogram)
+from f5_tts.model import CFM, DiT, UNetT
+from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -23,6 +17,9 @@ device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is
 target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
+win_length = 1024
+n_fft = 1024
+extract_backend = "bigvgan"  # 'vocos' or 'bigvgan'
 target_rms = 0.1
 
 tokenizer = "pinyin"
@@ -89,15 +86,11 @@ if not os.path.exists(output_dir):
 
 # Vocoder model
 local = False
-if local:
-    vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
-    vocos = Vocos.from_hparams(f"{vocos_local_path}/config.yaml")
-    state_dict = torch.load(f"{vocos_local_path}/pytorch_model.bin", weights_only=True, map_location=device)
-    vocos.load_state_dict(state_dict)
-
-    vocos.eval()
-else:
-    vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
+if extract_backend == "vocos":
+    vocoder_local_path = "../checkpoints/charactr/vocos-mel-24khz"
+elif extract_backend == "bigvgan":
+    vocoder_local_path = "../checkpoints/bigvgan_v2_24khz_100band_256x"
+vocoder = load_vocoder(vocoder_name=extract_backend, is_local=local, local_path=vocoder_local_path)
 
 # Tokenizer
 vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
@@ -106,9 +99,12 @@ vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
 model = CFM(
     transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
     mel_spec_kwargs=dict(
-        target_sample_rate=target_sample_rate,
-        n_mel_channels=n_mel_channels,
+        n_fft=n_fft,
         hop_length=hop_length,
+        win_length=win_length,
+        n_mel_channels=n_mel_channels,
+        target_sample_rate=target_sample_rate,
+        extract_backend=extract_backend,
     ),
     odeint_kwargs=dict(
         method=ode_method,
@@ -116,7 +112,8 @@ model = CFM(
     vocab_char_map=vocab_char_map,
 ).to(device)
 
-model = load_checkpoint(model, ckpt_path, device, use_ema=use_ema)
+dtype = torch.float16 if extract_backend == "vocos" else torch.float32
+model = load_checkpoint(model, ckpt_path, device, dtype, use_ema=use_ema)
 
 # Audio
 audio, sr = torchaudio.load(audio_to_edit)
@@ -181,11 +178,15 @@ print(f"Generated mel: {generated.shape}")
 # Final result
 generated = generated.to(torch.float32)
 generated = generated[:, ref_audio_len:, :]
-generated_mel_spec = generated.permute(0, 2, 1)
-generated_wave = vocos.decode(generated_mel_spec.cpu())
+gen_mel_spec = generated.permute(0, 2, 1)
+if extract_backend == "vocos":
+    generated_wave = vocoder.decode(gen_mel_spec.cpu())
+elif extract_backend == "bigvgan":
+    generated_wave = vocoder(gen_mel_spec)
+
 if rms < target_rms:
     generated_wave = generated_wave * rms / target_rms
 
-save_spectrogram(generated_mel_spec[0].cpu().numpy(), f"{output_dir}/speech_edit_out.png")
-torchaudio.save(f"{output_dir}/speech_edit_out.wav", generated_wave, target_sample_rate)
+save_spectrogram(gen_mel_spec[0].cpu().numpy(), f"{output_dir}/speech_edit_out.png")
+torchaudio.save(f"{output_dir}/speech_edit_out.wav", generated_wave.squeeze(0).cpu(), target_sample_rate)
 print(f"Generated wav: {generated_wave.shape}")
