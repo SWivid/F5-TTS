@@ -78,7 +78,7 @@ def get_inference_prompt(
     win_length=1024,
     n_mel_channels=100,
     hop_length=256,
-    mel_spec_type="bigvgan",
+    mel_spec_type="vocos",
     target_rms=0.1,
     use_truth_duration=False,
     infer_batch_size=1,

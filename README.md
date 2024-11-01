@@ -43,14 +43,10 @@ pip install git+https://github.com/SWivid/F5-TTS.git
 ```bash
 git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
+# git submodule update --init --recursive  # (optional, if need bigvgan)
 pip install -e .
-
-# Init submodule (optional, if you want to change the vocoder from vocos to bigvgan)
-# git submodule update --init --recursive
-# pip install -e .
 ```
-
-After init submodule, you need to change the `src/third_party/BigVGAN/bigvgan.py` by adding the following code at the beginning of the file.
+If initialize submodule, you should add the following code at the beginning of `src/third_party/BigVGAN/bigvgan.py`.
 ```python
 import os
 import sys

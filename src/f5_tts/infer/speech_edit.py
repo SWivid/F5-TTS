@@ -111,12 +111,7 @@ model = CFM(
     vocab_char_map=vocab_char_map,
 ).to(device)
 
-supports_fp16 = device == "cuda" and torch.cuda.get_device_properties(device).major >= 6
-if supports_fp16 and mel_spec_type == "vocos":
-    dtype = torch.float16
-elif mel_spec_type == "bigvgan":
-    dtype = torch.float32
-
+dtype = torch.float32 if mel_spec_type == "bigvgan" else None
 model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
 # Audio
