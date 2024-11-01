@@ -167,14 +167,16 @@ class Trainer:
         for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
             if key in checkpoint["ema_model_state_dict"]:
                 del checkpoint["ema_model_state_dict"][key]
-        for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
-            if key in checkpoint["model_state_dict"]:
-                del checkpoint["model_state_dict"][key]
 
         if self.is_main:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
         if "step" in checkpoint:
+            # patch for backward compatibility, 305e3ea
+            for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
+                if key in checkpoint["model_state_dict"]:
+                    del checkpoint["model_state_dict"][key]
+
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
             self.accelerator.unwrap_model(self.optimizer).load_state_dict(checkpoint["optimizer_state_dict"])
             if self.scheduler:
