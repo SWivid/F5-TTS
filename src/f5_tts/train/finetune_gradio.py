@@ -390,7 +390,7 @@ def start_training(
     stream=False,
     logger="wandb",
 ):
-    global training_process, tts_api, stop_signal
+    global training_process, tts_api, stop_signal, pipe
 
     if tts_api is not None or pipe is not None:
         if tts_api is not None:
