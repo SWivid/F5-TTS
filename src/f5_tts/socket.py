@@ -64,8 +64,7 @@ class TTSStreamingProcessor:
 
         # Break the generated audio into chunks and send them
         chunk_size = int(final_sample_rate * play_steps_in_s)
-        total_chunks = len(audio_chunk) // chunk_size + (1 if len(audio_chunk) % chunk_size != 0 else 0)
-
+        
         for i in range(0, len(audio_chunk), chunk_size):
             chunk = audio_chunk[i:i + chunk_size]
 
