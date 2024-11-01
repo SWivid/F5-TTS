@@ -37,6 +37,8 @@ class MelSpec(nn.Module):
     ):
         super().__init__()
         self.n_mel_channels = n_mel_channels
+        self.sample_rate = target_sample_rate
+        self.hop_length = hop_length  
 
         self.mel_stft = torchaudio.transforms.MelSpectrogram(
             sample_rate=target_sample_rate,
