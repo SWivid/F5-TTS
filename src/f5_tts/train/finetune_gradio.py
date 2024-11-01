@@ -392,11 +392,15 @@ def start_training(
 ):
     global training_process, tts_api, stop_signal
 
-    if tts_api is not None:
-        del tts_api
+    if tts_api is not None or pipe is not None:
+        if tts_api is not None:
+            del tts_api
+        if pipe is not None:
+            del pipe
         gc.collect()
         torch.cuda.empty_cache()
         tts_api = None
+        pipe = None
 
     path_project = os.path.join(path_data, dataset_name)
 
