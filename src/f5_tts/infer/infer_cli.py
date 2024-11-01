@@ -2,23 +2,22 @@ import argparse
 import codecs
 import os
 import re
-from pathlib import Path
 from importlib.resources import files
+from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 import tomli
 from cached_path import cached_path
 
-from f5_tts.model import DiT, UNetT
 from f5_tts.infer.utils_infer import (
-    load_vocoder,
-    load_model,
-    preprocess_ref_audio_text,
     infer_process,
+    load_model,
+    load_vocoder,
+    preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
 )
-
+from f5_tts.model import DiT, UNetT
 
 parser = argparse.ArgumentParser(
     prog="python3 infer-cli.py",
@@ -70,6 +69,7 @@ parser.add_argument(
     "--remove_silence",
     help="Remove silence.",
 )
+parser.add_argument("--vocoder_name", type=str, default="vocos", choices=["vocos", "bigvgan"], help="vocoder name")
 parser.add_argument(
     "--load_vocoder_from_local",
     action="store_true",
@@ -111,9 +111,13 @@ remove_silence = args.remove_silence if args.remove_silence else config["remove_
 speed = args.speed
 wave_path = Path(output_dir) / "infer_cli_out.wav"
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
-vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
+if args.vocoder_name == "vocos":
+    vocoder_local_path = "../checkpoints/vocos-mel-24khz"
+elif args.vocoder_name == "bigvgan":
+    vocoder_local_path = "../checkpoints/bigvgan_v2_24khz_100band_256x"
+mel_spec_type = args.vocoder_name
 
-vocoder = load_vocoder(is_local=args.load_vocoder_from_local, local_path=vocos_local_path)
+vocoder = load_vocoder(vocoder_name=mel_spec_type, is_local=args.load_vocoder_from_local, local_path=vocoder_local_path)
 
 
 # load models
@@ -121,11 +125,17 @@ if model == "F5-TTS":
     model_cls = DiT
     model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
     if ckpt_file == "":
-        repo_name = "F5-TTS"
-        exp_name = "F5TTS_Base"
-        ckpt_step = 1200000
-        ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
-        # ckpt_file = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
+        if args.vocoder_name == "vocos":
+            repo_name = "F5-TTS"
+            exp_name = "F5TTS_Base"
+            ckpt_step = 1200000
+            ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
+            # ckpt_file = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
+        elif args.vocoder_name == "bigvgan":
+            repo_name = "F5-TTS"
+            exp_name = "F5TTS_Base_bigvgan"
+            ckpt_step = 1250000
+            ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.pt"))
 
 elif model == "E2-TTS":
     model_cls = UNetT
@@ -136,12 +146,18 @@ elif model == "E2-TTS":
         ckpt_step = 1200000
         ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
         # ckpt_file = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
+    elif args.vocoder_name == "bigvgan":  # TODO: need to test
+        repo_name = "F5-TTS"
+        exp_name = "F5TTS_Base_bigvgan"
+        ckpt_step = 1250000
+        ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.pt"))
+
 
 print(f"Using {model}...")
-ema_model = load_model(model_cls, model_cfg, ckpt_file, vocab_file)
+ema_model = load_model(model_cls, model_cfg, ckpt_file, mel_spec_type=args.vocoder_name, vocab_file=vocab_file)
 
 
-def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed):
+def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove_silence, speed):
     main_voice = {"ref_audio": ref_audio, "ref_text": ref_text}
     if "voices" not in config:
         voices = {"main": main_voice}
@@ -178,7 +194,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(
-            ref_audio, ref_text, gen_text, model_obj, vocoder, speed=speed
+            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed
         )
         generated_audio_segments.append(audio)
 
@@ -197,7 +213,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed
 
 
 def main():
-    main_process(ref_audio, ref_text, gen_text, ema_model, remove_silence, speed)
+    main_process(ref_audio, ref_text, gen_text, ema_model, mel_spec_type, remove_silence, speed)
 
 
 if __name__ == "__main__":
