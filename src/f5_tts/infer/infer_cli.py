@@ -161,6 +161,8 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, remove_silence, speed
     chunks = re.split(reg1, text_gen)
     reg2 = r"\[(\w+)\]"
     for text in chunks:
+        if not text.strip():
+            continue
         match = re.match(reg2, text)
         if match:
             voice = match[1]
