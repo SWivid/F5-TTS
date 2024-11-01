@@ -78,7 +78,7 @@ def get_inference_prompt(
     win_length=1024,
     n_mel_channels=100,
     hop_length=256,
-    extract_backend="bigvgan",
+    mel_spec_type="bigvgan",
     target_rms=0.1,
     use_truth_duration=False,
     infer_batch_size=1,
@@ -102,7 +102,7 @@ def get_inference_prompt(
         win_length=win_length,
         n_mel_channels=n_mel_channels,
         target_sample_rate=target_sample_rate,
-        extract_backend=extract_backend,
+        mel_spec_type=mel_spec_type,
     )
 
     for utt, prompt_text, prompt_wav, gt_text, gt_wav in tqdm(metainfo, desc="Processing prompts..."):

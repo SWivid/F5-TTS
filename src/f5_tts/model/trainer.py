@@ -46,7 +46,7 @@ class Trainer:
         accelerate_kwargs: dict = dict(),
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
-        extract_backend: str = "vocos",  # "vocos" | "bigvgan"
+        mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -108,7 +108,7 @@ class Trainer:
         self.max_samples = max_samples
         self.grad_accumulation_steps = grad_accumulation_steps
         self.max_grad_norm = max_grad_norm
-        self.vocoder_name = extract_backend
+        self.vocoder_name = mel_spec_type
 
         self.noise_scheduler = noise_scheduler
 

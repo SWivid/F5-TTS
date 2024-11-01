@@ -18,7 +18,7 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
-extract_backend = "bigvgan"  # 'vocos' or 'bigvgan'
+mel_spec_type = "bigvgan"  # 'vocos' or 'bigvgan'
 target_rms = 0.1
 
 tokenizer = "pinyin"
@@ -85,11 +85,11 @@ if not os.path.exists(output_dir):
 
 # Vocoder model
 local = False
-if extract_backend == "vocos":
+if mel_spec_type == "vocos":
     vocoder_local_path = "../checkpoints/charactr/vocos-mel-24khz"
-elif extract_backend == "bigvgan":
+elif mel_spec_type == "bigvgan":
     vocoder_local_path = "../checkpoints/bigvgan_v2_24khz_100band_256x"
-vocoder = load_vocoder(vocoder_name=extract_backend, is_local=local, local_path=vocoder_local_path)
+vocoder = load_vocoder(vocoder_name=mel_spec_type, is_local=local, local_path=vocoder_local_path)
 
 # Tokenizer
 vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
@@ -103,7 +103,7 @@ model = CFM(
         win_length=win_length,
         n_mel_channels=n_mel_channels,
         target_sample_rate=target_sample_rate,
-        extract_backend=extract_backend,
+        mel_spec_type=mel_spec_type,
     ),
     odeint_kwargs=dict(
         method=ode_method,
@@ -111,7 +111,12 @@ model = CFM(
     vocab_char_map=vocab_char_map,
 ).to(device)
 
-dtype = torch.float16 if extract_backend == "vocos" else torch.float32
+supports_fp16 = device == "cuda" and torch.cuda.get_device_properties(device).major >= 6
+if supports_fp16 and mel_spec_type == "vocos":
+    dtype = torch.float16
+else:
+    dtype = torch.float32
+
 model = load_checkpoint(model, ckpt_path, device, dtype, use_ema=use_ema)
 
 # Audio
@@ -178,9 +183,9 @@ with torch.inference_mode():
     generated = generated.to(torch.float32)
     generated = generated[:, ref_audio_len:, :]
     gen_mel_spec = generated.permute(0, 2, 1)
-    if extract_backend == "vocos":
+    if mel_spec_type == "vocos":
         generated_wave = vocoder.decode(gen_mel_spec)
-    elif extract_backend == "bigvgan":
+    elif mel_spec_type == "bigvgan":
         generated_wave = vocoder(gen_mel_spec)
 
     if rms < target_rms:

@@ -24,7 +24,7 @@ class HFDataset(Dataset):
         hop_length=256,
         n_fft=1024,
         win_length=1024,
-        extract_backend="vocos",
+        mel_spec_type="vocos",
     ):
         self.data = hf_dataset
         self.target_sample_rate = target_sample_rate
@@ -36,7 +36,7 @@ class HFDataset(Dataset):
             win_length=win_length,
             n_mel_channels=n_mel_channels,
             target_sample_rate=target_sample_rate,
-            extract_backend=extract_backend,
+            mel_spec_type=mel_spec_type,
         )
 
     def get_frame_len(self, index):
@@ -90,7 +90,7 @@ class CustomDataset(Dataset):
         n_mel_channels=100,
         n_fft=1024,
         win_length=1024,
-        extract_backend="vocos",
+        mel_spec_type="vocos",
         preprocessed_mel=False,
         mel_spec_module: nn.Module | None = None,
     ):
@@ -100,7 +100,7 @@ class CustomDataset(Dataset):
         self.hop_length = hop_length
         self.n_fft = n_fft
         self.win_length = win_length
-        self.extract_backend = extract_backend
+        self.mel_spec_type = mel_spec_type
         self.preprocessed_mel = preprocessed_mel
 
         if not preprocessed_mel:
@@ -112,7 +112,7 @@ class CustomDataset(Dataset):
                     win_length=win_length,
                     n_mel_channels=n_mel_channels,
                     target_sample_rate=target_sample_rate,
-                    extract_backend=extract_backend,
+                    mel_spec_type=mel_spec_type,
                 ),
             )
 

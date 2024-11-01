@@ -13,7 +13,7 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
-extract_backend = "bigvgan"  # 'vocos' or 'bigvgan'
+mel_spec_type = "bigvgan"  # 'vocos' or 'bigvgan'
 
 tokenizer = "pinyin"  # 'pinyin', 'char', or 'custom'
 tokenizer_path = None  # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
@@ -63,7 +63,7 @@ def main():
         win_length=win_length,
         n_mel_channels=n_mel_channels,
         target_sample_rate=target_sample_rate,
-        extract_backend=extract_backend,
+        mel_spec_type=mel_spec_type,
     )
 
     model = CFM(
@@ -89,7 +89,7 @@ def main():
         wandb_resume_id=wandb_resume_id,
         last_per_steps=last_per_steps,
         log_samples=True,
-        extract_backend=extract_backend,
+        mel_spec_type=mel_spec_type,
     )
 
     train_dataset = load_dataset(dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
