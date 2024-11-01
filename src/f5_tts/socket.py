@@ -135,9 +135,9 @@ def start_server(host, port, processor):
 if __name__ == "__main__":
     try:
         # Load the model and vocoder using the provided files
-        ckpt_file = "ckpts/model/model_1096.pt" #pointing your checkpoints
+        ckpt_file = "" # pointing your checkpoint "ckpts/model/model_1096.pt" 
         vocab_file = ""  # Add vocab file path if needed
-        ref_audio = "./tests/ref_audio/reference.wav"
+        ref_audio ="" # add ref audio"./tests/ref_audio/reference.wav"
         ref_text = ""
 
         # Initialize the processor with the model and vocoder
