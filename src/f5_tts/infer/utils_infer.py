@@ -156,6 +156,7 @@ def load_checkpoint(model, ckpt_path, device, dtype=None, use_ema=True):
             if k not in ["initted", "step"]
         }
 
+        # patch for backward compatibility, 305e3ea
         for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
             if key in checkpoint["model_state_dict"]:
                 del checkpoint["model_state_dict"][key]
