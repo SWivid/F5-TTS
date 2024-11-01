@@ -54,8 +54,7 @@ def prepare_csv_wavs_dir(input_dir):
 
 def get_audio_duration(audio_path):
     audio, sample_rate = torchaudio.load(audio_path)
-    num_channels = audio.shape[0]
-    return audio.shape[1] / (sample_rate * num_channels)
+    return audio.shape[1] / sample_rate
 
 
 def read_audio_text_pairs(csv_file_path):
