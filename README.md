@@ -46,11 +46,13 @@ cd F5-TTS
 pip install -e .
 
 # Init submodule(optional, if you want to change the vocoder from vocos to bigvgan)
-git submodule update --init --recursive
+# git submodule update --init --recursive
+# pip install -e .
 ```
 
 After init submodule, you need to change the `src/third_party/BigVGAN/bigvgan.py` by adding the following code at the beginning of the file.
 ```python
+import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ```
@@ -104,10 +106,6 @@ f5-tts_infer-cli -c custom.toml
 
 # Multi voice. See src/f5_tts/infer/README.md
 f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
-
-# Choose Vocoder
-f5-tts_infer-cli --vocoder_name bigvgan --load_vocoder_from_local --ckpt_file <YOUR_CKPT_PATH, eg:ckpts/model_1250000.pt >
-f5-tts_infer-cli --vocoder_name vocos --load_vocoder_from_local --ckpt_file <YOUR_CKPT_PATH, eg:ckpts/F5TTS_Base/model_1200000.safetensors  >
 ```
 
 ### 3. More instructions

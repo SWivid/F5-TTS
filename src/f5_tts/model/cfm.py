@@ -105,9 +105,6 @@ class CFM(nn.Module):
             cond = cond.permute(0, 2, 1)
             assert cond.shape[-1] == self.num_channels
 
-        assert next(self.parameters()).dtype == torch.float32 or next(self.parameters()).dtype == torch.float16, print(
-            "Only support fp16 and fp32 inference currently"
-        )
         cond = cond.to(next(self.parameters()).dtype)
 
         batch, cond_seq_len, device = *cond.shape[:2], cond.device
