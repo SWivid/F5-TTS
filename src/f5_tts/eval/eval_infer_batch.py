@@ -120,6 +120,7 @@ def main():
         target_sample_rate=target_sample_rate,
         n_mel_channels=n_mel_channels,
         hop_length=hop_length,
+        mel_spec_type=mel_spec_type,
         target_rms=target_rms,
         use_truth_duration=use_truth_duration,
         infer_batch_size=infer_batch_size,
@@ -153,12 +154,7 @@ def main():
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    supports_fp16 = device == "cuda" and torch.cuda.get_device_properties(device).major >= 6
-    if supports_fp16 and mel_spec_type == "vocos":
-        dtype = torch.float16
-    elif mel_spec_type == "bigvgan":
-        dtype = torch.float32
-
+    dtype = torch.float32 if mel_spec_type == "bigvgan" else None
     model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
     if not os.path.exists(output_dir) and accelerator.is_main_process:

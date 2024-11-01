@@ -19,57 +19,44 @@ from librosa.filters import mel as librosa_mel_fn
 from torch import nn
 from x_transformers.x_transformers import apply_rotary_pos_emb
 
+
 # raw wav to mel spec
-
-
-def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
-    return torch.log(torch.clamp(x, min=clip_val) * C)
-
-
-def dynamic_range_decompression_torch(x, C=1):
-    return torch.exp(x) / C
-
-
-def spectral_normalize_torch(magnitudes):
-    return dynamic_range_compression_torch(magnitudes)
 
 
 mel_basis_cache = {}
 hann_window_cache = {}
 
 
-# BigVGAN extract mel spectrogram
-def mel_spectrogram(
-    y: torch.Tensor,
-    n_fft: int,
-    num_mels: int,
-    sampling_rate: int,
-    hop_size: int,
-    win_size: int,
-    fmin: int,
-    fmax: int = None,
-    center: bool = False,
-) -> torch.Tensor:
-    """Copy from https://github.com/NVIDIA/BigVGAN/tree/main"""
-    device = y.device
-    key = f"{n_fft}_{num_mels}_{sampling_rate}_{hop_size}_{win_size}_{fmin}_{fmax}_{device}"
+def get_bigvgan_mel_spectrogram(
+    waveform,
+    n_fft=1024,
+    n_mel_channels=100,
+    target_sample_rate=24000,
+    hop_length=256,
+    win_length=1024,
+    fmin=0,
+    fmax=None,
+    center=False,
+):  # Copy from https://github.com/NVIDIA/BigVGAN/tree/main
+    device = waveform.device
+    key = f"{n_fft}_{n_mel_channels}_{target_sample_rate}_{hop_length}_{win_length}_{fmin}_{fmax}_{device}"
 
     if key not in mel_basis_cache:
-        mel = librosa_mel_fn(sr=sampling_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax)
+        mel = librosa_mel_fn(sr=target_sample_rate, n_fft=n_fft, n_mels=n_mel_channels, fmin=fmin, fmax=fmax)
         mel_basis_cache[key] = torch.from_numpy(mel).float().to(device)  # TODO: why they need .float()?
-        hann_window_cache[key] = torch.hann_window(win_size).to(device)
+        hann_window_cache[key] = torch.hann_window(win_length).to(device)
 
     mel_basis = mel_basis_cache[key]
     hann_window = hann_window_cache[key]
 
-    padding = (n_fft - hop_size) // 2
-    y = torch.nn.functional.pad(y.unsqueeze(1), (padding, padding), mode="reflect").squeeze(1)
+    padding = (n_fft - hop_length) // 2
+    waveform = torch.nn.functional.pad(waveform.unsqueeze(1), (padding, padding), mode="reflect").squeeze(1)
 
     spec = torch.stft(
-        y,
+        waveform,
         n_fft,
-        hop_length=hop_size,
-        win_length=win_size,
+        hop_length=hop_length,
+        win_length=win_length,
         window=hann_window,
         center=center,
         pad_mode="reflect",
@@ -80,29 +67,9 @@ def mel_spectrogram(
     spec = torch.sqrt(torch.view_as_real(spec).pow(2).sum(-1) + 1e-9)
 
     mel_spec = torch.matmul(mel_basis, spec)
-    mel_spec = spectral_normalize_torch(mel_spec)
+    mel_spec = torch.log(torch.clamp(mel_spec, min=1e-5))
 
     return mel_spec
-
-
-def get_bigvgan_mel_spectrogram(
-    waveform,
-    n_fft=1024,
-    n_mel_channels=100,
-    target_sample_rate=24000,
-    hop_length=256,
-    win_length=1024,
-):
-    return mel_spectrogram(
-        waveform,
-        n_fft,  # 1024
-        n_mel_channels,  # 100
-        target_sample_rate,  # 24000
-        hop_length,  # 256
-        win_length,  # 1024
-        fmin=0,  # 0
-        fmax=None,  # null
-    )
 
 
 def get_vocos_mel_spectrogram(

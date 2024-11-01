@@ -40,6 +40,7 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
+mel_spec_type = "vocos"
 target_rms = 0.1
 cross_fade_duration = 0.15
 ode_method = "euler"
@@ -131,7 +132,7 @@ def initialize_asr_pipeline(device=device):
 # load model checkpoint for inference
 
 
-def load_checkpoint(model, ckpt_path, device, dtype, use_ema=True):
+def load_checkpoint(model, ckpt_path, device, dtype=None, use_ema=True):
     if dtype is None:
         dtype = (
             torch.float16 if device == "cuda" and torch.cuda.get_device_properties(device).major >= 6 else torch.float32
@@ -175,7 +176,7 @@ def load_model(
     model_cls,
     model_cfg,
     ckpt_path,
-    mel_spec_type="vocos",
+    mel_spec_type=mel_spec_type,
     vocab_file="",
     ode_method=ode_method,
     use_ema=True,
@@ -206,12 +207,7 @@ def load_model(
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    supports_fp16 = device == "cuda" and torch.cuda.get_device_properties(device).major >= 6
-    if supports_fp16 and mel_spec_type == "vocos":
-        dtype = torch.float16
-    elif mel_spec_type == "bigvgan":
-        dtype = torch.float32
-
+    dtype = torch.float32 if mel_spec_type == "bigvgan" else None
     model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
     return model
@@ -307,7 +303,7 @@ def infer_process(
     gen_text,
     model_obj,
     vocoder,
-    mel_spec_type="vocos",
+    mel_spec_type=mel_spec_type,
     show_info=print,
     progress=tqdm,
     target_rms=target_rms,
