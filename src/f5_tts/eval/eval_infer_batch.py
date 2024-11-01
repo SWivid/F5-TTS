@@ -32,7 +32,6 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
-mel_spec_type = "bigvgan"  # 'vocos' or 'bigvgan'
 target_rms = 0.1
 
 
@@ -49,6 +48,7 @@ def main():
     parser.add_argument("-d", "--dataset", default="Emilia_ZH_EN")
     parser.add_argument("-n", "--expname", required=True)
     parser.add_argument("-c", "--ckptstep", default=1200000, type=int)
+    parser.add_argument("-m", "--mel_spec_type", default="vocos", type=str, choices=["bigvgan", "vocos"])
 
     parser.add_argument("-nfe", "--nfestep", default=32, type=int)
     parser.add_argument("-o", "--odemethod", default="euler")
@@ -63,6 +63,7 @@ def main():
     exp_name = args.expname
     ckpt_step = args.ckptstep
     ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
+    mel_spec_type = args.mel_spec_type
 
     nfe_step = args.nfestep
     ode_method = args.odemethod
@@ -101,7 +102,7 @@ def main():
     output_dir = (
         f"{rel_path}/"
         f"results/{exp_name}_{ckpt_step}/{testset}/"
-        f"seed{seed}_{ode_method}_nfe{nfe_step}"
+        f"seed{seed}_{ode_method}_nfe{nfe_step}_{mel_spec_type}"
         f"{f'_ss{sway_sampling_coef}' if sway_sampling_coef else ''}"
         f"_cfg{cfg_strength}_speed{speed}"
         f"{'_gt-dur' if use_truth_duration else ''}"
@@ -155,10 +156,10 @@ def main():
     supports_fp16 = device == "cuda" and torch.cuda.get_device_properties(device).major >= 6
     if supports_fp16 and mel_spec_type == "vocos":
         dtype = torch.float16
-    else:
+    elif mel_spec_type == "bigvgan":
         dtype = torch.float32
 
-    model = load_checkpoint(model, ckpt_path, device, dtype, use_ema=use_ema)
+    model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
     if not os.path.exists(output_dir) and accelerator.is_main_process:
         os.makedirs(output_dir)

@@ -18,7 +18,7 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
-mel_spec_type = "bigvgan"  # 'vocos' or 'bigvgan'
+mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
 target_rms = 0.1
 
 tokenizer = "pinyin"
@@ -114,10 +114,10 @@ model = CFM(
 supports_fp16 = device == "cuda" and torch.cuda.get_device_properties(device).major >= 6
 if supports_fp16 and mel_spec_type == "vocos":
     dtype = torch.float16
-else:
+elif mel_spec_type == "bigvgan":
     dtype = torch.float32
 
-model = load_checkpoint(model, ckpt_path, device, dtype, use_ema=use_ema)
+model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
 # Audio
 audio, sr = torchaudio.load(audio_to_edit)
