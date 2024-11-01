@@ -16,6 +16,7 @@ from f5_tts.infer.utils_infer import (
     load_vocoder,
     preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
+    load_prediction_model
 )
 from f5_tts.model import DiT, UNetT
 
@@ -81,6 +82,13 @@ parser.add_argument(
     default=1.0,
     help="Adjust the speed of the audio generation (default: 1.0)",
 )
+
+parser.add_argument(
+    "--predict_duration",
+    type=bool,
+    default=False,
+    help="Automatically predict the duration of spoken segment"
+)
 args = parser.parse_args()
 
 config = tomli.load(open(args.config, "rb"))
@@ -89,6 +97,7 @@ ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
 gen_file = args.gen_file if args.gen_file else config["gen_file"]
+predict_duration = args.predict_duration if args.predict_duration else config["predict_duration"]
 
 # patches for pip pkg user
 if "infer/examples/" in ref_audio:
@@ -156,8 +165,13 @@ elif model == "E2-TTS":
 print(f"Using {model}...")
 ema_model = load_model(model_cls, model_cfg, ckpt_file, mel_spec_type=args.vocoder_name, vocab_file=vocab_file)
 
+if predict_duration:
+    prediction_model = load_prediction_model()
 
-def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove_silence, speed):
+
+
+def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove_silence, speed, prediction_model):
+
     main_voice = {"ref_audio": ref_audio, "ref_text": ref_text}
     if "voices" not in config:
         voices = {"main": main_voice}
@@ -194,7 +208,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(
-            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed
+            ref_audio, ref_text, gen_text, model_obj, vocoder, prediction_model=prediction_model, mel_spec_type=mel_spec_type, speed=speed
         )
         generated_audio_segments.append(audio)
 
@@ -213,7 +227,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
 
 
 def main():
-    main_process(ref_audio, ref_text, gen_text, ema_model, mel_spec_type, remove_silence, speed)
+    main_process(ref_audio, ref_text, gen_text, ema_model, mel_spec_type, remove_silence, speed,  prediction_model)
 
 
 if __name__ == "__main__":

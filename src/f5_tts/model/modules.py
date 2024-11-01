@@ -118,6 +118,7 @@ class MelSpec(nn.Module):
         self.hop_length = hop_length
         self.win_length = win_length
         self.n_mel_channels = n_mel_channels
+        self.sample_rate = target_sample_rate
         self.target_sample_rate = target_sample_rate
 
         if mel_spec_type == "vocos":
