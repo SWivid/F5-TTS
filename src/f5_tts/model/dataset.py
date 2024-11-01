@@ -1,15 +1,15 @@
 import json
 import random
 from importlib.resources import files
-from tqdm import tqdm
 
 import torch
 import torch.nn.functional as F
 import torchaudio
+from datasets import Dataset as Dataset_
+from datasets import load_from_disk
 from torch import nn
 from torch.utils.data import Dataset, Sampler
-from datasets import load_from_disk
-from datasets import Dataset as Dataset_
+from tqdm import tqdm
 
 from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import default
@@ -22,12 +22,21 @@ class HFDataset(Dataset):
         target_sample_rate=24_000,
         n_mel_channels=100,
         hop_length=256,
+        n_fft=1024,
+        win_length=1024,
+        mel_spec_type="vocos",
     ):
         self.data = hf_dataset
         self.target_sample_rate = target_sample_rate
         self.hop_length = hop_length
+
         self.mel_spectrogram = MelSpec(
-            target_sample_rate=target_sample_rate, n_mel_channels=n_mel_channels, hop_length=hop_length
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            n_mel_channels=n_mel_channels,
+            target_sample_rate=target_sample_rate,
+            mel_spec_type=mel_spec_type,
         )
 
     def get_frame_len(self, index):
@@ -79,6 +88,9 @@ class CustomDataset(Dataset):
         target_sample_rate=24_000,
         hop_length=256,
         n_mel_channels=100,
+        n_fft=1024,
+        win_length=1024,
+        mel_spec_type="vocos",
         preprocessed_mel=False,
         mel_spec_module: nn.Module | None = None,
     ):
@@ -86,15 +98,21 @@ class CustomDataset(Dataset):
         self.durations = durations
         self.target_sample_rate = target_sample_rate
         self.hop_length = hop_length
+        self.n_fft = n_fft
+        self.win_length = win_length
+        self.mel_spec_type = mel_spec_type
         self.preprocessed_mel = preprocessed_mel
 
         if not preprocessed_mel:
             self.mel_spectrogram = default(
                 mel_spec_module,
                 MelSpec(
-                    target_sample_rate=target_sample_rate,
+                    n_fft=n_fft,
                     hop_length=hop_length,
+                    win_length=win_length,
                     n_mel_channels=n_mel_channels,
+                    target_sample_rate=target_sample_rate,
+                    mel_spec_type=mel_spec_type,
                 ),
             )
 

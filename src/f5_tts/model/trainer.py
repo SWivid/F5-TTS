@@ -1,25 +1,22 @@
 from __future__ import annotations
 
-import os
 import gc
-from tqdm import tqdm
-import wandb
+import os
 
 import torch
 import torchaudio
-from torch.optim import AdamW
-from torch.utils.data import DataLoader, Dataset, SequentialSampler
-from torch.optim.lr_scheduler import LinearLR, SequentialLR
-
+import wandb
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
-
 from ema_pytorch import EMA
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import LinearLR, SequentialLR
+from torch.utils.data import DataLoader, Dataset, SequentialSampler
+from tqdm import tqdm
 
 from f5_tts.model import CFM
-from f5_tts.model.utils import exists, default
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
-
+from f5_tts.model.utils import default, exists
 
 # trainer
 
@@ -49,6 +46,7 @@ class Trainer:
         accelerate_kwargs: dict = dict(),
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
+        mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -110,6 +108,7 @@ class Trainer:
         self.max_samples = max_samples
         self.grad_accumulation_steps = grad_accumulation_steps
         self.max_grad_norm = max_grad_norm
+        self.vocoder_name = mel_spec_type
 
         self.noise_scheduler = noise_scheduler
 
@@ -164,10 +163,20 @@ class Trainer:
         # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
         checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
 
+        # patch for backward compatibility, 305e3ea
+        for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
+            if key in checkpoint["ema_model_state_dict"]:
+                del checkpoint["ema_model_state_dict"][key]
+
         if self.is_main:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
         if "step" in checkpoint:
+            # patch for backward compatibility, 305e3ea
+            for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
+                if key in checkpoint["model_state_dict"]:
+                    del checkpoint["model_state_dict"][key]
+
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
             self.accelerator.unwrap_model(self.optimizer).load_state_dict(checkpoint["optimizer_state_dict"])
             if self.scheduler:
@@ -188,10 +197,10 @@ class Trainer:
 
     def train(self, train_dataset: Dataset, num_workers=16, resumable_with_seed: int = None):
         if self.log_samples:
-            from f5_tts.infer.utils_infer import load_vocoder, nfe_step, cfg_strength, sway_sampling_coef
+            from f5_tts.infer.utils_infer import cfg_strength, load_vocoder, nfe_step, sway_sampling_coef
 
-            vocoder = load_vocoder()
-            target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.mel_stft.sample_rate
+            vocoder = load_vocoder(vocoder_name=self.vocoder_name)
+            target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.target_sample_rate
             log_samples_path = f"{self.checkpoint_path}/samples"
             os.makedirs(log_samples_path, exist_ok=True)
 
@@ -315,7 +324,7 @@ class Trainer:
                     self.save_checkpoint(global_step)
 
                     if self.log_samples and self.accelerator.is_local_main_process:
-                        ref_audio, ref_audio_len = vocoder.decode(batch["mel"][0].unsqueeze(0).cpu()), mel_lengths[0]
+                        ref_audio, ref_audio_len = vocoder.decode(batch["mel"][0].unsqueeze(0)), mel_lengths[0]
                         torchaudio.save(f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio, target_sample_rate)
                         with torch.inference_mode():
                             generated, _ = self.accelerator.unwrap_model(self.model).sample(
