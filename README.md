@@ -43,7 +43,14 @@ pip install git+https://github.com/SWivid/F5-TTS.git
 ```bash
 git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
+# git submodule update --init --recursive  # (optional, if need bigvgan)
 pip install -e .
+```
+If initialize submodule, you should add the following code at the beginning of `src/third_party/BigVGAN/bigvgan.py`.
+```python
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ```
 
 ### 3. Docker usage

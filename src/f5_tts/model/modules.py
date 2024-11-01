@@ -8,61 +8,138 @@ d - dimension
 """
 
 from __future__ import annotations
-from typing import Optional
+
 import math
+from typing import Optional
 
 import torch
-from torch import nn
 import torch.nn.functional as F
 import torchaudio
-
+from librosa.filters import mel as librosa_mel_fn
+from torch import nn
 from x_transformers.x_transformers import apply_rotary_pos_emb
 
 
 # raw wav to mel spec
 
 
+mel_basis_cache = {}
+hann_window_cache = {}
+
+
+def get_bigvgan_mel_spectrogram(
+    waveform,
+    n_fft=1024,
+    n_mel_channels=100,
+    target_sample_rate=24000,
+    hop_length=256,
+    win_length=1024,
+    fmin=0,
+    fmax=None,
+    center=False,
+):  # Copy from https://github.com/NVIDIA/BigVGAN/tree/main
+    device = waveform.device
+    key = f"{n_fft}_{n_mel_channels}_{target_sample_rate}_{hop_length}_{win_length}_{fmin}_{fmax}_{device}"
+
+    if key not in mel_basis_cache:
+        mel = librosa_mel_fn(sr=target_sample_rate, n_fft=n_fft, n_mels=n_mel_channels, fmin=fmin, fmax=fmax)
+        mel_basis_cache[key] = torch.from_numpy(mel).float().to(device)  # TODO: why they need .float()?
+        hann_window_cache[key] = torch.hann_window(win_length).to(device)
+
+    mel_basis = mel_basis_cache[key]
+    hann_window = hann_window_cache[key]
+
+    padding = (n_fft - hop_length) // 2
+    waveform = torch.nn.functional.pad(waveform.unsqueeze(1), (padding, padding), mode="reflect").squeeze(1)
+
+    spec = torch.stft(
+        waveform,
+        n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=hann_window,
+        center=center,
+        pad_mode="reflect",
+        normalized=False,
+        onesided=True,
+        return_complex=True,
+    )
+    spec = torch.sqrt(torch.view_as_real(spec).pow(2).sum(-1) + 1e-9)
+
+    mel_spec = torch.matmul(mel_basis, spec)
+    mel_spec = torch.log(torch.clamp(mel_spec, min=1e-5))
+
+    return mel_spec
+
+
+def get_vocos_mel_spectrogram(
+    waveform,
+    n_fft=1024,
+    n_mel_channels=100,
+    target_sample_rate=24000,
+    hop_length=256,
+    win_length=1024,
+):
+    mel_stft = torchaudio.transforms.MelSpectrogram(
+        sample_rate=target_sample_rate,
+        n_fft=n_fft,
+        win_length=win_length,
+        hop_length=hop_length,
+        n_mels=n_mel_channels,
+        power=1,
+        center=True,
+        normalized=False,
+        norm=None,
+    ).to(waveform.device)
+    if len(waveform.shape) == 3:
+        waveform = waveform.squeeze(1)  # 'b 1 nw -> b nw'
+
+    assert len(waveform.shape) == 2
+
+    mel = mel_stft(waveform)
+    mel = mel.clamp(min=1e-5).log()
+    return mel
+
+
 class MelSpec(nn.Module):
     def __init__(
         self,
-        filter_length=1024,
+        n_fft=1024,
         hop_length=256,
         win_length=1024,
         n_mel_channels=100,
         target_sample_rate=24_000,
-        normalize=False,
-        power=1,
-        norm=None,
-        center=True,
+        mel_spec_type="vocos",
     ):
         super().__init__()
-        self.n_mel_channels = n_mel_channels
+        assert mel_spec_type in ["vocos", "bigvgan"], print("We only support two extract mel backend: vocos or bigvgan")
 
-        self.mel_stft = torchaudio.transforms.MelSpectrogram(
-            sample_rate=target_sample_rate,
-            n_fft=filter_length,
-            win_length=win_length,
-            hop_length=hop_length,
-            n_mels=n_mel_channels,
-            power=power,
-            center=center,
-            normalized=normalize,
-            norm=norm,
-        )
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.win_length = win_length
+        self.n_mel_channels = n_mel_channels
+        self.target_sample_rate = target_sample_rate
+
+        if mel_spec_type == "vocos":
+            self.extractor = get_vocos_mel_spectrogram
+        elif mel_spec_type == "bigvgan":
+            self.extractor = get_bigvgan_mel_spectrogram
 
         self.register_buffer("dummy", torch.tensor(0), persistent=False)
 
-    def forward(self, inp):
-        if len(inp.shape) == 3:
-            inp = inp.squeeze(1)  # 'b 1 nw -> b nw'
+    def forward(self, wav):
+        if self.dummy.device != wav.device:
+            self.to(wav.device)
 
-        assert len(inp.shape) == 2
+        mel = self.extractor(
+            waveform=wav,
+            n_fft=self.n_fft,
+            n_mel_channels=self.n_mel_channels,
+            target_sample_rate=self.target_sample_rate,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+        )
 
-        if self.dummy.device != inp.device:
-            self.to(inp.device)
-
-        mel = self.mel_stft(inp)
-        mel = mel.clamp(min=1e-5).log()
         return mel
 
 

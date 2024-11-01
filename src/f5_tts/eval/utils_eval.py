@@ -2,15 +2,15 @@ import math
 import os
 import random
 import string
-from tqdm import tqdm
 
 import torch
 import torch.nn.functional as F
 import torchaudio
+from tqdm import tqdm
 
+from f5_tts.eval.ecapa_tdnn import ECAPA_TDNN_SMALL
 from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import convert_char_to_pinyin
-from f5_tts.eval.ecapa_tdnn import ECAPA_TDNN_SMALL
 
 
 # seedtts testset metainfo: utt, prompt_text, prompt_wav, gt_text, gt_wav
@@ -74,8 +74,11 @@ def get_inference_prompt(
     tokenizer="pinyin",
     polyphone=True,
     target_sample_rate=24000,
+    n_fft=1024,
+    win_length=1024,
     n_mel_channels=100,
     hop_length=256,
+    mel_spec_type="vocos",
     target_rms=0.1,
     use_truth_duration=False,
     infer_batch_size=1,
@@ -94,7 +97,12 @@ def get_inference_prompt(
     )
 
     mel_spectrogram = MelSpec(
-        target_sample_rate=target_sample_rate, n_mel_channels=n_mel_channels, hop_length=hop_length
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        n_mel_channels=n_mel_channels,
+        target_sample_rate=target_sample_rate,
+        mel_spec_type=mel_spec_type,
     )
 
     for utt, prompt_text, prompt_wav, gt_text, gt_wav in tqdm(metainfo, desc="Processing prompts..."):
