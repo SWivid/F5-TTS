@@ -190,7 +190,7 @@ class Trainer:
             from f5_tts.infer.utils_infer import cfg_strength, load_vocoder, nfe_step, sway_sampling_coef
 
             vocoder = load_vocoder(vocoder_name=self.vocoder_name)
-            target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.mel_stft.sample_rate
+            target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.target_sample_rate
             log_samples_path = f"{self.checkpoint_path}/samples"
             os.makedirs(log_samples_path, exist_ok=True)
 
