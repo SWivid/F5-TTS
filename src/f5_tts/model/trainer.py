@@ -163,6 +163,14 @@ class Trainer:
         # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
         checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
 
+        # patch for backward compatibility, 305e3ea
+        for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
+            if key in checkpoint["ema_model_state_dict"]:
+                del checkpoint["ema_model_state_dict"][key]
+        for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
+            if key in checkpoint["model_state_dict"]:
+                del checkpoint["model_state_dict"][key]
+
         if self.is_main:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
