@@ -1,26 +1,25 @@
-import sys
 import os
+import sys
 
 sys.path.append(os.getcwd())
 
-import time
-from tqdm import tqdm
 import argparse
+import time
 from importlib.resources import files
 
 import torch
 import torchaudio
 from accelerate import Accelerator
-from vocos import Vocos
+from tqdm import tqdm
 
-from f5_tts.model import CFM, UNetT, DiT
-from f5_tts.model.utils import get_tokenizer
-from f5_tts.infer.utils_infer import load_checkpoint
 from f5_tts.eval.utils_eval import (
-    get_seedtts_testset_metainfo,
-    get_librispeech_test_clean_metainfo,
     get_inference_prompt,
+    get_librispeech_test_clean_metainfo,
+    get_seedtts_testset_metainfo,
 )
+from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder
+from f5_tts.model import CFM, DiT, UNetT
+from f5_tts.model.utils import get_tokenizer
 
 accelerator = Accelerator()
 device = f"cuda:{accelerator.process_index}"
@@ -31,7 +30,10 @@ device = f"cuda:{accelerator.process_index}"
 target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
+win_length = 1024
+n_fft = 1024
 target_rms = 0.1
+
 
 tokenizer = "pinyin"
 rel_path = str(files("f5_tts").joinpath("../../"))
@@ -46,6 +48,7 @@ def main():
     parser.add_argument("-d", "--dataset", default="Emilia_ZH_EN")
     parser.add_argument("-n", "--expname", required=True)
     parser.add_argument("-c", "--ckptstep", default=1200000, type=int)
+    parser.add_argument("-m", "--mel_spec_type", default="vocos", type=str, choices=["bigvgan", "vocos"])
 
     parser.add_argument("-nfe", "--nfestep", default=32, type=int)
     parser.add_argument("-o", "--odemethod", default="euler")
@@ -60,6 +63,7 @@ def main():
     exp_name = args.expname
     ckpt_step = args.ckptstep
     ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
+    mel_spec_type = args.mel_spec_type
 
     nfe_step = args.nfestep
     ode_method = args.odemethod
@@ -98,7 +102,7 @@ def main():
     output_dir = (
         f"{rel_path}/"
         f"results/{exp_name}_{ckpt_step}/{testset}/"
-        f"seed{seed}_{ode_method}_nfe{nfe_step}"
+        f"seed{seed}_{ode_method}_nfe{nfe_step}_{mel_spec_type}"
         f"{f'_ss{sway_sampling_coef}' if sway_sampling_coef else ''}"
         f"_cfg{cfg_strength}_speed{speed}"
         f"{'_gt-dur' if use_truth_duration else ''}"
@@ -116,6 +120,7 @@ def main():
         target_sample_rate=target_sample_rate,
         n_mel_channels=n_mel_channels,
         hop_length=hop_length,
+        mel_spec_type=mel_spec_type,
         target_rms=target_rms,
         use_truth_duration=use_truth_duration,
         infer_batch_size=infer_batch_size,
@@ -123,14 +128,11 @@ def main():
 
     # Vocoder model
     local = False
-    if local:
-        vocos_local_path = "../checkpoints/charactr/vocos-mel-24khz"
-        vocos = Vocos.from_hparams(f"{vocos_local_path}/config.yaml")
-        state_dict = torch.load(f"{vocos_local_path}/pytorch_model.bin", weights_only=True, map_location=device)
-        vocos.load_state_dict(state_dict)
-        vocos.eval()
-    else:
-        vocos = Vocos.from_pretrained("charactr/vocos-mel-24khz")
+    if mel_spec_type == "vocos":
+        vocoder_local_path = "../checkpoints/charactr/vocos-mel-24khz"
+    elif mel_spec_type == "bigvgan":
+        vocoder_local_path = "../checkpoints/bigvgan_v2_24khz_100band_256x"
+    vocoder = load_vocoder(vocoder_name=mel_spec_type, is_local=local, local_path=vocoder_local_path)
 
     # Tokenizer
     vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
@@ -139,9 +141,12 @@ def main():
     model = CFM(
         transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=dict(
-            target_sample_rate=target_sample_rate,
-            n_mel_channels=n_mel_channels,
+            n_fft=n_fft,
             hop_length=hop_length,
+            win_length=win_length,
+            n_mel_channels=n_mel_channels,
+            target_sample_rate=target_sample_rate,
+            mel_spec_type=mel_spec_type,
         ),
         odeint_kwargs=dict(
             method=ode_method,
@@ -149,7 +154,8 @@ def main():
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    model = load_checkpoint(model, ckpt_path, device, use_ema=use_ema)
+    dtype = torch.float32 if mel_spec_type == "bigvgan" else None
+    model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
     if not os.path.exists(output_dir) and accelerator.is_main_process:
         os.makedirs(output_dir)
@@ -178,14 +184,18 @@ def main():
                     no_ref_audio=no_ref_audio,
                     seed=seed,
                 )
-            # Final result
-            for i, gen in enumerate(generated):
-                gen = gen[ref_mel_lens[i] : total_mel_lens[i], :].unsqueeze(0)
-                gen_mel_spec = gen.permute(0, 2, 1)
-                generated_wave = vocos.decode(gen_mel_spec.cpu())
-                if ref_rms_list[i] < target_rms:
-                    generated_wave = generated_wave * ref_rms_list[i] / target_rms
-                torchaudio.save(f"{output_dir}/{utts[i]}.wav", generated_wave, target_sample_rate)
+                # Final result
+                for i, gen in enumerate(generated):
+                    gen = gen[ref_mel_lens[i] : total_mel_lens[i], :].unsqueeze(0)
+                    gen_mel_spec = gen.permute(0, 2, 1)
+                    if mel_spec_type == "vocos":
+                        generated_wave = vocoder.decode(gen_mel_spec)
+                    elif mel_spec_type == "bigvgan":
+                        generated_wave = vocoder(gen_mel_spec)
+
+                    if ref_rms_list[i] < target_rms:
+                        generated_wave = generated_wave * ref_rms_list[i] / target_rms
+                    torchaudio.save(f"{output_dir}/{utts[i]}.wav", generated_wave.squeeze(0).cpu(), target_sample_rate)
 
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
