@@ -45,7 +45,7 @@ git clone https://github.com/SWivid/F5-TTS.git
 cd F5-TTS
 pip install -e .
 
-# Init submodule(optional, if you want to change the vocoder from vocos to bigvgan)
+# Init submodule (optional, if you want to change the vocoder from vocos to bigvgan)
 # git submodule update --init --recursive
 # pip install -e .
 ```

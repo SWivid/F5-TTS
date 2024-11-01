@@ -154,7 +154,7 @@ elif model == "E2-TTS":
 
 
 print(f"Using {model}...")
-ema_model = load_model(model_cls, model_cfg, ckpt_file, args.vocoder_name, vocab_file)
+ema_model = load_model(model_cls, model_cfg, ckpt_file, mel_spec_type=args.vocoder_name, vocab_file=vocab_file)
 
 
 def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove_silence, speed):
@@ -192,7 +192,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(
-            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type, speed=speed
+            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed
         )
         generated_audio_segments.append(audio)
 
