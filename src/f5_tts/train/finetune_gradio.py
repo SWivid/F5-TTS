@@ -28,7 +28,7 @@ from safetensors.torch import save_file
 from scipy.io import wavfile
 from transformers import pipeline
 from cached_path import cached_path
-from f5_tts.api import F5TTS
+from f5_tts.api import F5TTS, target_sample_rate
 from f5_tts.model.utils import convert_char_to_pinyin
 from importlib.resources import files
 
@@ -174,7 +174,15 @@ def load_settings(project_name):
 def get_audio_duration(audio_path):
     """Calculate the duration mono of an audio file."""
     audio, sample_rate = torchaudio.load(audio_path)
-    return audio.shape[1] / sample_rate
+
+    if audio.shape[0] > 1:
+        audio = torch.mean(audio, dim=0, keepdim=True)
+
+    if sample_rate != target_sample_rate:
+        audio = torchaudio.transforms.Resample(sample_rate, target_sample_rate)
+
+    num_channels = audio.shape[0]
+    return audio.shape[1] / (sample_rate * num_channels)
 
 
 def clear_text(text):
