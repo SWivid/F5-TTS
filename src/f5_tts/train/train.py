@@ -2,16 +2,18 @@
 
 from importlib.resources import files
 
-from f5_tts.model import CFM, UNetT, DiT, Trainer
-from f5_tts.model.utils import get_tokenizer
+from f5_tts.model import CFM, DiT, Trainer, UNetT
 from f5_tts.model.dataset import load_dataset
-
+from f5_tts.model.utils import get_tokenizer
 
 # -------------------------- Dataset Settings --------------------------- #
 
 target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
+win_length = 1024
+n_fft = 1024
+mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
 
 tokenizer = "pinyin"  # 'pinyin', 'char', or 'custom'
 tokenizer_path = None  # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
@@ -56,9 +58,12 @@ def main():
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
 
     mel_spec_kwargs = dict(
-        target_sample_rate=target_sample_rate,
-        n_mel_channels=n_mel_channels,
+        n_fft=n_fft,
         hop_length=hop_length,
+        win_length=win_length,
+        n_mel_channels=n_mel_channels,
+        target_sample_rate=target_sample_rate,
+        mel_spec_type=mel_spec_type,
     )
 
     model = CFM(
@@ -84,6 +89,7 @@ def main():
         wandb_resume_id=wandb_resume_id,
         last_per_steps=last_per_steps,
         log_samples=True,
+        mel_spec_type=mel_spec_type,
     )
 
     train_dataset = load_dataset(dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

@@ -1,0 +1,3 @@
+[submodule "src/third_party/BigVGAN"]
+	path = src/third_party/BigVGAN
+	url = https://github.com/NVIDIA/BigVGAN.git
