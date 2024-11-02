@@ -15,6 +15,7 @@ from f5_tts.infer.utils_infer import (
     preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
     save_spectrogram,
+    load_duration_model,
     target_sample_rate,
 )
 from f5_tts.model import DiT, UNetT
@@ -31,6 +32,7 @@ class F5TTS:
         use_ema=True,
         vocoder_name="vocos",
         local_path=None,
+        duration_model=True,
         device=None,
     ):
         # Initialize parameters
@@ -44,6 +46,11 @@ class F5TTS:
         self.device = device or (
             "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         )
+
+        if duration_model:
+            self.duration_model = load_duration_model()
+        else:
+            self.duration_model = None
 
         # Load models
         self.load_vocoder_model(vocoder_name, local_path)
@@ -114,6 +121,7 @@ class F5TTS:
             gen_text,
             self.ema_model,
             self.vocoder,
+            self.duration_model,
             self.mel_spec_type,
             show_info=show_info,
             progress=progress,

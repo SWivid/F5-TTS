@@ -27,7 +27,9 @@ conda create -n f5-tts python=3.10
 conda activate f5-tts
 
 # Install pytorch with your CUDA version, e.g.
-pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+# torch >= 2.4 is needed for duration model
+pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu118
+
 ```
 
 Then you can choose from a few options below:
