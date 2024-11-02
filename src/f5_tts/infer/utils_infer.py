@@ -303,6 +303,7 @@ def load_duration_model(hf_model_name_or_path="lucasnewman/f5-tts-mlx"):
             checkpoint_param = weights[key]
             model_param_shape = duration_predictor.state_dict()[key].shape
             try:
+                raise Exception
                 checkpoint_param = checkpoint_param.permute(0, 2, 1)
                 print(checkpoint_param.shape)
                 new_state_dict[key] = checkpoint_param

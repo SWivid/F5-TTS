@@ -743,8 +743,8 @@ class DurationInputEmbedding(nn.Module):
 
     def __call__(
         self,
-        x: float["b n d"],
-        text_embed: float["b n d"],
+        x: float["b n d"],  # noqa: F722
+        text_embed: float["b n d"],  # noqa: F722
     ):
         x = self.proj(torch.concatenate((x, text_embed), axis=-1))
         x = self.conv_pos_embed(x) + x
@@ -835,9 +835,9 @@ class DurationTransformer(nn.Module):
 
     def forward(
         self,
-        x: float["b n d"],  # nosied input audio
-        text: int["b nt"],  # text
-        mask: bool["b n"] | None = None,
+        x: float["b n d"],  # nosied input audio # noqa: F722
+        text: int["b nt"],  # text # noqa: F722
+        mask: bool["b n"] | None = None,  # noqa: F722
     ):
         seq_len = x.shape[1]
         text_embed = self.text_embed(text, seq_len).to(self.device)
@@ -884,10 +884,10 @@ class DurationPredictor(nn.Module):
 
     def forward(
         self,
-        inp: torch.Tensor["b n d"] | torch.Tensor["b nw"],  # mel or raw wave
+        inp: torch.Tensor["b n d"] | torch.Tensor["b nw"],  # mel or raw wave # noqa: F722
         text: torch.Tensor | list[str],
         *,
-        lens: torch.Tensor["b"] | None = None,
+        lens: torch.Tensor["b"] | None = None,  # noqa: F821
         return_loss=False,
     ):
         # handle raw wave
