@@ -88,8 +88,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# config = tomli.load(open(args.config, "rb"))
-config = tomli.load(open("basic.toml", "rb"))
+config = tomli.load(open(args.config, "rb"))
 
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
