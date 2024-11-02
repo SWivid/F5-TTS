@@ -69,10 +69,8 @@ def mask_from_frac_lengths(seq_len: int["b"], frac_lengths: float["b"]):  # noqa
 def maybe_masked_mean(t: float["b n d"], mask: bool["b n"] = None) -> float["b d"]:  # noqa: F722
     if not exists(mask):
         return t.mean(dim=1)
-    
-    mask = mask.to(device=t.device, dtype=torch.bool)
-    mask = mask.unsqueeze(-1) 
-    t = torch.where(mask, t, torch.zeros_like(t))
+
+    t = torch.where(mask[:, :, None], t, torch.tensor(0.0, device=t.device))
     num = t.sum(dim=1)
     den = mask.float().sum(dim=1)
 

@@ -5,35 +5,35 @@ import sys
 
 sys.path.append(f"../../{os.path.dirname(os.path.abspath(__file__))}/third_party/BigVGAN/")
 
-from f5_tts.model.utils import (
-    get_tokenizer,
-    convert_char_to_pinyin,
-)
-from f5_tts.model import CFM
-from vocos import Vocos
-from transformers import pipeline
-from pydub import AudioSegment, silence
 import tqdm
 import torchaudio
 import torch
 import numpy as np
+import matplotlib
 import matplotlib.pylab as plt
 import hashlib
 import re
 import tempfile
+
+from huggingface_hub import snapshot_download
 from importlib.resources import files
 from pathlib import Path
-from huggingface_hub import snapshot_download
+from pydub import AudioSegment, silence
+from transformers import pipeline
+from vocos import Vocos
 
-import matplotlib
+from f5_tts.model import CFM
+from f5_tts.model.utils import (
+    get_tokenizer,
+    convert_char_to_pinyin,
+)
 
 matplotlib.use("Agg")
 
 
 _ref_audio_cache = {}
 
-device = "cuda" if torch.cuda.is_available(
-) else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
 # -----------------------------------------
 
@@ -76,15 +76,11 @@ def chunk_text(text, max_chars=135):
 
     for sentence in sentences:
         if len(current_chunk.encode("utf-8")) + len(sentence.encode("utf-8")) <= max_chars:
-            current_chunk += sentence + \
-                " " if sentence and len(
-                    sentence[-1].encode("utf-8")) == 1 else sentence
+            current_chunk += sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
         else:
             if current_chunk:
                 chunks.append(current_chunk.strip())
-            current_chunk = sentence + \
-                " " if sentence and len(
-                    sentence[-1].encode("utf-8")) == 1 else sentence
+            current_chunk = sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
 
     if current_chunk:
         chunks.append(current_chunk.strip())
@@ -199,11 +195,8 @@ def load_model(
 
     vocab_char_map, vocab_size = get_tokenizer(vocab_file, tokenizer)
 
-    
-
     model = CFM(
-        transformer=model_cls(
-            **model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+        transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=dict(
             n_fft=n_fft,
             hop_length=hop_length,
@@ -215,13 +208,14 @@ def load_model(
         odeint_kwargs=dict(
             method=ode_method,
         ),
-        vocab_char_map=vocab_char_map
+        vocab_char_map=vocab_char_map,
     ).to(device)
 
     dtype = torch.float32 if mel_spec_type == "bigvgan" else None
     model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 
     return model
+
 
 def fetch_from_hub(hf_repo: str) -> Path:
     model_path = Path(
@@ -232,17 +226,17 @@ def fetch_from_hub(hf_repo: str) -> Path:
     )
     return model_path
 
-def load_prediction_model(hf_model_name_or_path="lucasnewman/f5-tts-mlx"):
-    from f5_tts.model.duration import DurationPredictor, DurationTransformer
-    
+
+def load_duration_model(hf_model_name_or_path="lucasnewman/f5-tts-mlx"):
+    from f5_tts.model.modules import DurationPredictor, DurationTransformer
+
     path = fetch_from_hub(hf_model_name_or_path)
 
     duration_model_path = path / "duration_v2.safetensors"
     duration_predictor = None
 
     vocab_path = path / "vocab.txt"
-    vocab = {v: i for i, v in enumerate(
-        Path(vocab_path).read_text(encoding="utf-8").split("\n"))}
+    vocab = {v: i for i, v in enumerate(Path(vocab_path).read_text(encoding="utf-8").split("\n"))}
     if len(vocab) == 0:
         raise ValueError(f"Could not load vocab from {vocab_path}")
 
@@ -258,8 +252,16 @@ def load_prediction_model(hf_model_name_or_path="lucasnewman/f5-tts-mlx"):
                 text_num_embeds=len(vocab) - 1,
             ),
             vocab_char_map=vocab,
-        ).to(device)
-        
+            mel_spec_kwargs=dict(
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                n_mel_channels=n_mel_channels,
+                target_sample_rate=target_sample_rate,
+                mel_spec_type=mel_spec_type,
+            ),
+        )
+
         from safetensors.torch import load_file
 
         # Load weights
@@ -267,10 +269,10 @@ def load_prediction_model(hf_model_name_or_path="lucasnewman/f5-tts-mlx"):
 
         new_weights = {}
         for key, value in weights.items():
-            new_key = key.replace('.layers.', '.') 
+            new_key = key.replace(".layers.", ".")
             new_weights[new_key] = value
 
-        weights = new_weights 
+        weights = new_weights
 
         # Adjust the model's state dict
         def adjust_weights(model, checkpoint):
@@ -312,7 +314,7 @@ def load_prediction_model(hf_model_name_or_path="lucasnewman/f5-tts-mlx"):
 
         # Load the adjusted state dict
         duration_predictor.load_state_dict(new_state_dict, strict=False)
-        
+
         return duration_predictor
 
 
@@ -373,8 +375,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_in
             global asr_pipe
             if asr_pipe is None:
                 initialize_asr_pipeline(device=device)
-            show_info(
-                "No reference text provided, transcribing reference audio...")
+            show_info("No reference text provided, transcribing reference audio...")
             ref_text = asr_pipe(
                 ref_audio,
                 chunk_length_s=30,
@@ -406,8 +407,8 @@ def infer_process(
     ref_text,
     gen_text,
     model_obj,
-    prediction_model,
     vocoder,
+    prediction_model=None,
     mel_spec_type=mel_spec_type,
     show_info=print,
     progress=tqdm,
@@ -422,8 +423,7 @@ def infer_process(
 ):
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
-    max_chars = int(len(ref_text.encode("utf-8")) /
-                    (audio.shape[-1] / sr) * (25 - audio.shape[-1] / sr))
+    max_chars = int(len(ref_text.encode("utf-8")) / (audio.shape[-1] / sr) * (25 - audio.shape[-1] / sr))
     gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
     for i, gen_text in enumerate(gen_text_batches):
         print(f"gen_text {i}", gen_text)
@@ -434,8 +434,8 @@ def infer_process(
         ref_text,
         gen_text_batches,
         model_obj,
-        prediction_model,
         vocoder,
+        prediction_model=prediction_model,
         mel_spec_type=mel_spec_type,
         progress=progress,
         target_rms=target_rms,
@@ -457,8 +457,8 @@ def infer_batch_process(
     ref_text,
     gen_text_batches,
     model_obj,
-    prediction_model,
     vocoder,
+    prediction_model=None,
     mel_spec_type="vocos",
     progress=tqdm,
     target_rms=0.1,
@@ -498,19 +498,15 @@ def infer_batch_process(
         elif prediction_model:
             duration_in_sec = prediction_model(audio, text_list)
             print(duration_in_sec)
-            frame_rate = model_obj.mel_spec.sample_rate // model_obj.mel_spec.hop_length
+            frame_rate = model_obj.mel_spec.target_sample_rate // model_obj.mel_spec.hop_length
             duration = (duration_in_sec * frame_rate / speed).to(torch.long).item()
             print(f"Got duration of {duration} frames ({duration_in_sec.item()} secs) for generated speech")
-        else:
+
+        if duration is None:
             # Calculate duration
             ref_text_len = len(ref_text.encode("utf-8"))
             gen_text_len = len(gen_text.encode("utf-8"))
             duration = ref_audio_len + int(ref_audio_len / ref_text_len * gen_text_len / speed)
-
-        
-        if duration is None:
-            raise ValueError("Duration must be provided or a duration predictor must be set.")
-            
 
         # inference
         with torch.inference_mode():
@@ -551,8 +547,7 @@ def infer_batch_process(
 
             # Calculate cross-fade samples, ensuring it does not exceed wave lengths
             cross_fade_samples = int(cross_fade_duration * target_sample_rate)
-            cross_fade_samples = min(
-                cross_fade_samples, len(prev_wave), len(next_wave))
+            cross_fade_samples = min(cross_fade_samples, len(prev_wave), len(next_wave))
 
             if cross_fade_samples <= 0:
                 # No overlap possible, concatenate
@@ -572,8 +567,7 @@ def infer_batch_process(
 
             # Combine
             new_wave = np.concatenate(
-                [prev_wave[:-cross_fade_samples], cross_faded_overlap,
-                    next_wave[cross_fade_samples:]]
+                [prev_wave[:-cross_fade_samples], cross_faded_overlap, next_wave[cross_fade_samples:]]
             )
 
             final_wave = new_wave
@@ -589,8 +583,7 @@ def infer_batch_process(
 
 def remove_silence_for_generated_wav(filename):
     aseg = AudioSegment.from_file(filename)
-    non_silent_segs = silence.split_on_silence(
-        aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
+    non_silent_segs = silence.split_on_silence(aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=500)
     non_silent_wave = AudioSegment.silent(duration=0)
     for non_silent_seg in non_silent_segs:
         non_silent_wave += non_silent_seg
