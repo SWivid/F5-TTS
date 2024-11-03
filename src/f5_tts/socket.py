@@ -22,7 +22,7 @@ class TTSStreamingProcessor:
             DiT,
             dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4),
             ckpt_file,
-            vocab_file
+            vocab_file,
         ).to(self.device, dtype=dtype)
 
         # Load the vocoder
@@ -59,14 +59,19 @@ class TTSStreamingProcessor:
 
         # Run inference for the input text
         audio_chunk, final_sample_rate, _ = infer_batch_process(
-            (audio, sr), ref_text, [text], self.model, self.vocoder, device=self.device  # Pass vocoder here
+            (audio, sr),
+            ref_text,
+            [text],
+            self.model,
+            self.vocoder,
+            device=self.device,  # Pass vocoder here
         )
 
         # Break the generated audio into chunks and send them
         chunk_size = int(final_sample_rate * play_steps_in_s)
-        
+
         for i in range(0, len(audio_chunk), chunk_size):
-            chunk = audio_chunk[i:i + chunk_size]
+            chunk = audio_chunk[i : i + chunk_size]
 
             # Check if it's the final chunk
             if i + chunk_size >= len(audio_chunk):
@@ -77,13 +82,13 @@ class TTSStreamingProcessor:
                 break
 
             # Pack and send the audio chunk
-            packed_audio = struct.pack(f'{len(chunk)}f', *chunk)
+            packed_audio = struct.pack(f"{len(chunk)}f", *chunk)
             yield packed_audio
 
         # Ensure that no final word is repeated by not resending partial chunks
         if len(audio_chunk) % chunk_size != 0:
-            remaining_chunk = audio_chunk[-(len(audio_chunk) % chunk_size):]
-            packed_audio = struct.pack(f'{len(remaining_chunk)}f', *remaining_chunk)
+            remaining_chunk = audio_chunk[-(len(audio_chunk) % chunk_size) :]
+            packed_audio = struct.pack(f"{len(remaining_chunk)}f", *remaining_chunk)
             yield packed_audio
 
 
@@ -134,9 +139,9 @@ def start_server(host, port, processor):
 if __name__ == "__main__":
     try:
         # Load the model and vocoder using the provided files
-        ckpt_file = "" # pointing your checkpoint "ckpts/model/model_1096.pt" 
+        ckpt_file = ""  # pointing your checkpoint "ckpts/model/model_1096.pt"
         vocab_file = ""  # Add vocab file path if needed
-        ref_audio ="" # add ref audio"./tests/ref_audio/reference.wav"
+        ref_audio = ""  # add ref audio"./tests/ref_audio/reference.wav"
         ref_text = ""
 
         # Initialize the processor with the model and vocoder
@@ -145,7 +150,7 @@ if __name__ == "__main__":
             vocab_file=vocab_file,
             ref_audio=ref_audio,
             ref_text=ref_text,
-            dtype=torch.float32
+            dtype=torch.float32,
         )
 
         # Start the server

@@ -1372,7 +1372,7 @@ def get_audio_select(file_sample):
 with gr.Blocks() as app:
     gr.Markdown(
         """
-# E2/F5 TTS AUTOMATIC FINETUNE 
+# E2/F5 TTS Automatic Finetune
 
 This is a local web UI for F5 TTS with advanced batch processing support. This app supports the following TTS models:
 
@@ -1381,35 +1381,35 @@ This is a local web UI for F5 TTS with advanced batch processing support. This a
 
 The checkpoints support English and Chinese.
 
-for tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussions/143)
+For tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussions/143)
 """
     )
 
     with gr.Row():
         projects, projects_selelect = get_list_projects()
-        tokenizer_type = gr.Radio(label="Tokenizer Type", choices=["pinyin", "char"], value="pinyin")
-        project_name = gr.Textbox(label="project name", value="my_speak")
-        bt_create = gr.Button("create new project")
+        tokenizer_type = gr.Radio(label="Tokenizer Type", choices=["pinyin", "char", "custom"], value="pinyin")
+        project_name = gr.Textbox(label="Project Name", value="my_speak")
+        bt_create = gr.Button("Create a New Project")
 
     with gr.Row():
         cm_project = gr.Dropdown(
             choices=projects, value=projects_selelect, label="Project", allow_custom_value=True, scale=6
         )
-        ch_refresh_project = gr.Button("refresh", scale=1)
+        ch_refresh_project = gr.Button("Refresh", scale=1)
 
     bt_create.click(fn=create_data_project, inputs=[project_name, tokenizer_type], outputs=[cm_project])
 
     with gr.Tabs():
-        with gr.TabItem("transcribe Data"):
+        with gr.TabItem("Transcribe Data"):
             gr.Markdown("""```plaintext 
 Skip this step if you have your dataset, metadata.csv, and a folder wavs with all the audio files.                 
 ```""")
 
-            ch_manual = gr.Checkbox(label="audio from path", value=False)
+            ch_manual = gr.Checkbox(label="Audio from Path", value=False)
 
             mark_info_transcribe = gr.Markdown(
                 """```plaintext    
-     Place your 'wavs' folder and 'metadata.csv' file in the {your_project_name}' directory. 
+     Place your 'wavs' folder and 'metadata.csv' file in the '{your_project_name}' directory. 
                  
      my_speak/
      │
@@ -1421,10 +1421,10 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
                 visible=False,
             )
 
-            audio_speaker = gr.File(label="voice", type="filepath", file_count="multiple")
-            txt_lang = gr.Text(label="Language", value="english")
-            bt_transcribe = bt_create = gr.Button("transcribe")
-            txt_info_transcribe = gr.Text(label="info", value="")
+            audio_speaker = gr.File(label="Voice", type="filepath", file_count="multiple")
+            txt_lang = gr.Text(label="Language", value="English")
+            bt_transcribe = bt_create = gr.Button("Transcribe")
+            txt_info_transcribe = gr.Text(label="Info", value="")
             bt_transcribe.click(
                 fn=transcribe_all,
                 inputs=[cm_project, audio_speaker, txt_lang, ch_manual],
@@ -1432,7 +1432,7 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
             )
             ch_manual.change(fn=check_user, inputs=[ch_manual], outputs=[audio_speaker, mark_info_transcribe])
 
-            random_sample_transcribe = gr.Button("random sample")
+            random_sample_transcribe = gr.Button("Random Sample")
 
             with gr.Row():
                 random_text_transcribe = gr.Text(label="Text")
@@ -1444,16 +1444,16 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
                 outputs=[random_text_transcribe, random_audio_transcribe],
             )
 
-        with gr.TabItem("vocab check"):
+        with gr.TabItem("Vocab Check"):
             gr.Markdown("""```plaintext 
-check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. for finetune new language
+Check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. For fine-tuning a new language.
 ```""")
 
-            check_button = gr.Button("check vocab")
-            txt_info_check = gr.Text(label="info", value="")
+            check_button = gr.Button("Check Vocab")
+            txt_info_check = gr.Text(label="Info", value="")
 
             gr.Markdown("""```plaintext 
-Using the extended model, you can fine-tune to a new language that is missing symbols in the vocab , this create a new model with a new vocabulary size and save it in your ckpts/project folder.
+Using the extended model, you can finetune to a new language that is missing symbols in the vocab. This creates a new model with a new vocabulary size and saves it in your ckpts/project folder.
 ```""")
 
             exp_name_extend = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
@@ -1465,10 +1465,10 @@ Using the extended model, you can fine-tune to a new language that is missing sy
                     placeholder="To add new symbols, make sure to use ',' for each symbol",
                     scale=6,
                 )
-                txt_count_symbol = gr.Textbox(label="new size vocab", value="", scale=1)
+                txt_count_symbol = gr.Textbox(label="New Vocab Size", value="", scale=1)
 
-            extend_button = gr.Button("Extended")
-            txt_info_extend = gr.Text(label="info", value="")
+            extend_button = gr.Button("Extend")
+            txt_info_extend = gr.Text(label="Info", value="")
 
             txt_extend.change(vocab_count, inputs=[txt_extend], outputs=[txt_count_symbol])
             check_button.click(fn=vocab_check, inputs=[cm_project], outputs=[txt_info_check, txt_extend])
@@ -1476,18 +1476,18 @@ Using the extended model, you can fine-tune to a new language that is missing sy
                 fn=vocab_extend, inputs=[cm_project, txt_extend, exp_name_extend], outputs=[txt_info_extend]
             )
 
-        with gr.TabItem("prepare Data"):
+        with gr.TabItem("Prepare Data"):
             gr.Markdown("""```plaintext 
-Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.txt
+Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
 ```""")
 
             gr.Markdown(
                 """```plaintext    
-     place all your wavs folder and your metadata.csv file in {your name project}  
+     Place all your "wavs" folder and your "metadata.csv" file in your project name directory.
 
-     suport format for audio "wav", "mp3", "aac", "flac", "m4a", "alac", "ogg", "aiff", "wma", "amr"
+     Supported audio formats: "wav", "mp3", "aac", "flac", "m4a", "alac", "ogg", "aiff", "wma", "amr"
 
-     example wav format                               
+     Example wav format:                               
      my_speak/
      │
      ├── wavs/
@@ -1497,24 +1497,24 @@ Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.tx
      │
      └── metadata.csv
       
-     file format metadata.csv 
+     File format metadata.csv:
 
      audio1|text1 or audio1.wav|text1 or your_path/audio1.wav|text1 
-     audio2|text1 or audio2.wav|text1 or your_path/audio1.wav|text1 
+     audio2|text1 or audio2.wav|text1 or your_path/audio2.wav|text1 
      ...
 
      ```"""
             )
-            ch_tokenizern = gr.Checkbox(label="create vocabulary", value=False, visible=False)
-            bt_prepare = bt_create = gr.Button("prepare")
-            txt_info_prepare = gr.Text(label="info", value="")
-            txt_vocab_prepare = gr.Text(label="vocab", value="")
+            ch_tokenizern = gr.Checkbox(label="Create Vocabulary", value=False, visible=False)
+            bt_prepare = bt_create = gr.Button("Prepare")
+            txt_info_prepare = gr.Text(label="Info", value="")
+            txt_vocab_prepare = gr.Text(label="Vocab", value="")
 
             bt_prepare.click(
                 fn=create_metadata, inputs=[cm_project, ch_tokenizern], outputs=[txt_info_prepare, txt_vocab_prepare]
             )
 
-            random_sample_prepare = gr.Button("random sample")
+            random_sample_prepare = gr.Button("Random Sample")
 
             with gr.Row():
                 random_text_prepare = gr.Text(label="Tokenizer")
@@ -1524,20 +1524,20 @@ Skip this step if you have your dataset, raw.arrow , duraction.json and vocab.tx
                 fn=get_random_sample_prepare, inputs=[cm_project], outputs=[random_text_prepare, random_audio_prepare]
             )
 
-        with gr.TabItem("train Data"):
+        with gr.TabItem("Train Data"):
             gr.Markdown("""```plaintext 
-The auto-setting is still experimental. Please make sure that the epochs , save per updates , and last per steps are set correctly, or change them manually as needed.
+The auto-setting is still experimental. Please make sure that the epochs, save per updates, and last per steps are set correctly, or change them manually as needed.
 If you encounter a memory error, try reducing the batch size per GPU to a smaller number.
 ```""")
             with gr.Row():
                 bt_calculate = bt_create = gr.Button("Auto Settings")
-                lb_samples = gr.Label(label="samples")
+                lb_samples = gr.Label(label="Samples")
                 batch_size_type = gr.Radio(label="Batch Size Type", choices=["frame", "sample"], value="frame")
 
             with gr.Row():
-                ch_finetune = bt_create = gr.Checkbox(label="finetune", value=True)
+                ch_finetune = bt_create = gr.Checkbox(label="Finetune", value=True)
                 tokenizer_file = gr.Textbox(label="Tokenizer File", value="")
-                file_checkpoint_train = gr.Textbox(label="Path to the preetrain checkpoint ", value="")
+                file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint", value="")
 
             with gr.Row():
                 exp_name = gr.Radio(label="Model", choices=["F5TTS_Base", "E2TTS_Base"], value="F5TTS_Base")
@@ -1603,8 +1603,8 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 mixed_precision.value = mixed_precisionv
                 cd_logger.value = cd_loggerv
 
-            ch_stream = gr.Checkbox(label="stream output experiment.", value=True)
-            txt_info_train = gr.Text(label="info", value="")
+            ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
+            txt_info_train = gr.Text(label="Info", value="")
 
             list_audios, select_audio = get_audio_project(projects_selelect, False)
 
@@ -1619,18 +1619,18 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 ch_list_audio = gr.Dropdown(
                     choices=list_audios,
                     value=select_audio,
-                    label="audios",
+                    label="Audios",
                     allow_custom_value=True,
                     scale=6,
                     interactive=True,
                 )
-                bt_stream_audio = gr.Button("refresh", scale=1)
+                bt_stream_audio = gr.Button("Refresh", scale=1)
                 bt_stream_audio.click(fn=get_audio_project, inputs=[cm_project], outputs=[ch_list_audio])
                 cm_project.change(fn=get_audio_project, inputs=[cm_project], outputs=[ch_list_audio])
 
             with gr.Row():
-                audio_ref_stream = gr.Audio(label="original", type="filepath", value=select_audio_ref)
-                audio_gen_stream = gr.Audio(label="generate", type="filepath", value=select_audio_gen)
+                audio_ref_stream = gr.Audio(label="Original", type="filepath", value=select_audio_ref)
+                audio_gen_stream = gr.Audio(label="Generate", type="filepath", value=select_audio_gen)
 
             ch_list_audio.change(
                 fn=get_audio_select,
@@ -1730,36 +1730,36 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 outputs=outputs,
             )
 
-        with gr.TabItem("test model"):
+        with gr.TabItem("Test Model"):
             gr.Markdown("""```plaintext 
-SOS : check the use_ema setting (True or False) for your model to see what works best for you. 
+SOS: Check the use_ema setting (True or False) for your model to see what works best for you. 
 ```""")
             exp_name = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
 
-            nfe_step = gr.Number(label="n_step", value=32)
-            ch_use_ema = gr.Checkbox(label="use ema", value=True)
+            nfe_step = gr.Number(label="NFE Step", value=32)
+            ch_use_ema = gr.Checkbox(label="Use EMA", value=True)
             with gr.Row():
                 cm_checkpoint = gr.Dropdown(
-                    choices=list_checkpoints, value=checkpoint_select, label="checkpoints", allow_custom_value=True
+                    choices=list_checkpoints, value=checkpoint_select, label="Checkpoints", allow_custom_value=True
                 )
-                bt_checkpoint_refresh = gr.Button("refresh")
+                bt_checkpoint_refresh = gr.Button("Refresh")
 
-            random_sample_infer = gr.Button("random sample")
+            random_sample_infer = gr.Button("Random Sample")
 
-            ref_text = gr.Textbox(label="ref text")
-            ref_audio = gr.Audio(label="audio ref", type="filepath")
-            gen_text = gr.Textbox(label="gen text")
+            ref_text = gr.Textbox(label="Ref Text")
+            ref_audio = gr.Audio(label="Audio Ref", type="filepath")
+            gen_text = gr.Textbox(label="Gen Text")
 
             random_sample_infer.click(
                 fn=get_random_sample_infer, inputs=[cm_project], outputs=[ref_text, gen_text, ref_audio]
             )
 
             with gr.Row():
-                txt_info_gpu = gr.Textbox("", label="device")
-                check_button_infer = gr.Button("infer")
+                txt_info_gpu = gr.Textbox("", label="Device")
+                check_button_infer = gr.Button("Infer")
 
-            gen_audio = gr.Audio(label="audio gen", type="filepath")
+            gen_audio = gr.Audio(label="Audio Gen", type="filepath")
 
             check_button_infer.click(
                 fn=infer,
@@ -1770,22 +1770,22 @@ SOS : check the use_ema setting (True or False) for your model to see what works
             bt_checkpoint_refresh.click(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])
             cm_project.change(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])
 
-        with gr.TabItem("reduse checkpoint"):
+        with gr.TabItem("Reduce Checkpoint"):
             gr.Markdown("""```plaintext 
-Reduce the model size from 5GB to 1.3GB. The new checkpoint can be used for inference or fine-tuning afterward, but it cannot be used to continue training..
+Reduce the model size from 5GB to 1.3GB. The new checkpoint can be used for inference or fine-tuning afterward, but it cannot be used to continue training.
 ```""")
-            txt_path_checkpoint = gr.Text(label="path checkpoint :")
-            txt_path_checkpoint_small = gr.Text(label="path output :")
-            ch_safetensors = gr.Checkbox(label="safetensors", value="")
-            txt_info_reduse = gr.Text(label="info", value="")
-            reduse_button = gr.Button("reduse")
+            txt_path_checkpoint = gr.Text(label="Path to Checkpoint:")
+            txt_path_checkpoint_small = gr.Text(label="Path to Output:")
+            ch_safetensors = gr.Checkbox(label="Safetensors", value="")
+            txt_info_reduse = gr.Text(label="Info", value="")
+            reduse_button = gr.Button("Reduce")
             reduse_button.click(
                 fn=extract_and_save_ema_model,
                 inputs=[txt_path_checkpoint, txt_path_checkpoint_small, ch_safetensors],
                 outputs=[txt_info_reduse],
             )
 
-        with gr.TabItem("system info"):
+        with gr.TabItem("System Info"):
             output_box = gr.Textbox(label="GPU and CPU Information", lines=20)
 
             def update_stats():
