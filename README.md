@@ -17,6 +17,7 @@
 ### Thanks to all the contributors !
 
 ## News
+
 - **2024/10/08**: F5-TTS & E2 TTS base models on [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS), [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), [🟣 Wisemodel](https://wisemodel.cn/models/SJTU_X-LANCE/F5-TTS_Emilia-ZH-EN).
 
 ## Installation
@@ -27,7 +28,7 @@ conda create -n f5-tts python=3.10
 conda activate f5-tts
 
 # Install pytorch with your CUDA version, e.g.
-pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+pip install torch==2.3.0 torchaudio==2.3.0 --extra-index-url https://download.pytorch.org/whl/cu124
 ```
 
 Then you can choose from a few options below:
@@ -54,6 +55,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ```
 
 ### 3. Docker usage
+
 ```bash
 # Build from Dockerfile
 docker build -t f5tts:v1 .
@@ -61,7 +63,6 @@ docker build -t f5tts:v1 .
 # Or pull from GitHub Container Registry
 docker pull ghcr.io/swivid/f5-tts:main
 ```
-
 
 ## Inference
 
@@ -110,7 +111,6 @@ f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 - In order to have better generation results, take a moment to read [detailed guidance](src/f5_tts/infer).
 - The [Issues](https://github.com/SWivid/F5-TTS/issues?q=is%3Aissue) are very useful, please try to find the solution by properly searching the keywords of problem encountered. If no answer found, then feel free to open an issue.
 
-
 ## Training
 
 ### 1. Gradio App
@@ -122,9 +122,7 @@ Read [training & finetuning guidance](src/f5_tts/train) for more instructions.
 f5-tts_finetune-gradio
 ```
 
-
 ## [Evaluation](src/f5_tts/eval)
-
 
 ## Development
 
@@ -135,14 +133,13 @@ pip install pre-commit
 pre-commit install
 ```
 
-When making a pull request, before each commit, run: 
+When making a pull request, before each commit, run:
 
 ```bash
 pre-commit run --all-files
 ```
 
 Note: Some model components have linting exceptions for E722 to accommodate tensor notation
-
 
 ## Acknowledgements
 
@@ -158,15 +155,18 @@ Note: Some model components have linting exceptions for E722 to accommodate tens
 - [F5-TTS-ONNX](https://github.com/DakeQQ/F5-TTS-ONNX) ONNX Runtime version by [DakeQQ](https://github.com/DakeQQ)
 
 ## Citation
+
 If our work and codebase is useful for you, please cite as:
+
 ```
 @article{chen-etal-2024-f5tts,
-      title={F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching}, 
+      title={F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching},
       author={Yushen Chen and Zhikang Niu and Ziyang Ma and Keqi Deng and Chunhui Wang and Jian Zhao and Kai Yu and Xie Chen},
       journal={arXiv preprint arXiv:2410.06885},
       year={2024},
 }
 ```
+
 ## License
 
 Our code is released under MIT License. The pre-trained models are licensed under the CC-BY-NC license due to the training data Emilia, which is an in-the-wild dataset. Sorry for any inconvenience this may cause.
