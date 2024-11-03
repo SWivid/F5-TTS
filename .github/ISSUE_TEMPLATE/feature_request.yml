@@ -1,0 +1,62 @@
+name: "Feature Request"
+description: |
+  Some constructive suggestions and new ideas regarding current repo.
+labels:
+  - enhancement
+body:
+  - type: checkboxes
+    attributes:
+      label: Checks
+      description: "To help us grasp quickly, please confirm the following:"
+      options:
+        - label: This template is only for feature request.
+          required: true
+        - label: I have thoroughly reviewed the project documentation but couldn't find any relevant information that meets my needs.
+          required: true
+        - label: I have searched for existing issues, including closed ones, and found not discussion yet.
+          required: true
+        - label: I confirm that I am using English to submit this report in order to facilitate communication.
+          required: true
+  - type: textarea
+    attributes:
+      label: 1. Is this request related to a challenge you're experiencing? Tell us your story.
+      description: |
+        Describe the specific problem or scenario you're facing in detail. For example:
+        *"I was trying to use [feature] for [specific task], but encountered [issue]. This was frustrating because...."*
+      placeholder: Please describe the situation in as much detail as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 2. What is your suggested solution?
+      description: |
+        Provide a clear description of the feature or enhancement you'd like to propose. 
+        How would this feature solve your issue or improve the project?
+      placeholder: Describe your idea or proposed solution here.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 3. Additional context or comments
+      description: |
+        Any other relevant information, links, documents, or screenshots that provide clarity. 
+        Use this section for anything not covered above.
+      placeholder: Add any extra details here.
+    validations:
+      required: false
+
+  - type: checkboxes
+    attributes:
+      label: 4. Can you help us with this feature?
+      description: |
+        Let us know if you're interested in contributing. This is not a commitment but a way to express interest in collaboration.
+      options:
+        - label: I am interested in contributing to this feature.
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        **Note:** Please submit only one request per issue to keep discussions focused and manageable.
