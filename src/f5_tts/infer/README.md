@@ -122,7 +122,8 @@ To communicate with socket server you need to run
 python src/f5_tts/socket.py
 ```
 
-then create client to communicate
+<details>
+<summary>Then create client to communicate</summary>
 
 ``` python
 import socket
@@ -183,4 +184,6 @@ async def main():
 # Run the main async function
 asyncio.run(main())
 ```
+
+</details>
 
