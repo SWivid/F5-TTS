@@ -1,0 +1,50 @@
+name: "Help Wanted"
+description: |
+  Please provide as much details to help address the issue, including logs and screenshots.
+labels:
+  - help wanted
+body:
+  - type: checkboxes
+    attributes:
+      label: Checks
+      description: "To ensure timely help, please confirm the following:"
+      options:
+        - label: This template is only for usage issues encountered.
+          required: true
+        - label: I have thoroughly reviewed the project documentation but couldn't find information to solve my problem.
+          required: true
+        - label: I have searched for existing issues, including closed ones, and couldn't find a solution.
+          required: true
+        - label: I confirm that I am using English to submit this report in order to facilitate communication.
+          required: true
+  - type: textarea
+    attributes:
+      label: Environment Details
+      description: "Provide details such as OS, Python version, and any relevant software or dependencies."
+      placeholder: e.g., macOS 13.5, Python 3.10, torch==2.3.0, Gradio 4.44.1
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to Reproduce
+      description: |
+        Include detailed steps, screenshots, and logs. Use the correct markdown syntax for code blocks.
+      placeholder: |
+        1. Create a new conda environment.
+        2. Clone the repository and install as pip package.
+        3. Run the command: `f5-tts_infer-gradio` with no ref_text provided.
+        4. Stuck there with the following message... (attach logs and also error msg e.g. after ctrl-c).
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: ✔️ Expected Behavior
+      placeholder: Describe what you expected to happen, e.g. output a generated audio
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: ❌ Actual Behavior
+      placeholder: Describe what actually happened, failure messages, etc.
+    validations:
+      required: false

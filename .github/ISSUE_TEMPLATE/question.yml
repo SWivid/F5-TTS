@@ -1,0 +1,26 @@
+name: "Question"
+description: |
+  Pure question or inquiry about the project.
+labels:
+  - question
+body:
+  - type: checkboxes
+    attributes:
+      label: Checks
+      description: "To help us grasp quickly, please confirm the following:"
+      options:
+        - label: This template is only for question, not feature requests or bug reports.
+          required: true
+        - label: I have thoroughly reviewed the project documentation and read the related paper(s).
+          required: true
+        - label: I have searched for existing issues, including closed ones, no similar questions.
+          required: true
+        - label: I confirm that I am using English to submit this report in order to facilitate communication.
+          required: true
+  - type: textarea
+    attributes:
+      label: Question details
+      description: |
+        Question details, clearly stated using proper markdown syntax.
+    validations:
+      required: true
