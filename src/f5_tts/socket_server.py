@@ -26,7 +26,7 @@ class TTSStreamingProcessor:
             vocab_file=vocab_file,
             ode_method="euler",
             use_ema=True,
-            device=self.device
+            device=self.device,
         ).to(self.device, dtype=dtype)
 
         # Load the vocoder
