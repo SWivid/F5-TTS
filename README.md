@@ -35,13 +35,13 @@ Then you can choose from a few options below:
 ### 1. As a pip package (if just for inference)
 
 ```bash
-pip install git+https://github.com/SWivid/F5-TTS.git
+pip install git+https://github.com/jpgallegoar/Spanish-F5.git
 ```
 
 ### 2. Local editable (if also do training, finetuning)
 
 ```bash
-git clone https://github.com/SWivid/F5-TTS.git
+git clone https://github.com/jpgallegoar/Spanish-F5.git
 cd F5-TTS
 # git submodule update --init --recursive  # (optional, if need bigvgan)
 pip install -e .
@@ -52,16 +52,6 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ```
-
-### 3. Docker usage
-```bash
-# Build from Dockerfile
-docker build -t f5tts:v1 .
-
-# Or pull from GitHub Container Registry
-docker pull ghcr.io/swivid/f5-tts:main
-```
-
 
 ## Inference
 
