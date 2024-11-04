@@ -218,6 +218,26 @@ def load_model(
     return model
 
 
+def remove_silence_edges(audio, silence_threshold=-42):
+    # Remove silence from the start
+    non_silent_start_duration = 0
+    for segment in audio:
+        if segment.dBFS > silence_threshold:
+            break
+        non_silent_start_duration += segment.duration_seconds
+    audio = audio[int(non_silent_start_duration * 1000) :]
+
+    # Remove silence from the end
+    non_silent_end_duration = audio.duration_seconds
+    for segment in reversed(audio):
+        if segment.dBFS > silence_threshold:
+            break
+        non_silent_end_duration -= segment.duration_seconds
+    trimmed_audio = audio[: int(non_silent_end_duration * 1000)]
+
+    return trimmed_audio
+
+
 # preprocess reference audio and text
 
 
@@ -256,7 +276,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_in
             if len(aseg) > 15000:
                 aseg = aseg[:15000]
                 show_info("Audio is over 15s, clipping short. (3)")
-
+        aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
         aseg.export(f.name, format="wav")
         ref_audio = f.name
 
