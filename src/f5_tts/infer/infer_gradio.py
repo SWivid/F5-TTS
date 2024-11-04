@@ -43,7 +43,7 @@ vocoder = load_vocoder()
 # load models
 F5TTS_model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
 F5TTS_ema_model = load_model(
-    DiT, F5TTS_model_cfg, str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))
+    DiT, F5TTS_model_cfg, str(cached_path("hf://jpgallegoar/F5-Spanish/model_1200000.safetensors"))
 )
 
 E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
