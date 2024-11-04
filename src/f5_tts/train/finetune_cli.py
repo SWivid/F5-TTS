@@ -43,6 +43,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--num_warmup_updates", type=int, default=300, help="Warmup steps")
     parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X steps")
+    parser.add_argument("--save_top_k", type=int, default=None, help="Keep top k checkpoint")
     parser.add_argument("--last_per_steps", type=int, default=50000, help="Save last checkpoint every X steps")
     parser.add_argument("--finetune", type=bool, default=True, help="Use Finetune")
     parser.add_argument("--pretrain", type=str, default=None, help="the path to the checkpoint")
@@ -147,6 +148,7 @@ def main():
         wandb_resume_id=wandb_resume_id,
         log_samples=args.log_samples,
         last_per_steps=args.last_per_steps,
+        save_top_k=args.save_top_k
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import os
+import glob
 
 import torch
 import torchaudio
@@ -47,6 +48,7 @@ class Trainer:
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
+        save_top_k: int | None = 3
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -109,6 +111,7 @@ class Trainer:
         self.grad_accumulation_steps = grad_accumulation_steps
         self.max_grad_norm = max_grad_norm
         self.vocoder_name = mel_spec_type
+        self.save_top_k = save_top_k
 
         self.noise_scheduler = noise_scheduler
 
@@ -125,6 +128,23 @@ class Trainer:
     @property
     def is_main(self):
         return self.accelerator.is_main_process
+
+    def remove_old_checkpoints(self, cp_dir: str, prefix: str = 'model_*.pt'):
+        if not self.save_top_k:
+            return
+        ckpt_list = glob.glob(os.path.join(cp_dir, prefix))
+        step_ckpts = [f for f in ckpt_list if 'model_last.pt' not in f and any(char.isdigit() for char in f)]
+        save_top_k = self.save_top_k + 1 # Keep base model 1m2.pt checkpoint
+        if not step_ckpts or len(step_ckpts) <= save_top_k:
+            return
+        step_ckpts.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
+        remove_ckpts = step_ckpts[:-save_top_k]
+        for ckpt_path in remove_ckpts:
+            try:
+                os.remove(ckpt_path)
+                print(f"Removed checkpoint: {ckpt_path}")
+            except OSError as e:
+                print(f"Error removing checkpoint {ckpt_path}: {e}")
 
     def save_checkpoint(self, step, last=False):
         self.accelerator.wait_for_everyone()
@@ -143,6 +163,9 @@ class Trainer:
                 print(f"Saved last checkpoint at step {step}")
             else:
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{step}.pt")
+                # Only clean up old checkpoints when saving step checkpoints
+                if self.save_top_k:
+                    self.remove_old_checkpoints(self.checkpoint_path)
 
     def load_checkpoint(self):
         if (
