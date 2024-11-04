@@ -119,7 +119,7 @@ python src/f5_tts/infer/speech_edit.py
 
 To communicate with socket server you need to run 
 ```bash
-python src/f5_tts/socket.py
+python src/f5_tts/socket_server.py
 ```
 
 <details>
