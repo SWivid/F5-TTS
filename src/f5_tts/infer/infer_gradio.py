@@ -46,11 +46,6 @@ F5TTS_ema_model = load_model(
     DiT, F5TTS_model_cfg, str(cached_path("hf://jpgallegoar/F5-Spanish/model_1200000.safetensors"))
 )
 
-E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
-E2TTS_ema_model = load_model(
-    UNetT, E2TTS_model_cfg, str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))
-)
-
 chat_model_state = None
 chat_tokenizer_state = None
 
@@ -86,8 +81,6 @@ def infer(
 
     if model == "F5-TTS":
         ema_model = F5TTS_ema_model
-    elif model == "E2-TTS":
-        ema_model = E2TTS_ema_model
 
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
@@ -129,7 +122,7 @@ with gr.Blocks() as app_tts:
     gr.Markdown("# Batched TTS")
     ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
     gen_text_input = gr.Textbox(label="Text to Generate", lines=10)
-    model_choice = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
+    model_choice = gr.Radio(choices=["F5-TTS"], label="Choose TTS Model", value="F5-TTS")
     generate_btn = gr.Button("Synthesize", variant="primary")
     with gr.Accordion("Advanced Settings", open=False):
         ref_text_input = gr.Textbox(
@@ -346,7 +339,7 @@ with gr.Blocks() as app_multistyle:
         )
 
     # Model choice
-    model_choice_multistyle = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
+    model_choice_multistyle = gr.Radio(choices=["F5-TTS"], label="Choose TTS Model", value="F5-TTS")
 
     with gr.Accordion("Advanced Settings", open=False):
         remove_silence_multistyle = gr.Checkbox(
@@ -519,7 +512,7 @@ Have a conversation with an AI using your reference voice!
             with gr.Column():
                 with gr.Accordion("Advanced Settings", open=False):
                     model_choice_chat = gr.Radio(
-                        choices=["F5-TTS", "E2-TTS"],
+                        choices=["F5-TTS"],
                         label="TTS Model",
                         value="F5-TTS",
                     )
@@ -720,7 +713,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 def main(port, host, share, api):
     global app
     print("Starting app...")
-    app.queue(api_open=api).launch(server_name=host, server_port=port, share=share, show_api=api)
+    app.queue(api_open=api).launch(server_name=host, server_port=port, share=True, show_api=api)
 
 
 if __name__ == "__main__":
