@@ -117,48 +117,50 @@ def infer(
 
 with gr.Blocks() as app_credits:
     gr.Markdown("""
-# Credits
+# Créditos
 
-* [mrfakename](https://github.com/fakerybakery) for the original [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
-* [RootingInLoad](https://github.com/RootingInLoad) for initial chunk generation and podcast app exploration
-* [jpgallegoar](https://github.com/jpgallegoar) for multiple speech-type generation & voice chat
+* [mrfakename](https://github.com/fakerybakery) por el [demo online original](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
+* [RootingInLoad](https://github.com/RootingInLoad) por la generación inicial de fragmentos y exploración de la aplicación de podcast
+* [jpgallegoar](https://github.com/jpgallegoar) por la generación de múltiples tipos de habla, chat de voz y afinación en español
 """)
+
+
 with gr.Blocks() as app_tts:
-    gr.Markdown("# Batched TTS")
-    ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
-    gen_text_input = gr.Textbox(label="Text to Generate", lines=10)
-    model_choice = gr.Radio(choices=["F5-TTS"], label="Choose TTS Model", value="F5-TTS")
-    generate_btn = gr.Button("Synthesize", variant="primary")
-    with gr.Accordion("Advanced Settings", open=False):
+    gr.Markdown("# TTS por Lotes")
+    ref_audio_input = gr.Audio(label="Audio de Referencia", type="filepath")
+    gen_text_input = gr.Textbox(label="Texto para Generar", lines=10)
+    model_choice = gr.Radio(choices=["F5-TTS"], label="Seleccionar Modelo TTS", value="F5-TTS")
+    generate_btn = gr.Button("Sintetizar", variant="primary")
+    with gr.Accordion("Configuraciones Avanzadas", open=False):
         ref_text_input = gr.Textbox(
-            label="Reference Text",
-            info="Leave blank to automatically transcribe the reference audio. If you enter text it will override automatic transcription.",
+            label="Texto de Referencia",
+            info="Deja en blanco para transcribir automáticamente el audio de referencia. Si ingresas texto, sobrescribirá la transcripción automática.",
             lines=2,
         )
         remove_silence = gr.Checkbox(
-            label="Remove Silences",
-            info="The model tends to produce silences, especially on longer audio. We can manually remove silences if needed. Note that this is an experimental feature and may produce strange results. This will also increase generation time.",
+            label="Eliminar Silencios",
+            info="El modelo tiende a producir silencios, especialmente en audios más largos. Podemos eliminar manualmente los silencios si es necesario. Ten en cuenta que esta es una característica experimental y puede producir resultados extraños. Esto también aumentará el tiempo de generación.",
             value=False,
         )
         speed_slider = gr.Slider(
-            label="Speed",
+            label="Velocidad",
             minimum=0.3,
             maximum=2.0,
             value=1.0,
             step=0.1,
-            info="Adjust the speed of the audio.",
+            info="Ajusta la velocidad del audio.",
         )
         cross_fade_duration_slider = gr.Slider(
-            label="Cross-Fade Duration (s)",
+            label="Duración del Cross-Fade (s)",
             minimum=0.0,
             maximum=1.0,
             value=0.15,
             step=0.01,
-            info="Set the duration of the cross-fade between audio clips.",
+            info="Establece la duración del cross-fade entre clips de audio.",
         )
 
-    audio_output = gr.Audio(label="Synthesized Audio")
-    spectrogram_output = gr.Image(label="Spectrogram")
+    audio_output = gr.Audio(label="Audio Sintetizado")
+    spectrogram_output = gr.Image(label="Espectrograma")
 
     generate_btn.click(
         infer,
@@ -204,46 +206,46 @@ with gr.Blocks() as app_multistyle:
     # New section for multistyle generation
     gr.Markdown(
         """
-    # Multiple Speech-Type Generation
+    # Generación de Múltiples Tipos de Habla
 
-    This section allows you to generate multiple speech types or multiple people's voices. Enter your text in the format shown below, and the system will generate speech using the appropriate type. If unspecified, the model will use the regular speech type. The current speech type will be used until the next speech type is specified.
+    Esta sección te permite generar múltiples tipos de habla o las voces de múltiples personas. Ingresa tu texto en el formato mostrado a continuación, y el sistema generará el habla utilizando el tipo apropiado. Si no se especifica, el modelo utilizará el tipo de habla regular. El tipo de habla actual se usará hasta que se especifique el siguiente tipo de habla.
     """
     )
 
     with gr.Row():
         gr.Markdown(
             """
-            **Example Input:**                                                                      
-            {Regular} Hello, I'd like to order a sandwich please.                                                         
-            {Surprised} What do you mean you're out of bread?                                                                      
-            {Sad} I really wanted a sandwich though...                                                              
-            {Angry} You know what, darn you and your little shop!                                                                       
-            {Whisper} I'll just go back home and cry now.                                                                           
-            {Shouting} Why me?!                                                                         
+            **Entrada de Ejemplo:**                                                                      
+            {Regular} Hola, me gustaría pedir un sándwich, por favor.                                                         
+            {Sorprendido} ¿Qué quieres decir con que no tienen pan?                                                                      
+            {Triste} Realmente quería un sándwich...                                                              
+            {Enojado} ¡Sabes qué, maldición a ti y a tu pequeña tienda!                                                                       
+            {Susurro} Solo volveré a casa y lloraré ahora.                                                                           
+            {Gritando} ¿Por qué yo?!                                                                         
             """
         )
 
         gr.Markdown(
             """
-            **Example Input 2:**                                                                                
-            {Speaker1_Happy} Hello, I'd like to order a sandwich please.                                                            
-            {Speaker2_Regular} Sorry, we're out of bread.                                                                                
-            {Speaker1_Sad} I really wanted a sandwich though...                                                                             
-            {Speaker2_Whisper} I'll give you the last one I was hiding.                                                                     
+            **Entrada de Ejemplo 2:**                                                                                
+            {Speaker1_Feliz} Hola, me gustaría pedir un sándwich, por favor.                                                            
+            {Speaker2_Regular} Lo siento, nos hemos quedado sin pan.                                                                                
+            {Speaker1_Triste} Realmente quería un sándwich...                                                                             
+            {Speaker2_Susurro} Te daré el último que estaba escondiendo.                                                                     
             """
         )
 
     gr.Markdown(
-        "Upload different audio clips for each speech type. The first speech type is mandatory. You can add additional speech types by clicking the 'Add Speech Type' button."
+        "Sube diferentes clips de audio para cada tipo de habla. El primer tipo de habla es obligatorio. Puedes agregar tipos de habla adicionales haciendo clic en el botón 'Agregar Tipo de Habla'."
     )
 
     # Regular speech type (mandatory)
     with gr.Row():
         with gr.Column():
-            regular_name = gr.Textbox(value="Regular", label="Speech Type Name")
-            regular_insert = gr.Button("Insert", variant="secondary")
-        regular_audio = gr.Audio(label="Regular Reference Audio", type="filepath")
-        regular_ref_text = gr.Textbox(label="Reference Text (Regular)", lines=2)
+            regular_name = gr.Textbox(value="Regular", label="Nombre del Tipo de Habla")
+            regular_insert = gr.Button("Insertar", variant="secondary")
+        regular_audio = gr.Audio(label="Audio de Referencia Regular", type="filepath")
+        regular_ref_text = gr.Textbox(label="Texto de Referencia (Regular)", lines=2)
 
     # Additional speech types (up to 99 more)
     max_speech_types = 100
@@ -258,11 +260,11 @@ with gr.Blocks() as app_multistyle:
     for i in range(max_speech_types - 1):
         with gr.Row(visible=False) as row:
             with gr.Column():
-                name_input = gr.Textbox(label="Speech Type Name")
-                delete_btn = gr.Button("Delete", variant="secondary")
-                insert_btn = gr.Button("Insert", variant="secondary")
-            audio_input = gr.Audio(label="Reference Audio", type="filepath")
-            ref_text_input = gr.Textbox(label="Reference Text", lines=2)
+                name_input = gr.Textbox(label="Nombre del Tipo de Habla")
+                delete_btn = gr.Button("Eliminar", variant="secondary")
+                insert_btn = gr.Button("Insertar", variant="secondary")
+            audio_input = gr.Audio(label="Audio de Referencia", type="filepath")
+            ref_text_input = gr.Textbox(label="Texto de Referencia", lines=2)
         speech_type_rows.append(row)
         speech_type_names.append(name_input)
         speech_type_audios.append(audio_input)
@@ -271,7 +273,7 @@ with gr.Blocks() as app_multistyle:
         speech_type_insert_btns.append(insert_btn)
 
     # Button to add speech type
-    add_speech_type_btn = gr.Button("Add Speech Type")
+    add_speech_type_btn = gr.Button("Agregar Tipo de Habla")
 
     # Keep track of current number of speech types
     speech_type_count = gr.State(value=0)
@@ -321,15 +323,15 @@ with gr.Blocks() as app_multistyle:
 
     # Text input for the prompt
     gen_text_input_multistyle = gr.Textbox(
-        label="Text to Generate",
+        label="Texto para Generar",
         lines=10,
-        placeholder="Enter the script with speaker names (or emotion types) at the start of each block, e.g.:\n\n{Regular} Hello, I'd like to order a sandwich please.\n{Surprised} What do you mean you're out of bread?\n{Sad} I really wanted a sandwich though...\n{Angry} You know what, darn you and your little shop!\n{Whisper} I'll just go back home and cry now.\n{Shouting} Why me?!",
+        placeholder="Ingresa el guion con los nombres de los hablantes (o tipos de emociones) al inicio de cada bloque, por ejemplo:\n\n{Regular} Hola, me gustaría pedir un sándwich, por favor.\n{Sorprendido} ¿Qué quieres decir con que no tienen pan?\n{Triste} Realmente quería un sándwich...\n{Enojado} ¡Sabes qué, maldición a ti y a tu pequeña tienda!\n{Susurro} Solo volveré a casa y lloraré ahora.\n{Gritando} ¿Por qué yo?!",
     )
 
     def make_insert_speech_type_fn(index):
         def insert_speech_type_fn(current_text, speech_type_name):
             current_text = current_text or ""
-            speech_type_name = speech_type_name or "None"
+            speech_type_name = speech_type_name or "Ninguno"
             updated_text = current_text + f"{{{speech_type_name}}} "
             return gr.update(value=updated_text)
 
@@ -344,19 +346,19 @@ with gr.Blocks() as app_multistyle:
         )
 
     # Model choice
-    model_choice_multistyle = gr.Radio(choices=["F5-TTS"], label="Choose TTS Model", value="F5-TTS")
+    model_choice_multistyle = gr.Radio(choices=["F5-TTS"], label="Seleccionar Modelo TTS", value="F5-TTS")
 
-    with gr.Accordion("Advanced Settings", open=False):
+    with gr.Accordion("Configuraciones Avanzadas", open=False):
         remove_silence_multistyle = gr.Checkbox(
-            label="Remove Silences",
+            label="Eliminar Silencios",
             value=False,
         )
 
     # Generate button
-    generate_multistyle_btn = gr.Button("Generate Multi-Style Speech", variant="primary")
+    generate_multistyle_btn = gr.Button("Generar Habla Multi-Estilo", variant="primary")
 
     # Output audio
-    audio_output_multistyle = gr.Audio(label="Synthesized Audio")
+    audio_output_multistyle = gr.Audio(label="Audio Sintetizado")
 
     @gpu_decorator
     def generate_multistyle_speech(
@@ -369,7 +371,7 @@ with gr.Blocks() as app_multistyle:
         speech_type_names_list = args[:num_additional_speech_types]
         speech_type_audios_list = args[num_additional_speech_types : 2 * num_additional_speech_types]
         speech_type_ref_texts_list = args[2 * num_additional_speech_types : 3 * num_additional_speech_types]
-        model_choice = args[3 * num_additional_speech_types + 1]
+        model_choice = args[3 * num_additional_speech_types]
         remove_silence = args[3 * num_additional_speech_types + 1]
 
         # Collect the speech types and their audios into a dict
@@ -414,7 +416,7 @@ with gr.Blocks() as app_multistyle:
             final_audio_data = np.concatenate(generated_audio_segments)
             return (sr, final_audio_data)
         else:
-            gr.Warning("No audio generated.")
+            gr.Warning("No se generó ningún audio.")
             return None
 
     generate_multistyle_btn.click(
@@ -471,17 +473,17 @@ with gr.Blocks() as app_multistyle:
 with gr.Blocks() as app_chat:
     gr.Markdown(
         """
-# Voice Chat
-Have a conversation with an AI using your reference voice! 
-1. Upload a reference audio clip and optionally its transcript.
-2. Load the chat model.
-3. Record your message through your microphone.
-4. The AI will respond using the reference voice.
+# Chat de Voz
+¡Mantén una conversación con una IA usando tu voz de referencia! 
+1. Sube un clip de audio de referencia y opcionalmente su transcripción.
+2. Carga el modelo de chat.
+3. Graba tu mensaje a través de tu micrófono.
+4. La IA responderá usando la voz de referencia.
 """
     )
 
     if not USING_SPACES:
-        load_chat_model_btn = gr.Button("Load Chat Model", variant="primary")
+        load_chat_model_btn = gr.Button("Cargar Modelo de Chat", variant="primary")
 
         chat_interface_container = gr.Column(visible=False)
 
@@ -490,13 +492,13 @@ Have a conversation with an AI using your reference voice!
             global chat_model_state, chat_tokenizer_state
             if chat_model_state is None:
                 show_info = gr.Info
-                show_info("Loading chat model...")
+                show_info("Cargando modelo de chat...")
                 model_name = "Qwen/Qwen2.5-3B-Instruct"
                 chat_model_state = AutoModelForCausalLM.from_pretrained(
                     model_name, torch_dtype="auto", device_map="auto"
                 )
                 chat_tokenizer_state = AutoTokenizer.from_pretrained(model_name)
-                show_info("Chat model loaded.")
+                show_info("Modelo de chat cargado.")
 
             return gr.update(visible=False), gr.update(visible=True)
 
@@ -513,51 +515,51 @@ Have a conversation with an AI using your reference voice!
     with chat_interface_container:
         with gr.Row():
             with gr.Column():
-                ref_audio_chat = gr.Audio(label="Reference Audio", type="filepath")
+                ref_audio_chat = gr.Audio(label="Audio de Referencia", type="filepath")
             with gr.Column():
-                with gr.Accordion("Advanced Settings", open=False):
+                with gr.Accordion("Configuraciones Avanzadas", open=False):
                     model_choice_chat = gr.Radio(
                         choices=["F5-TTS"],
-                        label="TTS Model",
+                        label="Modelo TTS",
                         value="F5-TTS",
                     )
                     remove_silence_chat = gr.Checkbox(
-                        label="Remove Silences",
+                        label="Eliminar Silencios",
                         value=True,
                     )
                     ref_text_chat = gr.Textbox(
-                        label="Reference Text",
-                        info="Optional: Leave blank to auto-transcribe",
+                        label="Texto de Referencia",
+                        info="Opcional: Deja en blanco para transcribir automáticamente",
                         lines=2,
                     )
                     system_prompt_chat = gr.Textbox(
-                        label="System Prompt",
-                        value="You are not an AI assistant, you are whoever the user says you are. You must stay in character. Keep your responses concise since they will be spoken out loud.",
+                        label="Prompt del Sistema",
+                        value="No eres un asistente de IA, eres quien el usuario diga que eres. Debes mantenerte en personaje. Mantén tus respuestas concisas ya que serán habladas en voz alta.",
                         lines=2,
                     )
 
-        chatbot_interface = gr.Chatbot(label="Conversation")
+        chatbot_interface = gr.Chatbot(label="Conversación")
 
         with gr.Row():
             with gr.Column():
                 audio_input_chat = gr.Microphone(
-                    label="Speak your message",
+                    label="Habla tu mensaje",
                     type="filepath",
                 )
                 audio_output_chat = gr.Audio(autoplay=True)
             with gr.Column():
                 text_input_chat = gr.Textbox(
-                    label="Type your message",
+                    label="Escribe tu mensaje",
                     lines=1,
                 )
-                send_btn_chat = gr.Button("Send")
-                clear_btn_chat = gr.Button("Clear Conversation")
+                send_btn_chat = gr.Button("Enviar")
+                clear_btn_chat = gr.Button("Limpiar Conversación")
 
         conversation_state = gr.State(
             value=[
                 {
                     "role": "system",
-                    "content": "You are not an AI assistant, you are whoever the user says you are. You must stay in character. Keep your responses concise since they will be spoken out loud.",
+                    "content": "No eres un asistente de IA, eres quien el usuario diga que eres. Debes mantenerte en personaje. Mantén tus respuestas concisas ya que serán habladas en voz alta.",
                 }
             ]
         )
@@ -613,7 +615,7 @@ Have a conversation with an AI using your reference voice!
             return [], [
                 {
                     "role": "system",
-                    "content": "You are not an AI assistant, you are whoever the user says you are. You must stay in character. Keep your responses concise since they will be spoken out loud.",
+                    "content": "No eres un asistente de IA, eres quien el usuario diga que eres. Debes mantenerte en personaje. Mantén tus respuestas concisas ya que serán habladas en voz alta.",
                 }
             ]
 
@@ -684,40 +686,40 @@ Have a conversation with an AI using your reference voice!
 with gr.Blocks() as app:
     gr.Markdown(
         """
-# E2/F5 TTS
+# Spanish-F5
 
-This is a local web UI for F5 TTS with advanced batch processing support. This app supports the following TTS models:
+Esta es una interfaz web para F5 TTS, con un finetuning para poder hablar en castellano
 
+Implementación original:
 * [F5-TTS](https://arxiv.org/abs/2410.06885) (A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching)
-* [E2 TTS](https://arxiv.org/abs/2406.18009) (Embarrassingly Easy Fully Non-Autoregressive Zero-Shot TTS)
 
-The checkpoints support English and Chinese.
+El modelo sólo soporta el castellano.
 
-If you're having issues, try converting your reference audio to WAV or MP3, clipping it to 15s, and shortening your prompt.
+Para los mejores resultados, intenta convertir tu audio de referencia a WAV o MP3, asegurarte de que duren entre 11 y 14 segundos, que comiencen y acaben con entre medio segundo y un segundo de silencio, y a ser posible que acabe con el final de la frase.
 
-**NOTE: Reference text will be automatically transcribed with Whisper if not provided. For best results, keep your reference clips short (<15s). Ensure the audio is fully uploaded before generating.**
+**NOTA: El texto de referencia será transcrito automáticamente con Whisper si no se proporciona. Para mejores resultados, mantén tus clips de referencia cortos (<15s). Asegúrate de que el audio esté completamente subido antes de generar.**
 """
     )
     gr.TabbedInterface(
         [app_tts, app_multistyle, app_chat, app_credits],
-        ["TTS", "Multi-Speech", "Voice-Chat", "Credits"],
+        ["TTS", "Multi-Habla", "Chat de Voz", "Créditos"],
     )
 
 
 @click.command()
-@click.option("--port", "-p", default=None, type=int, help="Port to run the app on")
-@click.option("--host", "-H", default=None, help="Host to run the app on")
+@click.option("--port", "-p", default=None, type=int, help="Puerto para ejecutar la aplicación")
+@click.option("--host", "-H", default=None, help="Host para ejecutar la aplicación")
 @click.option(
     "--share",
     "-s",
     default=False,
     is_flag=True,
-    help="Share the app via Gradio share link",
+    help="Compartir la aplicación a través de un enlace compartido de Gradio",
 )
-@click.option("--api", "-a", default=True, is_flag=True, help="Allow API access")
+@click.option("--api", "-a", default=True, is_flag=True, help="Permitir acceso a la API")
 def main(port, host, share, api):
     global app
-    print("Starting app...")
+    print("Iniciando la aplicación...")
     app.queue(api_open=api).launch(server_name=host, server_port=port, share=True, show_api=api)
 
 
