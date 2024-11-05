@@ -74,22 +74,20 @@ def generate_response(messages, model, tokenizer):
     return tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
 def traducir_numero_a_texto(texto):
-    palabras = texto.split()
-    resultado = []
-
-    for palabra in palabras:
-        # Verifica si la palabra es un número completo
-        if palabra.isdigit():
-            resultado.append(num2words(int(palabra), lang='es'))
-        # Verifica si es una letra seguida de un número (e.g., "F5")
-        elif len(palabra) > 1 and palabra[1:].isdigit():
-            letra = palabra[0]
-            numero = palabra[1:]
-            resultado.append(letra + ' ' + num2words(int(numero), lang='es'))
+    def reemplazar_numero(match):
+        numero = match.group(0)
+        if match.group(1):
+            letra = match.group(1)
+            numero_texto = num2words(int(numero), lang='es')
+            return f"{letra} {numero_texto}"
         else:
-            resultado.append(palabra)
+            return num2words(int(numero), lang='es')
 
-    return ' '.join(resultado)
+    patron = re.compile(r'(\b[A-Za-z]?)(\d+)\b')
+    
+    texto_traducido = patron.sub(reemplazar_numero, texto)
+    
+    return texto_traducido
 
 @gpu_decorator
 def infer(
