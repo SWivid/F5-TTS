@@ -82,6 +82,11 @@ def infer(
     if model == "F5-TTS":
         ema_model = F5TTS_ema_model
 
+    if not gen_text.startswith(" "):
+        gen_text = " " + gen_text
+    if not gen_text.endswith(". "):
+        gen_text += ". "
+
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
         ref_text,
