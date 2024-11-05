@@ -90,6 +90,7 @@ def main():
         last_per_steps=last_per_steps,
         log_samples=True,
         mel_spec_type=mel_spec_type,
+        use_checkpointing=False  # P050d
     )
 
     train_dataset = load_dataset(dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
