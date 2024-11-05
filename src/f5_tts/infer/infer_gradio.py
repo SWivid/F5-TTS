@@ -78,10 +78,14 @@ def traducir_numero_a_texto(texto):
     resultado = []
 
     for palabra in palabras:
+        # Verifica si la palabra es un número completo
         if palabra.isdigit():
             resultado.append(num2words(int(palabra), lang='es'))
+        # Verifica si es una letra seguida de un número (e.g., "F5")
         elif len(palabra) > 1 and palabra[1:].isdigit():
-            resultado.append(palabra[0] + ' ' + num2words(int(palabra[1:]), lang='es'))
+            letra = palabra[0]
+            numero = palabra[1:]
+            resultado.append(letra + ' ' + num2words(int(numero), lang='es'))
         else:
             resultado.append(palabra)
 
