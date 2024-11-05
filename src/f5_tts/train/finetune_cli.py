@@ -66,7 +66,7 @@ def parse_args():
         "--bnb_optimizer",
         type=bool,
         default=False,
-        help="Use 8-bit Adam optimizer from bitsandbytes"
+        help="Use 8-bit Adam optimizer from bitsandbytes",
     )
 
     return parser.parse_args()
