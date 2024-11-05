@@ -6,7 +6,7 @@ data/
 ckpts/
 wandb/
 results/
-
+tmp/
 
 
 # Byte-compiled / optimized / DLL files

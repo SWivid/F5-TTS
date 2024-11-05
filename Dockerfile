@@ -13,12 +13,16 @@ RUN set -x \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-WORKDIR /workspace
+# Copy the entire repository into the container
+COPY . /workspace/F5-TTS
 
-RUN git clone https://github.com/SWivid/F5-TTS.git \
-    && cd F5-TTS \
-    && pip install -e .[eval]
+WORKDIR /workspace/F5-TTS
+
+# Install dependencies for evaluation
+RUN pip install -e .[eval]
 
 ENV SHELL=/bin/bash
 
-WORKDIR /workspace/F5-TTS
+# Set entrypoint and command
+# ENTRYPOINT ["/bin/bash", "/workspace/F5-TTS/entrypoint.sh"]
+CMD ["bash", "-c", "f5-tts_infer-gradio --host 0.0.0.0 --port 7860"]

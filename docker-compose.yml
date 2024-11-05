@@ -1,0 +1,26 @@
+services:
+  f5-tts:
+    image: f5tts:v1
+    container_name: f5-tts-container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7860:7860"
+    volumes:
+      - "${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub"
+      - "${PWD}/tmp:/tmp"
+    tty: true
+    stdin_open: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    environment:
+      - HOST_UID=${UID:-1002}
+      - HOST_GID=${GID:-1002}
+
+# UID=$(id -u) GID=$(id -g) docker compose up -d
