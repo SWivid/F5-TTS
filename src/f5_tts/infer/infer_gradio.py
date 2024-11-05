@@ -87,6 +87,8 @@ def infer(
     if not gen_text.endswith(". "):
         gen_text += ". "
 
+    gen_text = gen_text.lower()
+
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
         ref_text,
@@ -698,6 +700,7 @@ El modelo sólo soporta el castellano.
 Para los mejores resultados, intenta convertir tu audio de referencia a WAV o MP3, asegurarte de que duren entre 11 y 14 segundos, que comiencen y acaben con entre medio segundo y un segundo de silencio, y a ser posible que acabe con el final de la frase.
 
 **NOTA: El texto de referencia será transcrito automáticamente con Whisper si no se proporciona. Para mejores resultados, mantén tus clips de referencia cortos (<15s). Asegúrate de que el audio esté completamente subido antes de generar.**
+**El modelo no es capaz de pronunciar los números escritos en cifras (55), por lo que se deben transformar a palabras (cincuenta y cinco)**
 """
     )
     gr.TabbedInterface(
