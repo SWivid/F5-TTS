@@ -11,6 +11,7 @@ import soundfile as sf
 import torchaudio
 from cached_path import cached_path
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from num2words import num2words
 
 try:
     import spaces
@@ -72,6 +73,19 @@ def generate_response(messages, model, tokenizer):
     ]
     return tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
+def traducir_numero_a_texto(texto):
+    palabras = texto.split()
+    resultado = []
+
+    for palabra in palabras:
+        if palabra.isdigit():
+            resultado.append(num2words(int(palabra), lang='es'))
+        elif len(palabra) > 1 and palabra[1:].isdigit():
+            resultado.append(palabra[0] + ' ' + num2words(int(palabra[1:]), lang='es'))
+        else:
+            resultado.append(palabra)
+
+    return ' '.join(resultado)
 
 @gpu_decorator
 def infer(
@@ -88,6 +102,7 @@ def infer(
         gen_text += ". "
 
     gen_text = gen_text.lower()
+    gen_text = traducir_numero_a_texto(gen_text)
 
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
