@@ -1,7 +1,5 @@
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
-<img src="https://github.com/user-attachments/assets/12d7749c-071a-427c-81bf-b87b91def670" alt="Watermark" style="width: 40px; height: auto">
-
 **F5-TTS**: Diffusion Transformer with ConvNeXt V2, faster trained and inference.
 
 **E2 TTS**: Flat-UNet Transformer, closest reproduction from [paper](https://arxiv.org/abs/2406.18009).
