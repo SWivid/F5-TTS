@@ -74,24 +74,14 @@ def generate_response(messages, model, tokenizer):
     return tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
 def traducir_numero_a_texto(texto):
-    # Función de reemplazo para re.sub
+    texto_separado = re.sub(r'([A-Za-z])(\d)', r'\1 \2', texto)
+    texto_separado = re.sub(r'(\d)([A-Za-z])', r'\1 \2', texto_separado)
+    
     def reemplazar_numero(match):
-        letra = match.group(1)  # Grupo 1: letra opcional
-        numero = match.group(2)  # Grupo 2: dígitos
+        numero = match.group()
+        return num2words(int(numero), lang='es')
 
-        if letra:
-            # Si hay una letra antes del número
-            numero_texto = num2words(int(numero), lang='es')
-            return f"{letra} {numero_texto}"
-        else:
-            # Si solo hay un número
-            return num2words(int(numero), lang='es')
-
-    # Patrón para encontrar números, opcionalmente precedidos por una letra
-    patron = re.compile(r'\b([A-Za-z]?)(\d+)\b')
-
-    # Reemplazar todos los números usando la función de reemplazo
-    texto_traducido = patron.sub(reemplazar_numero, texto)
+    texto_traducido = re.sub(r'\b\d+\b', reemplazar_numero, texto_separado)
 
     return texto_traducido
 
