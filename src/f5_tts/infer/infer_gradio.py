@@ -74,19 +74,25 @@ def generate_response(messages, model, tokenizer):
     return tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
 def traducir_numero_a_texto(texto):
+    # Función de reemplazo para re.sub
     def reemplazar_numero(match):
-        numero = match.group(0)
-        if match.group(1):
-            letra = match.group(1)
+        letra = match.group(1)  # Grupo 1: letra opcional
+        numero = match.group(2)  # Grupo 2: dígitos
+
+        if letra:
+            # Si hay una letra antes del número
             numero_texto = num2words(int(numero), lang='es')
             return f"{letra} {numero_texto}"
         else:
+            # Si solo hay un número
             return num2words(int(numero), lang='es')
 
-    patron = re.compile(r'(\b[A-Za-z]?)(\d+)\b')
-    
+    # Patrón para encontrar números, opcionalmente precedidos por una letra
+    patron = re.compile(r'\b([A-Za-z]?)(\d+)\b')
+
+    # Reemplazar todos los números usando la función de reemplazo
     texto_traducido = patron.sub(reemplazar_numero, texto)
-    
+
     return texto_traducido
 
 @gpu_decorator
