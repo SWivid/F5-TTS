@@ -9,7 +9,7 @@ services:
       - "7860:7860"
     volumes:
       - "${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub"
-      - "${PWD}/tmp:/tmp"
+      # - "${PWD}/tmp:/tmp"
     tty: true
     stdin_open: true
     deploy:
