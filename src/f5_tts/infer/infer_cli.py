@@ -84,6 +84,8 @@ parser.add_argument(
 args = parser.parse_args()
 
 config = tomli.load(open(args.config, "rb"))
+filename = Path(args.config).stem if Path(args.config).exists() else "infer_cli_out"
+
 
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
@@ -109,8 +111,8 @@ ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
 speed = args.speed
-wave_path = Path(output_dir) / "infer_cli_out.wav"
-# spectrogram_path = Path(output_dir) / "infer_cli_out.png"
+wave_path = Path(output_dir) / f"{filename}.wav"
+spectrogram_path = Path(output_dir) / f"{filename}.png"
 if args.vocoder_name == "vocos":
     vocoder_local_path = "../checkpoints/vocos-mel-24khz"
 elif args.vocoder_name == "bigvgan":
