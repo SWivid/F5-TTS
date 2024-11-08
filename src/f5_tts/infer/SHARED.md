@@ -4,6 +4,7 @@
 - This document is serving as a quick lookup table for the community training/finetuning result, with various language support.
 - The models in this repository are open source and are based on voluntary contributions from contributors.
 - The use of models must be conditioned on respect for the respective creators. The convenience brought comes from their efforts.
+- Welcome to pull request sharing your result here.
 
 
 <!-- omit in toc -->
@@ -25,7 +26,7 @@
 MODEL_CKPT: hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors
 VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 ```
-***Other infos, e.g. Github Repo, Usage Instruction, Tutorial (Blog, Video, etc.) ...***
+*Other infos, e.g. Link to some sampled results, Github repo, Usage instruction, Tutorial (Blog, Video, etc.) ...*
 
 ### Mandarin
 
