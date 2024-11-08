@@ -2,6 +2,8 @@
 
 The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS) and [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), or will be automatically downloaded when running inference scripts.
 
+More checkpoints with whole community efforts can be found [here](src/f5_tts/infer/SHARED.md), supporting more languages.
+
 Currently support **30s for a single** generation, which is the **total length** including both prompt and output audio. However, you can provide `infer_cli` and `infer_gradio` with longer text, will automatically do chunk generation. Long reference audio will be **clip short to ~15s**.
 
 To avoid possible inference failures, make sure you have seen through the following instructions.

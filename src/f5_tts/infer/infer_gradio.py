@@ -38,22 +38,40 @@ from f5_tts.infer.utils_infer import (
     save_spectrogram,
 )
 
-vocoder = load_vocoder()
-
-
-# load models
-F5TTS_model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
-F5TTS_ema_model = load_model(
-    DiT, F5TTS_model_cfg, str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))
-)
-
-E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
-E2TTS_ema_model = load_model(
-    UNetT, E2TTS_model_cfg, str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))
-)
 
 DEFAULT_TTS_MODEL = "F5-TTS"
 tts_model_choice = DEFAULT_TTS_MODEL
+
+
+# load models
+
+vocoder = load_vocoder()
+
+
+def load_f5tts(ckpt_path=str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))):
+    F5TTS_model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+    return load_model(DiT, F5TTS_model_cfg, ckpt_path)
+
+
+def load_e2tts(ckpt_path=str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))):
+    E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
+    return load_model(UNetT, E2TTS_model_cfg, ckpt_path)
+
+
+def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
+    ckpt_path, vocab_path = ckpt_path.strip(), vocab_path.strip()
+    if ckpt_path.startswith("hf://"):
+        ckpt_path = str(cached_path(ckpt_path))
+    if vocab_path.startswith("hf://"):
+        vocab_path = str(cached_path(vocab_path))
+    if model_cfg is None:
+        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+    return load_model(DiT, model_cfg, ckpt_path, vocab_file=vocab_path)
+
+
+F5TTS_ema_model = load_f5tts()
+E2TTS_ema_model = load_e2tts() if USING_SPACES else None
+
 chat_model_state = None
 chat_tokenizer_state = None
 
@@ -90,7 +108,16 @@ def infer(
     if model == "F5-TTS":
         ema_model = F5TTS_ema_model
     elif model == "E2-TTS":
+        global E2TTS_ema_model
+        if E2TTS_ema_model is None:
+            show_info("Loading E2-TTS model...")
+            E2TTS_ema_model = load_e2tts()
         ema_model = E2TTS_ema_model
+    elif isinstance(model, list) and model[0] == "Custom":
+        assert not USING_SPACES, "Only official checkpoints allowed in Spaces."
+        show_info("Loading Custom TTS model...")
+        custom_ema_model = load_custom(model[1], vocab_path=model[2])
+        ema_model = custom_ema_model
 
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
@@ -712,21 +739,50 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 """
     )
 
-    def switch_tts_model(new_choice):
+    def switch_tts_model(new_choice, custom_ckpt_path, custom_vocab_path):
         global tts_model_choice
-        tts_model_choice = new_choice
+        if new_choice == "Custom":
+            tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
+            return gr.update(visible=True)
+        else:
+            tts_model_choice = new_choice
+            return gr.update(visible=False)
 
-    if not USING_SPACES:
-        choose_tts_model = gr.Radio(
-            choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
-        )
-    else:
-        choose_tts_model = gr.Radio(
-            choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
-        )
+    with gr.Row():
+        if not USING_SPACES:
+            choose_tts_model = gr.Radio(
+                choices=[DEFAULT_TTS_MODEL, "E2-TTS", "Custom"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+            )
+        else:
+            choose_tts_model = gr.Radio(
+                choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+            )
+        with gr.Column(visible=False) as choose_custom_tts_model:
+            custom_ckpt_path = gr.Textbox(
+                placeholder="MODEL_CKPT:  local_path  |  hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
+                show_label=False,
+                min_width=200,
+            )
+            custom_vocab_path = gr.Textbox(
+                placeholder="VOCAB_FILE:  local_path  |  hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt  |  leave blank to use default",
+                show_label=False,
+                min_width=200,
+            )
+
     choose_tts_model.change(
         switch_tts_model,
-        inputs=choose_tts_model,
+        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path],
+        outputs=[choose_custom_tts_model],
+    )
+    custom_ckpt_path.change(
+        switch_tts_model,
+        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path],
+        outputs=[choose_custom_tts_model],
+    )
+    custom_vocab_path.change(
+        switch_tts_model,
+        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path],
+        outputs=[choose_custom_tts_model],
     )
 
     gr.TabbedInterface(
