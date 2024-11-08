@@ -282,13 +282,13 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_in
         audio_data = audio_file.read()
         audio_hash = hashlib.md5(audio_data).hexdigest()
 
-    global _ref_audio_cache
-    if audio_hash in _ref_audio_cache:
-        # Use cached reference text
-        show_info("Using cached reference text...")
-        ref_text = _ref_audio_cache[audio_hash]
-    else:
-        if not ref_text.strip():
+    if not ref_text.strip():
+        global _ref_audio_cache
+        if audio_hash in _ref_audio_cache:
+            # Use cached asr transcription
+            show_info("Using cached reference text...")
+            ref_text = _ref_audio_cache[audio_hash]
+        else:
             global asr_pipe
             if asr_pipe is None:
                 initialize_asr_pipeline(device=device)
@@ -300,11 +300,10 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_in
                 generate_kwargs={"task": "transcribe"},
                 return_timestamps=False,
             )["text"].strip()
-            show_info("Finished transcription")
-        else:
-            show_info("Using custom reference text...")
-        # Cache the transcribed text
-        _ref_audio_cache[audio_hash] = ref_text
+            # Cache the transcribed text (not caching custom ref_text, enabling users to do manual tweak)
+            _ref_audio_cache[audio_hash] = ref_text
+    else:
+        show_info("Using custom reference text...")
 
     # Ensure ref_text ends with a proper sentence-ending punctuation
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
@@ -312,6 +311,8 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_in
             ref_text += " "
         else:
             ref_text += ". "
+
+    print("ref_text  ", ref_text)
 
     return ref_audio, ref_text
 
