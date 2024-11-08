@@ -51,6 +51,8 @@ E2TTS_ema_model = load_model(
     UNetT, E2TTS_model_cfg, str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))
 )
 
+DEFAULT_TTS_MODEL = "F5-TTS"
+tts_model_choice = DEFAULT_TTS_MODEL
 chat_model_state = None
 chat_tokenizer_state = None
 
@@ -129,7 +131,6 @@ with gr.Blocks() as app_tts:
     gr.Markdown("# Batched TTS")
     ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
     gen_text_input = gr.Textbox(label="Text to Generate", lines=10)
-    model_choice = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
     generate_btn = gr.Button("Synthesize", variant="primary")
     with gr.Accordion("Advanced Settings", open=False):
         ref_text_input = gr.Textbox(
@@ -162,13 +163,31 @@ with gr.Blocks() as app_tts:
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
 
+    @gpu_decorator
+    def basic_tts(
+        ref_audio_input,
+        ref_text_input,
+        gen_text_input,
+        remove_silence,
+        cross_fade_duration_slider,
+        speed_slider,
+    ):
+        return infer(
+            ref_audio_input,
+            ref_text_input,
+            gen_text_input,
+            tts_model_choice,
+            remove_silence,
+            cross_fade_duration_slider,
+            speed_slider,
+        )
+
     generate_btn.click(
-        infer,
+        basic_tts,
         inputs=[
             ref_audio_input,
             ref_text_input,
             gen_text_input,
-            model_choice,
             remove_silence,
             cross_fade_duration_slider,
             speed_slider,
@@ -345,9 +364,6 @@ with gr.Blocks() as app_multistyle:
             outputs=gen_text_input_multistyle,
         )
 
-    # Model choice
-    model_choice_multistyle = gr.Radio(choices=["F5-TTS", "E2-TTS"], label="Choose TTS Model", value="F5-TTS")
-
     with gr.Accordion("Advanced Settings", open=False):
         remove_silence_multistyle = gr.Checkbox(
             label="Remove Silences",
@@ -371,7 +387,6 @@ with gr.Blocks() as app_multistyle:
         speech_type_names_list = args[:num_additional_speech_types]
         speech_type_audios_list = args[num_additional_speech_types : 2 * num_additional_speech_types]
         speech_type_ref_texts_list = args[2 * num_additional_speech_types : 3 * num_additional_speech_types]
-        model_choice = args[3 * num_additional_speech_types + 1]
         remove_silence = args[3 * num_additional_speech_types + 1]
 
         # Collect the speech types and their audios into a dict
@@ -405,7 +420,7 @@ with gr.Blocks() as app_multistyle:
 
             # Generate speech for this segment
             audio, _ = infer(
-                ref_audio, ref_text, text, model_choice, remove_silence, 0, show_info=print
+                ref_audio, ref_text, text, tts_model_choice, remove_silence, 0, show_info=print
             )  # show_info=print no pull to top when generating
             sr, audio_data = audio
 
@@ -430,7 +445,6 @@ with gr.Blocks() as app_multistyle:
         + speech_type_audios
         + speech_type_ref_texts
         + [
-            model_choice_multistyle,
             remove_silence_multistyle,
         ],
         outputs=audio_output_multistyle,
@@ -518,11 +532,6 @@ Have a conversation with an AI using your reference voice!
                 ref_audio_chat = gr.Audio(label="Reference Audio", type="filepath")
             with gr.Column():
                 with gr.Accordion("Advanced Settings", open=False):
-                    model_choice_chat = gr.Radio(
-                        choices=["F5-TTS", "E2-TTS"],
-                        label="TTS Model",
-                        value="F5-TTS",
-                    )
                     remove_silence_chat = gr.Checkbox(
                         label="Remove Silences",
                         value=True,
@@ -589,7 +598,7 @@ Have a conversation with an AI using your reference voice!
             return history, conv_state, ""
 
         @gpu_decorator
-        def generate_audio_response(history, ref_audio, ref_text, model, remove_silence):
+        def generate_audio_response(history, ref_audio, ref_text, remove_silence):
             """Generate TTS audio for AI response"""
             if not history or not ref_audio:
                 return None
@@ -602,7 +611,7 @@ Have a conversation with an AI using your reference voice!
                 ref_audio,
                 ref_text,
                 last_ai_response,
-                model,
+                tts_model_choice,
                 remove_silence,
                 cross_fade_duration=0.15,
                 speed=1.0,
@@ -631,7 +640,7 @@ Have a conversation with an AI using your reference voice!
             outputs=[chatbot_interface, conversation_state],
         ).then(
             generate_audio_response,
-            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, model_choice_chat, remove_silence_chat],
+            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, remove_silence_chat],
             outputs=[audio_output_chat],
         ).then(
             lambda: None,
@@ -646,7 +655,7 @@ Have a conversation with an AI using your reference voice!
             outputs=[chatbot_interface, conversation_state],
         ).then(
             generate_audio_response,
-            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, model_choice_chat, remove_silence_chat],
+            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, remove_silence_chat],
             outputs=[audio_output_chat],
         ).then(
             lambda: None,
@@ -661,7 +670,7 @@ Have a conversation with an AI using your reference voice!
             outputs=[chatbot_interface, conversation_state],
         ).then(
             generate_audio_response,
-            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, model_choice_chat, remove_silence_chat],
+            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, remove_silence_chat],
             outputs=[audio_output_chat],
         ).then(
             lambda: None,
@@ -700,6 +709,24 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 **NOTE: Reference text will be automatically transcribed with Whisper if not provided. For best results, keep your reference clips short (<15s). Ensure the audio is fully uploaded before generating.**
 """
     )
+
+    def switch_tts_model(new_choice):
+        global tts_model_choice
+        tts_model_choice = new_choice
+
+    if not USING_SPACES:
+        choose_tts_model = gr.Radio(
+            choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+        )
+    else:
+        choose_tts_model = gr.Radio(
+            choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+        )
+    choose_tts_model.change(
+        switch_tts_model,
+        inputs=choose_tts_model,
+    )
+
     gr.TabbedInterface(
         [app_tts, app_multistyle, app_chat, app_credits],
         ["TTS", "Multi-Speech", "Voice-Chat", "Credits"],
