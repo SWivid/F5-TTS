@@ -84,13 +84,14 @@ parser.add_argument(
 args = parser.parse_args()
 
 config = tomli.load(open(args.config, "rb"))
-filename = Path(args.config).stem if Path(args.config).exists() else "infer_cli_out"
 
 
 ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
 gen_file = args.gen_file if args.gen_file else config["gen_file"]
+
+filename = Path(gen_file).stem
 
 # patches for pip pkg user
 if "infer/examples/" in ref_audio:
