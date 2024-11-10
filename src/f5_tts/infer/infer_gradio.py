@@ -512,8 +512,29 @@ with gr.Blocks() as app_multistyle:
         outputs=generate_multistyle_btn,
     )
 
+js = """function() {
+  // Load cached values from localStorage
+  const ckpt = localStorage.getItem("custom_ckpt_path");
+  const vocab = localStorage.getItem("custom_vocab_path");
 
-with gr.Blocks() as app_chat:
+  // Set values to components if they exist
+  if (ckpt !== null) {
+      document.querySelector("#custom_ckpt_path textarea").value = ckpt;
+  }
+  if (vocab !== null) {
+      document.querySelector("#number_input textarea").value = vocab;
+  }
+
+  // Add event listeners to update localStorage on change
+  document.querySelector("#custom_ckpt_path textarea").addEventListener("change", (e) => {
+      localStorage.setItem("custom_ckpt_path", e.target.value);
+  });
+  document.querySelector("#custom_vocab_path textarea").addEventListener("change", (e) => {
+      localStorage.setItem("custom_vocab_path", e.target.value);
+  });
+}"""
+
+with gr.Blocks(js=js) as app_chat:
     gr.Markdown(
         """
 # Voice Chat
