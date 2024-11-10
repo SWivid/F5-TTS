@@ -55,7 +55,6 @@ def parse_args():
         default=None,
         help="Path to custom tokenizer vocab file (only used if tokenizer = 'custom')",
     )
-
     parser.add_argument(
         "--log_samples",
         type=bool,
@@ -63,6 +62,12 @@ def parse_args():
         help="Log inferenced samples per ckpt save steps",
     )
     parser.add_argument("--logger", type=str, default=None, choices=["wandb", "tensorboard"], help="logger")
+    parser.add_argument(
+        "--bnb_optimizer",
+        type=bool,
+        default=False,
+        help="Use 8-bit Adam optimizer from bitsandbytes",
+    )
 
     return parser.parse_args()
 
@@ -147,6 +152,7 @@ def main():
         wandb_resume_id=wandb_resume_id,
         log_samples=args.log_samples,
         last_per_steps=args.last_per_steps,
+        bnb_optimizer=args.bnb_optimizer,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

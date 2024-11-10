@@ -1,6 +1,6 @@
 name: "Question"
 description: |
-  Pure question or inquiry about the project.
+  Pure question or inquiry about the project, usage issue goes with "help wanted".
 labels:
   - question
 body:
