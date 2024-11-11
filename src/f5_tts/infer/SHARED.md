@@ -1,15 +1,17 @@
 <!-- omit in toc -->
 # Shared Model Cards
 
-- **Prerequisites of using**
-  - This document is serving as a quick lookup table for the community training/finetuning result, with various language support.
-  - The models in this repository are open source and are based on voluntary contributions from contributors.
-  - The use of models must be conditioned on respect for the respective creators. The convenience brought comes from their efforts.
-- **Welcome to share here**
-  - Have a pretrained/finetuned result: model checkpoint (pruned best to facilitate inference, i.e. leave only `ema_model_state_dict`) and corresponding vocab file (for tokenization).
-  - Host a public [huggingface model repository](https://huggingface.co/new) and upload the model related files.
-  - Make a pull request adding a model card to the current page, i.e. `src\f5_tts\infer\SHARED.md`.
+<!-- omit in toc -->
+### **Prerequisites of using**
+- This document is serving as a quick lookup table for the community training/finetuning result, with various language support.
+- The models in this repository are open source and are based on voluntary contributions from contributors.
+- The use of models must be conditioned on respect for the respective creators. The convenience brought comes from their efforts.
 
+<!-- omit in toc -->
+### **Welcome to share here**
+- Have a pretrained/finetuned result: model checkpoint (pruned best to facilitate inference, i.e. leave only `ema_model_state_dict`) and corresponding vocab file (for tokenization).
+- Host a public [huggingface model repository](https://huggingface.co/new) and upload the model related files.
+- Make a pull request adding a model card to the current page, i.e. `src\f5_tts\infer\SHARED.md`.
 
 <!-- omit in toc -->
 ### Support Language
