@@ -194,7 +194,7 @@ def load_model(
     tokenizer = "custom"
 
     print("\nvocab : ", vocab_file)
-    print("tokenizer : ", tokenizer)
+    print("token : ", tokenizer)
     print("model : ", ckpt_path, "\n")
 
     vocab_char_map, vocab_size = get_tokenizer(vocab_file, tokenizer)
