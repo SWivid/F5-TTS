@@ -757,16 +757,21 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
                 "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
             ]
 
-    def switch_tts_model(new_choice, custom_ckpt_path, custom_vocab_path):
+    def switch_tts_model(new_choice):
         global tts_model_choice
-        if new_choice == "Custom":
+        if new_choice == "Custom":  # override in case webpage is refreshed
+            custom_ckpt_path, custom_vocab_path = load_last_used_custom()
             tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
-            with open(last_used_custom, "w") as f:
-                f.write(f"{custom_ckpt_path},{custom_vocab_path}")
-            return gr.update(visible=True), gr.update(visible=True)
+            return gr.update(visible=True, value=custom_ckpt_path), gr.update(visible=True, value=custom_vocab_path)
         else:
             tts_model_choice = new_choice
             return gr.update(visible=False), gr.update(visible=False)
+
+    def set_custom_model(custom_ckpt_path, custom_vocab_path):
+        global tts_model_choice
+        tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
+        with open(last_used_custom, "w") as f:
+            f.write(f"{custom_ckpt_path},{custom_vocab_path}")
 
     with gr.Row():
         if not USING_SPACES:
@@ -794,20 +799,18 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 
     choose_tts_model.change(
         switch_tts_model,
-        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path],
+        inputs=[choose_tts_model],
         outputs=[custom_ckpt_path, custom_vocab_path],
         show_progress="hidden",
     )
     custom_ckpt_path.change(
-        switch_tts_model,
-        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path],
-        outputs=[custom_ckpt_path, custom_vocab_path],
+        set_custom_model,
+        inputs=[custom_ckpt_path, custom_vocab_path],
         show_progress="hidden",
     )
     custom_vocab_path.change(
-        switch_tts_model,
-        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path],
-        outputs=[custom_ckpt_path, custom_vocab_path],
+        set_custom_model,
+        inputs=[custom_ckpt_path, custom_vocab_path],
         show_progress="hidden",
     )
 
