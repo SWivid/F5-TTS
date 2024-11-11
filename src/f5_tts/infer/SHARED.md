@@ -14,7 +14,7 @@
 - Make a pull request adding a model card to the current page, i.e. `src\f5_tts\infer\SHARED.md`.
 
 <!-- omit in toc -->
-### Support Language
+### Supported Languages
 - [Multilingual](#multilingual)
     - [F5-TTS Base @ pretrain @ zh \& en](#f5-tts-base--pretrain--zh--en)
 - [Mandarin](#mandarin)
