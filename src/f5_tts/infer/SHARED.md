@@ -1,21 +1,25 @@
 <!-- omit in toc -->
 # Shared Model Cards
 
-- This document is serving as a quick lookup table for the community training/finetuning result, with various language support.
-- The models in this repository are open source and are based on voluntary contributions from contributors.
-- The use of models must be conditioned on respect for the respective creators. The convenience brought comes from their efforts.
-- Welcome to pull request sharing your result here.
+- **Prerequisites of using**
+  - This document is serving as a quick lookup table for the community training/finetuning result, with various language support.
+  - The models in this repository are open source and are based on voluntary contributions from contributors.
+  - The use of models must be conditioned on respect for the respective creators. The convenience brought comes from their efforts.
+- **Welcome to share here**
+  - Have a pretrained/finetuned result: model checkpoint (pruned best to facilitate inference, i.e. leave only `ema_model_state_dict`) and corresponding vocab file (for tokenization).
+  - Host a public [huggingface model repository](https://huggingface.co/new) and upload the model related files.
+  - Make a pull request adding a model card to the current page, i.e. `src\f5_tts\infer\SHARED.md`.
 
 
 <!-- omit in toc -->
 ### Support Language
 - [Multilingual](#multilingual)
-  - [F5-TTS Base @ pretrain @ zh \& en](#f5-tts-base--pretrain--zh--en)
+    - [F5-TTS Base @ pretrain @ zh \& en](#f5-tts-base--pretrain--zh--en)
 - [Mandarin](#mandarin)
 - [English](#english)
 
 
-### Multilingual
+## Multilingual
 
 #### F5-TTS Base @ pretrain @ zh & en
 |Model|🤗Hugging Face|Data (Hours)|Model License|
@@ -26,10 +30,10 @@
 MODEL_CKPT: hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors
 VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 ```
-*Other infos, e.g. Link to some sampled results, Github repo, Usage instruction, Tutorial (Blog, Video, etc.) ...*
+*Other infos, e.g. Author info, Github repo, Link to some sampled results, Usage instruction, Tutorial (Blog, Video, etc.) ...*
 
-### Mandarin
+## Mandarin
 
 
-### English
+## English
 
