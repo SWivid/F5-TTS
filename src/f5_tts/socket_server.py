@@ -3,11 +3,8 @@ import struct
 import torch
 import torchaudio
 from threading import Thread
-
-
 import gc
 import traceback
-
 
 from infer.utils_infer import infer_batch_process, preprocess_ref_audio_text, load_vocoder, load_model
 from model.backbones.dit import DiT
@@ -16,21 +13,11 @@ from model.backbones.dit import DiT
 class TTSStreamingProcessor:
     def __init__(self, ckpt_file, vocab_file, ref_audio, ref_text, device=None, dtype=torch.float32):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.mel_spec_type = "vocos"  # or "bigvgan" depending on vocoder
 
-        # Load the model using the provided checkpoint and vocab files
-        self.model = load_model(
-            model_cls=DiT,
-            model_cfg=dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4),
-            ckpt_path=ckpt_file,
-            mel_spec_type="vocos",  # or "bigvgan" depending on vocoder
-            vocab_file=vocab_file,
-            ode_method="euler",
-            use_ema=True,
-            device=self.device,
-        ).to(self.device, dtype=dtype)
-
-        # Load the vocoder
-        self.vocoder = load_vocoder(is_local=False)
+        # Load model and vocoder using the consistent initialization logic
+        self.model = self.load_ema_model(ckpt_file, vocab_file)
+        self.vocoder = self.load_vocoder_model()
 
         # Set sampling rate for streaming
         self.sampling_rate = 24000  # Consistency with client
@@ -41,6 +28,31 @@ class TTSStreamingProcessor:
 
         # Warm up the model
         self._warm_up()
+
+    def load_vocoder_model(self):
+        """Load the vocoder with similar logic to `api.py`."""
+        return load_vocoder(
+            vocoder_name=self.mel_spec_type,
+            is_local=False,
+            local_path=None,
+            device=self.device
+        )
+
+    def load_ema_model(self, ckpt_file, vocab_file):
+        """Load the model with similar configuration as `api.py`."""
+        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+        model_cls = DiT
+
+        return load_model(
+            model_cls=model_cls,
+            model_cfg=model_cfg,
+            ckpt_path=ckpt_file,
+            mel_spec_type=self.mel_spec_type,
+            vocab_file=vocab_file,
+            ode_method="euler",
+            use_ema=True,
+            device=self.device,
+        ).to(self.device)
 
     def _warm_up(self):
         """Warm up the model with a dummy input to ensure it's ready for real-time processing."""
@@ -68,7 +80,7 @@ class TTSStreamingProcessor:
             [text],
             self.model,
             self.vocoder,
-            device=self.device,  # Pass vocoder here
+            device=self.device,
         )
 
         # Break the generated audio into chunks and send them
@@ -81,7 +93,6 @@ class TTSStreamingProcessor:
             if i + chunk_size >= len(audio_chunk):
                 chunk = audio_chunk[i:]
 
-            # Avoid sending empty or repeated chunks
             if len(chunk) == 0:
                 break
 
@@ -89,7 +100,7 @@ class TTSStreamingProcessor:
             packed_audio = struct.pack(f"{len(chunk)}f", *chunk)
             yield packed_audio
 
-        # Ensure that no final word is repeated by not resending partial chunks
+        # Handle any remaining audio data
         if len(audio_chunk) % chunk_size != 0:
             remaining_chunk = audio_chunk[-(len(audio_chunk) % chunk_size) :]
             packed_audio = struct.pack(f"{len(remaining_chunk)}f", *remaining_chunk)
@@ -117,7 +128,7 @@ def handle_client(client_socket, processor):
 
             except Exception as inner_e:
                 print(f"Error during processing: {inner_e}")
-                traceback.print_exc()  # Print the full traceback to diagnose the issue
+                traceback.print_exc()
                 break
 
     except Exception as e:
@@ -138,7 +149,7 @@ def start_server(host, port, processor):
         print(f"Accepted connection from {addr}")
         client_handler = Thread(target=handle_client, args=(client_socket, processor))
         client_handler.start()
-
+        
 
 if __name__ == "__main__":
     try:
