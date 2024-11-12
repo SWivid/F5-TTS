@@ -29,6 +29,7 @@ conda activate f5-tts
 # Install pytorch with your CUDA version, e.g.
 pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 ```
+**If you don't know exaclty how to install pytorch according to your platform.Please refer to this [Pytorch Installation](https://pytorch.org/get-started/locally/)**
 
 Then you can choose from a few options below:
 
