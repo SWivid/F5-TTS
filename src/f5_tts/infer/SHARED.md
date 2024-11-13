@@ -49,4 +49,11 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 MODEL_CKPT: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_1374000.pt
 VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 ```
+### Online Inference
+You can test the model online using our [Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
+
+### Resources
+- [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys)
+- [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434)
+
 
