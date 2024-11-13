@@ -20,6 +20,7 @@
 - [Mandarin](#mandarin)
 - [English](#english)
 - [French](#french)
+    - [French LibriVox @ finetune @ fr](#french-librivox--finetune--fr)
 
 
 ## Multilingual
@@ -33,14 +34,19 @@
 MODEL_CKPT: hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors
 VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 ```
+
 *Other infos, e.g. Author info, Github repo, Link to some sampled results, Usage instruction, Tutorial (Blog, Video, etc.) ...*
+
 
 ## Mandarin
 
 
 ## English
 
+
 ## French
+
+#### French LibriVox @ finetune @ fr
 |Model|🤗Hugging Face|Data (Hours)|Model License|
 |:---:|:------------:|:-----------:|:-------------:|
 |F5-TTS French|[ckpt & vocab](https://huggingface.co/RASPIAUDIO/F5-French-MixedSpeakers-reduced)|[LibriVox](https://librivox.org/)|cc-by-nc-4.0|
@@ -49,11 +55,12 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 MODEL_CKPT: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_last_reduced.pt
 VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 ```
-### Online Inference
-You can test the model online using our [Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
 
-### Resources
-- [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys)
-- [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434)
+**Online Inference**
+You can test the model online with [Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
+
+**Resources**
+1.[Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys).
+2.[Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434).
 
 
