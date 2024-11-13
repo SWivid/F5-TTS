@@ -19,6 +19,7 @@
     - [F5-TTS Base @ pretrain @ zh \& en](#f5-tts-base--pretrain--zh--en)
 - [Mandarin](#mandarin)
 - [English](#english)
+- [French](#french)
 
 
 ## Multilingual
@@ -38,4 +39,21 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 
 
 ## English
+
+## French
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS French|[ckpt & vocab](https://huggingface.co/RASPIAUDIO/F5-French-MixedSpeakers-reduced)|[LibriVox](https://librivox.org/)|cc-by-nc-4.0|
+
+```bash
+MODEL_CKPT: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_last_reduced.pt
+VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
+```
+### Online Inference
+You can test the model online using our [Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
+
+### Resources
+- [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys)
+- [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434)
+
 
