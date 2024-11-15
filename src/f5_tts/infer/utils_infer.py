@@ -90,18 +90,18 @@ def chunk_text(text, max_chars=135):
 
 
 # load vocoder
-def load_vocoder(vocoder_name="vocos", is_local=False, local_path=None, device=device):
+def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=device, hf_cache_dir=None):
     if vocoder_name == "vocos":
         # vocoder = Vocos.from_pretrained("charactr/vocos-mel-24khz").to(device)
-        if is_local and local_path is not None:
+        if is_local:
             print(f"Load vocos from local path {local_path}")
             config_path = f"{local_path}/config.yaml"
             model_path = f"{local_path}/pytorch_model.bin"
         else:
             print("Download Vocos from huggingface charactr/vocos-mel-24khz")
             repo_id = "charactr/vocos-mel-24khz"
-            config_path = hf_hub_download(repo_id=repo_id, cache_dir=local_path, filename="config.yaml")
-            model_path = hf_hub_download(repo_id=repo_id, cache_dir=local_path, filename="pytorch_model.bin")
+            config_path = hf_hub_download(repo_id=repo_id, cache_dir=hf_cache_dir, filename="config.yaml")
+            model_path = hf_hub_download(repo_id=repo_id, cache_dir=hf_cache_dir, filename="pytorch_model.bin")
         vocoder = Vocos.from_hparams(config_path)
         state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
         from vocos.feature_extractors import EncodecFeatures
@@ -119,11 +119,11 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path=None, device=d
             from third_party.BigVGAN import bigvgan
         except ImportError:
             print("You need to follow the README to init submodule and change the BigVGAN source code.")
-        if is_local and local_path is not None:
+        if is_local:
             """download from https://huggingface.co/nvidia/bigvgan_v2_24khz_100band_256x/tree/main"""
             vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
         else:
-            local_path = snapshot_download(repo_id="nvidia/bigvgan_v2_24khz_100band_256x", cache_dir=local_path)
+            local_path = snapshot_download(repo_id="nvidia/bigvgan_v2_24khz_100band_256x", cache_dir=hf_cache_dir)
             vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
 
         vocoder.remove_weight_norm()
