@@ -90,36 +90,41 @@ def chunk_text(text, max_chars=135):
 
 
 # load vocoder
-def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=device):
+def load_vocoder(vocoder_name="vocos", is_local=False, local_path=None, device=device):
     if vocoder_name == "vocos":
-        if is_local:
+        # vocoder = Vocos.from_pretrained("charactr/vocos-mel-24khz").to(device)
+        if is_local and local_path is not None:
             print(f"Load vocos from local path {local_path}")
-            repo_id = "charactr/vocos-mel-24khz"
-            revision = None
-            config_path = hf_hub_download(
-                repo_id=repo_id, cache_dir=local_path, filename="config.yaml", revision=revision
-            )
-            model_path = hf_hub_download(
-                repo_id=repo_id, cache_dir=local_path, filename="pytorch_model.bin", revision=revision
-            )
-            vocoder = Vocos.from_hparams(config_path=config_path)
-            state_dict = torch.load(model_path, map_location="cpu")
-            vocoder.load_state_dict(state_dict)
-            vocoder = vocoder.eval().to(device)
+            config_path = f"{local_path}/config.yaml"
+            model_path = f"{local_path}/pytorch_model.bin"
         else:
             print("Download Vocos from huggingface charactr/vocos-mel-24khz")
-            vocoder = Vocos.from_pretrained("charactr/vocos-mel-24khz").to(device)
+            repo_id = "charactr/vocos-mel-24khz"
+            config_path = hf_hub_download(repo_id=repo_id, cache_dir=local_path, filename="config.yaml")
+            model_path = hf_hub_download(repo_id=repo_id, cache_dir=local_path, filename="pytorch_model.bin")
+        vocoder = Vocos.from_hparams(config_path)
+        state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
+        from vocos.feature_extractors import EncodecFeatures
+
+        if isinstance(vocoder.feature_extractor, EncodecFeatures):
+            encodec_parameters = {
+                "feature_extractor.encodec." + key: value
+                for key, value in vocoder.feature_extractor.encodec.state_dict().items()
+            }
+            state_dict.update(encodec_parameters)
+        vocoder.load_state_dict(state_dict)
+        vocoder = vocoder.eval().to(device)
     elif vocoder_name == "bigvgan":
         try:
             from third_party.BigVGAN import bigvgan
         except ImportError:
             print("You need to follow the README to init submodule and change the BigVGAN source code.")
-        if is_local:
+        if is_local and local_path is not None:
             """download from https://huggingface.co/nvidia/bigvgan_v2_24khz_100band_256x/tree/main"""
-            local_path = snapshot_download(repo_id="nvidia/bigvgan_v2_24khz_100band_256x", cache_dir=local_path)
             vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
         else:
-            vocoder = bigvgan.BigVGAN.from_pretrained("nvidia/bigvgan_v2_24khz_100band_256x", use_cuda_kernel=False)
+            local_path = snapshot_download(repo_id="nvidia/bigvgan_v2_24khz_100band_256x", cache_dir=local_path)
+            vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
 
         vocoder.remove_weight_norm()
         vocoder = vocoder.eval().to(device)
