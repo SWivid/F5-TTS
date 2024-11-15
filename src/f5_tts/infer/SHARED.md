@@ -40,6 +40,17 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 
 ## Mandarin
 
+## Japanese
+
+#### F5-TTS Base @ pretrain/finetune @ ja
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/Jmica/F5TTS/tree/main/JA_8500000)|[Emilia 1.7k JA](https://huggingface.co/datasets/amphion/Emilia-Dataset/tree/fc71e07) & [Galgame Dataset 5.4k](https://huggingface.co/datasets/OOPPEENN/Galgame_Dataset)|cc-by-nc-4.0|
+
+```bash
+MODEL_CKPT: hf://Jmica/F5TTS/JA_8500000/model_8499660.pt
+VOCAB_FILE: hf://Jmica/F5TTS/JA_8500000/vocab_updated.txt
+```
 
 ## English
 

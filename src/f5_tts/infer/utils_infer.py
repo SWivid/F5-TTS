@@ -19,6 +19,7 @@ import numpy as np
 import torch
 import torchaudio
 import tqdm
+from huggingface_hub import snapshot_download, hf_hub_download
 from pydub import AudioSegment, silence
 from transformers import pipeline
 from vocos import Vocos
@@ -93,8 +94,16 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=dev
     if vocoder_name == "vocos":
         if is_local:
             print(f"Load vocos from local path {local_path}")
-            vocoder = Vocos.from_hparams(f"{local_path}/config.yaml")
-            state_dict = torch.load(f"{local_path}/pytorch_model.bin", map_location="cpu")
+            repo_id = "charactr/vocos-mel-24khz"
+            revision = None
+            config_path = hf_hub_download(
+                repo_id=repo_id, cache_dir=local_path, filename="config.yaml", revision=revision
+            )
+            model_path = hf_hub_download(
+                repo_id=repo_id, cache_dir=local_path, filename="pytorch_model.bin", revision=revision
+            )
+            vocoder = Vocos.from_hparams(config_path=config_path)
+            state_dict = torch.load(model_path, map_location="cpu")
             vocoder.load_state_dict(state_dict)
             vocoder = vocoder.eval().to(device)
         else:
@@ -107,6 +116,7 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=dev
             print("You need to follow the README to init submodule and change the BigVGAN source code.")
         if is_local:
             """download from https://huggingface.co/nvidia/bigvgan_v2_24khz_100band_256x/tree/main"""
+            local_path = snapshot_download(repo_id="nvidia/bigvgan_v2_24khz_100band_256x", cache_dir=local_path)
             vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
         else:
             vocoder = bigvgan.BigVGAN.from_pretrained("nvidia/bigvgan_v2_24khz_100band_256x", use_cuda_kernel=False)
