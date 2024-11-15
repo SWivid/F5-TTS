@@ -96,8 +96,12 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=dev
             print(f"Load vocos from local path {local_path}")
             repo_id = "charactr/vocos-mel-24khz"
             revision = None
-            config_path = hf_hub_download(repo_id=repo_id, cache_dir=local_path, filename="config.yaml", revision=revision)
-            model_path = hf_hub_download(repo_id=repo_id, cache_dir=local_path, filename="pytorch_model.bin", revision=revision)
+            config_path = hf_hub_download(
+                repo_id=repo_id, cache_dir=local_path, filename="config.yaml", revision=revision
+            )
+            model_path = hf_hub_download(
+                repo_id=repo_id, cache_dir=local_path, filename="pytorch_model.bin", revision=revision
+            )
             vocoder = Vocos.from_hparams(config_path=config_path)
             state_dict = torch.load(model_path, map_location="cpu")
             vocoder.load_state_dict(state_dict)
