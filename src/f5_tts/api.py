@@ -49,10 +49,10 @@ class F5TTS:
         self.load_vocoder_model(vocoder_name, local_path=local_path)
         self.load_ema_model(model_type, ckpt_file, vocoder_name, vocab_file, ode_method, use_ema, local_path=local_path)
 
-    def load_vocoder_model(self, vocoder_name, local_path):
+    def load_vocoder_model(self, vocoder_name, local_path=None):
         self.vocoder = load_vocoder(vocoder_name, local_path is not None, local_path, self.device)
 
-    def load_ema_model(self, model_type, ckpt_file, mel_spec_type, vocab_file, ode_method, use_ema, local_path):
+    def load_ema_model(self, model_type, ckpt_file, mel_spec_type, vocab_file, ode_method, use_ema, local_path=None):
         if model_type == "F5-TTS":
             if not ckpt_file:
                 if mel_spec_type == "vocos":

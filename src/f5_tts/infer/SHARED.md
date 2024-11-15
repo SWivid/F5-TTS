@@ -18,6 +18,8 @@
 - [Multilingual](#multilingual)
     - [F5-TTS Base @ pretrain @ zh \& en](#f5-tts-base--pretrain--zh--en)
 - [Mandarin](#mandarin)
+- [Japanese](#japanese)
+    - [F5-TTS Base @ pretrain/finetune @ ja](#f5-tts-base--pretrainfinetune--ja)
 - [English](#english)
 - [French](#french)
     - [French LibriVox @ finetune @ fr](#french-librivox--finetune--fr)
@@ -67,6 +69,6 @@ MODEL_CKPT: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_last_reduced.p
 VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 ```
 
-- Online Inference with [Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
+- [Online Inference with Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
 - [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys).
 - [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434).
