@@ -46,24 +46,30 @@ class F5TTS:
         )
 
         # Load models
-        self.load_vocoder_model(vocoder_name, local_path)
-        self.load_ema_model(model_type, ckpt_file, vocoder_name, vocab_file, ode_method, use_ema)
+        self.load_vocoder_model(vocoder_name, local_path=local_path)
+        self.load_ema_model(model_type, ckpt_file, vocoder_name, vocab_file, ode_method, use_ema, local_path=local_path)
 
     def load_vocoder_model(self, vocoder_name, local_path):
         self.vocoder = load_vocoder(vocoder_name, local_path is not None, local_path, self.device)
 
-    def load_ema_model(self, model_type, ckpt_file, mel_spec_type, vocab_file, ode_method, use_ema):
+    def load_ema_model(self, model_type, ckpt_file, mel_spec_type, vocab_file, ode_method, use_ema, local_path):
         if model_type == "F5-TTS":
             if not ckpt_file:
                 if mel_spec_type == "vocos":
-                    ckpt_file = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))
+                    ckpt_file = str(
+                        cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors", cache_dir=local_path)
+                    )
                 elif mel_spec_type == "bigvgan":
-                    ckpt_file = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt"))
+                    ckpt_file = str(
+                        cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt", cache_dir=local_path)
+                    )
             model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
             model_cls = DiT
         elif model_type == "E2-TTS":
             if not ckpt_file:
-                ckpt_file = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))
+                ckpt_file = str(
+                    cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors", cache_dir=local_path)
+                )
             model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
             model_cls = UNetT
         else:
