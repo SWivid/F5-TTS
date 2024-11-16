@@ -43,13 +43,6 @@ last_ema = None
 
 path_data = str(files("f5_tts").joinpath("../../data"))
 path_project_ckpts = str(files("f5_tts").joinpath("../../ckpts"))
-
-from pathlib import Path
-
-base_path = Path(__file__).resolve().parent.parent.parent.parent
-path_data = str(base_path / "data")
-path_project_ckpts = str(base_path / "ckpts")
-
 file_train = "src/f5_tts/train/finetune_cli.py"
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
