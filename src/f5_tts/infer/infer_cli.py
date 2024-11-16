@@ -9,7 +9,6 @@ import numpy as np
 import soundfile as sf
 import tomli
 from cached_path import cached_path
-
 from f5_tts.infer.utils_infer import (
     infer_process,
     load_model,
@@ -69,7 +68,7 @@ parser.add_argument(
     "--remove_silence",
     help="Remove silence.",
 )
-parser.add_argument("--vocoder_name", type=str, default="vocos", choices=["vocos", "bigvgan"], help="vocoder name")
+parser.add_argument("--vocoder_name", type=str, default="bigvgan", choices=["vocos", "bigvgan"], help="vocoder name")
 parser.add_argument(
     "--load_vocoder_from_local",
     action="store_true",
