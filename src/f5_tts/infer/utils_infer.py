@@ -139,7 +139,9 @@ asr_pipe = None
 def initialize_asr_pipeline(device=device, dtype=None):
     if dtype is None:
         dtype = (
-            torch.float16 if device == "cuda" and torch.cuda.get_device_properties(device).major >= 6 else torch.float32
+            torch.float16
+            if torch.cuda.is_available() and torch.cuda.get_device_properties(device).major >= 6
+            else torch.float32
         )
     global asr_pipe
     asr_pipe = pipeline(
@@ -172,7 +174,9 @@ def transcribe(ref_audio, language=None):
 def load_checkpoint(model, ckpt_path, device, dtype=None, use_ema=True):
     if dtype is None:
         dtype = (
-            torch.float16 if device == "cuda" and torch.cuda.get_device_properties(device).major >= 6 else torch.float32
+            torch.float16
+            if torch.cuda.is_available() and torch.cuda.get_device_properties(device).major >= 6
+            else torch.float32
         )
     model = model.to(dtype)
 
@@ -180,9 +184,9 @@ def load_checkpoint(model, ckpt_path, device, dtype=None, use_ema=True):
     if ckpt_type == "safetensors":
         from safetensors.torch import load_file
 
-        checkpoint = load_file(ckpt_path)
+        checkpoint = load_file(ckpt_path, device=device)
     else:
-        checkpoint = torch.load(ckpt_path, weights_only=True)
+        checkpoint = torch.load(ckpt_path, map_location=device, weights_only=True)
 
     if use_ema:
         if ckpt_type == "safetensors":
@@ -203,6 +207,9 @@ def load_checkpoint(model, ckpt_path, device, dtype=None, use_ema=True):
         if ckpt_type == "safetensors":
             checkpoint = {"model_state_dict": checkpoint}
         model.load_state_dict(checkpoint["model_state_dict"])
+
+    del checkpoint
+    torch.cuda.empty_cache()
 
     return model.to(device)
 
