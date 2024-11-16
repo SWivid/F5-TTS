@@ -13,6 +13,9 @@ from importlib.resources import files
 target_sample_rate = 24000
 n_mel_channels = 100
 hop_length = 256
+win_length = 1024
+n_fft = 1024
+mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
 
 
 # -------------------------- Argument Parsing --------------------------- #
@@ -40,7 +43,7 @@ def parse_args():
     parser.add_argument("--max_samples", type=int, default=64, help="Max sequences per batch")
     parser.add_argument("--grad_accumulation_steps", type=int, default=1, help="Gradient accumulation steps")
     parser.add_argument("--max_grad_norm", type=float, default=1.0, help="Max gradient norm for clipping")
-    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--num_warmup_updates", type=int, default=300, help="Warmup steps")
     parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X steps")
     parser.add_argument("--last_per_steps", type=int, default=50000, help="Save last checkpoint every X steps")
@@ -121,11 +124,15 @@ def main():
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
 
     print("\nvocab : ", vocab_size)
+    print("\nvocoder : ", mel_spec_type)
 
     mel_spec_kwargs = dict(
-        target_sample_rate=target_sample_rate,
-        n_mel_channels=n_mel_channels,
+        n_fft=n_fft,
         hop_length=hop_length,
+        win_length=win_length,
+        n_mel_channels=n_mel_channels,
+        target_sample_rate=target_sample_rate,
+        mel_spec_type=mel_spec_type,
     )
 
     model = CFM(
