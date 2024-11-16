@@ -187,7 +187,7 @@ def main():
                 # Final result
                 for i, gen in enumerate(generated):
                     gen = gen[ref_mel_lens[i] : total_mel_lens[i], :].unsqueeze(0)
-                    gen_mel_spec = gen.permute(0, 2, 1)
+                    gen_mel_spec = gen.permute(0, 2, 1).to(torch.float32)
                     if mel_spec_type == "vocos":
                         generated_wave = vocoder.decode(gen_mel_spec)
                     elif mel_spec_type == "bigvgan":
@@ -195,7 +195,7 @@ def main():
 
                     if ref_rms_list[i] < target_rms:
                         generated_wave = generated_wave * ref_rms_list[i] / target_rms
-                    torchaudio.save(f"{output_dir}/{utts[i]}.wav", generated_wave.squeeze(0).cpu(), target_sample_rate)
+                    torchaudio.save(f"{output_dir}/{utts[i]}.wav", generated_wave.cpu(), target_sample_rate)
 
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
