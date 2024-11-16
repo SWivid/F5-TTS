@@ -782,18 +782,6 @@ def get_correct_audio_path(
     return file_audio
 
 
-def get_nested_value(data, format):
-    keys = format.split("/")
-
-    item = data
-    for key in keys:
-        item = item.get(key)
-        if item is None:
-            return None
-
-    return item
-
-
 def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_project_wavs = os.path.join(path_project, "wavs")
