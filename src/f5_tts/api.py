@@ -3,7 +3,6 @@ import sys
 from importlib.resources import files
 
 import soundfile as sf
-import torch
 import tqdm
 from cached_path import cached_path
 
@@ -43,9 +42,12 @@ class F5TTS:
         self.mel_spec_type = vocoder_name
 
         # Set device
-        self.device = device or (
-            "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        )
+        if device is not None:
+            self.device = device
+        else:
+            import torch
+
+            self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
         # Load models
         self.load_vocoder_model(vocoder_name, local_path=local_path, hf_cache_dir=hf_cache_dir)

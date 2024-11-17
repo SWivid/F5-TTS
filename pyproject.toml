@@ -15,7 +15,7 @@ classifiers = [
 ]
 dependencies = [
     "accelerate>=0.33.0",
-    "bitsandbytes>0.37.0",
+    "bitsandbytes>0.37.0; platform_machine != 'arm64' and platform_system != 'Darwin'",
     "cached_path",
     "click",
     "datasets",
