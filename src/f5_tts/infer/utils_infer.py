@@ -3,6 +3,7 @@
 import os
 import sys
 
+os.environ["PYTOCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 sys.path.append(f"../../{os.path.dirname(os.path.abspath(__file__))}/third_party/BigVGAN/")
 
 import hashlib
@@ -33,8 +34,6 @@ from f5_tts.model.utils import (
 _ref_audio_cache = {}
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-if device == "mps":
-    os.environ["PYTOCH_ENABLE_MPS_FALLBACK"] = "1"
 
 # -----------------------------------------
 
