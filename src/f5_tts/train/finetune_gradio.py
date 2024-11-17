@@ -706,7 +706,8 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
                 data += f"{name_segment}|{text}\n"
 
                 num += 1
-            except:  # noqa: E722
+            except Exception as e:  # noqa: E722
+                print(f"Error: {e}")
                 error_num += 1
 
     with open(file_metadata, "w", encoding="utf-8-sig") as f:
