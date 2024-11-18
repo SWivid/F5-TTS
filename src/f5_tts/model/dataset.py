@@ -132,7 +132,7 @@ class CustomDataset(Dataset):
             audio_path = row["audio_path"]
             text = row["text"]
             duration = row["duration"]
-    
+
             # filter by given length
             if 0.3 <= duration <= 30:
                 break  # valid
