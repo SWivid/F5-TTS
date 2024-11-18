@@ -135,12 +135,10 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=dev
 asr_pipe = None
 
 
-def initialize_asr_pipeline(device=device, dtype=None):
+def initialize_asr_pipeline(device: str = device, dtype=None):
     if dtype is None:
         dtype = (
-            torch.float16
-            if torch.cuda.is_available() and torch.cuda.get_device_properties(device).major >= 6
-            else torch.float32
+            torch.float16 if "cuda" in device and torch.cuda.get_device_properties(device).major >= 6 else torch.float32
         )
     global asr_pipe
     asr_pipe = pipeline(
@@ -170,12 +168,10 @@ def transcribe(ref_audio, language=None):
 # load model checkpoint for inference
 
 
-def load_checkpoint(model, ckpt_path, device, dtype=None, use_ema=True):
+def load_checkpoint(model, ckpt_path, device: str, dtype=None, use_ema=True):
     if dtype is None:
         dtype = (
-            torch.float16
-            if torch.cuda.is_available() and torch.cuda.get_device_properties(device).major >= 6
-            else torch.float32
+            torch.float16 if "cuda" in device and torch.cuda.get_device_properties(device).major >= 6 else torch.float32
         )
     model = model.to(dtype)
 
