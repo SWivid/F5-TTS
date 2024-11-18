@@ -105,15 +105,15 @@ if gen_file:
     gen_text = codecs.open(gen_file, "r", "utf-8").read()
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
 model = args.model if args.model else config["model"]
-ckpt_file = args.ckpt_file if args.ckpt_file else ""
-vocab_file = args.vocab_file if args.vocab_file else ""
+ckpt_file = args.ckpt_file if args.ckpt_file else config["ckpt_file"]
+vocab_file = args.vocab_file if args.vocab_file else config["vocab_file"]
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
-speed = args.speed
+speed = args.speed if args.speed else config["speed"]
 
 wave_path = Path(output_dir) / "infer_cli_out.wav"
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
 
-vocoder_name = args.vocoder_name
+vocoder_name = args.vocoder_name if args.vocoder_name else config["vocoder_name"]
 mel_spec_type = args.vocoder_name
 if vocoder_name == "vocos":
     vocoder_local_path = "../checkpoints/vocos-mel-24khz"

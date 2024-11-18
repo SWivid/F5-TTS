@@ -87,7 +87,7 @@ def main():
     if args.exp_name == "F5TTS_Base":
         wandb_resume_id = None
         model_cls = DiT
-        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4, dropout=0.2,  long_skip_connection=True)
         if args.finetune:
             if args.pretrain is None:
                 ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))

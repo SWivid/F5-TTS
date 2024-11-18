@@ -1,0 +1,48 @@
+# Model and checkpoint settings
+model = "F5-TTS"
+ckpt_file = "/workspace/f5-tts/ckpts/mn_tts/model_72240.pt"
+vocab_file = "/workspace/f5-tts/data/mn_tts_char/vocab.txt"
+
+# UI exposed parameters
+ref_audio = "/workspace/f5-tts/data/mn_tts_char/wavs/common_voice_mn_18602699.wav"
+ref_text = "Зохист аялгууны толь дахь адилтгал зүйрлэл."  # Empty string will trigger auto-transcription
+gen_text = "ээеөө за юу байцгаана манайхаан? шинэ дугаартаа тавтай морил. хэдүүлээ энэ удаад найман L.L.M моделийг хооронд нь харьцуулж үзнэ."
+remove_silence = false
+speed = 1.0
+nfe_step = 32
+seed = -1
+use_ema = true
+
+# Vocoder settings
+vocoder_name = "vocos"  # or "bigvgan"
+load_vocoder_from_local = false  # Set true if using local vocoder
+
+# Audio processing parameters
+target_sample_rate = 24000
+n_mel_channels = 100
+hop_length = 256
+win_length = 1024
+n_fft = 1024
+target_rms = 0.15
+min_length = 3     # Minimum segment length in seconds
+max_length = 25    # Maximum segment length in seconds
+
+# Generation settings
+ode_method = "midpoint"  # ["midpoint" | "euler"]
+cfg_strength = 2.0    # Classifier-free guidance strength
+cross_fade_duration = 0.2
+sway_sampling_coef = 0.2  # -1 disables sway sampling
+
+# Output settings
+output_dir = "tests"  # Directory for generated files
+gen_file = ""        # Optional: file containing text to generate
+
+# Multi-voice settings (optional)
+[voices.main]  # Main voice settings if using multi-voice
+ref_audio = ""
+ref_text = ""
+
+# Additional voices can be added like:
+# [voices.second]
+# ref_audio = "path/to/second/voice.wav"
+# ref_text = "transcription for second voice"
