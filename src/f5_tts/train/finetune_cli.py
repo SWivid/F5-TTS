@@ -72,6 +72,19 @@ def parse_args():
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
 
+    # in case we use bitsandbytes AdamW already, we could assume VRAM constraints and thus make "Paged" modes availabl (paging to unified memory, without performance impact)
+    # IOT to keep "--bnb_optimizer" backwards compatible (also used by gradio finetune interface), an additional argument "--bnb_optimizer_mode" is introduced
+    # Behavior is like this:
+    # --bnb_optimizer False (bnb_optimizer_mode is ignored) --> uses torch.adamW
+    # --bnb_optimizer True, --bnb_optimizer_mode not set --> defaults to optim.AdamW8bit (assuming that "paged" is not always supported)
+    # --bnb_optimizer True, --bnb_optimizer_mode "adam8" --> optim.AdamW8bit (same as above)
+    # --bnb_optimizer True, --bnb_optimizer_mode "adam32" --> bnb.optim.AdamW32bit (instead of torch.AdamW)
+    # --bnb_optimizer True, --bnb_optimizer_mode "adam8paged" --> optim.PagedAdamW8bit 
+    # --bnb_optimizer True, --bnb_optimizer_mode "adam32paged" --> bnb.optim.PagedAdamW32bit 
+    parser.add_argument(
+        "--bnb_optimizer_mode", type=str, default="adam8", choices=["adam8", "adam8paged", "adam32", "adam32paged"], help="BitsAndBytes optimizer mode (allows using paged AdamW to reduce memory requirements)"
+    )
+
     return parser.parse_args()
 
 
@@ -160,6 +173,7 @@ def main():
         log_samples=args.log_samples,
         last_per_steps=args.last_per_steps,
         bnb_optimizer=args.bnb_optimizer,
+        bnb_optimizer_mode=args.bnb_optimizer_mode,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

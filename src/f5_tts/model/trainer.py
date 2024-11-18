@@ -46,6 +46,7 @@ class Trainer:
         accelerate_kwargs: dict = dict(),
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
+        bnb_optimizer_mode: str = "adam8", # "adam8" | "adam8paged" | "adam32" | "adam32paged" (ignored if bnb_optimizer == False)
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
@@ -117,8 +118,20 @@ class Trainer:
         if bnb_optimizer:
             import bitsandbytes as bnb
 
-            self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
+            if bnb_optimizer_mode == "adam8paged":
+                print("Using Optimizer: bnb AdamW 8bit paged")
+                self.optimizer = bnb.optim.PagedAdamW8bit(model.parameters(), lr=learning_rate)
+            elif bnb_optimizer_mode == "adam32":
+                print("Using Optimizer: bnb AdamW 32bit paged")
+                self.optimizer = bnb.optim.AdamW32bit(model.parameters(), lr=learning_rate)
+            elif bnb_optimizer_mode == "adam32paged":
+                print("Using Optimizer: bnb AdamW 32bit")
+                self.optimizer = bnb.optim.PagedAdamW32bit(model.parameters(), lr=learning_rate)
+            else: # default to "adam8"
+                print("Using Optimizer: bnb AdamW 8bit")
+                self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
         else:
+            print("Using Optimizer: PyTorch AdamW 32bit")
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
