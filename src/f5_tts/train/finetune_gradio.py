@@ -1177,7 +1177,10 @@ def get_random_sample_transcribe(project_name):
         sp = item.split("|")
         if len(sp) != 2:
             continue
-        list_data.append([os.path.join(path_project, "wavs", sp[0] + ".wav"), sp[1]])
+
+        # fixed audio when it is absolute
+        file_audio = get_correct_audio_path(sp[0], path_project)
+        list_data.append([file_audio, sp[1]])
 
     if list_data == []:
         return "", None
