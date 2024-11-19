@@ -44,7 +44,7 @@ last_ema = None
 
 path_data = str(files("f5_tts").joinpath("../../data"))
 path_project_ckpts = str(files("f5_tts").joinpath("../../ckpts"))
-file_train = "src/f5_tts/train/finetune_cli.py"
+file_train = str(files("f5_tts").joinpath("train/finetune_cli.py"))
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -1179,7 +1179,7 @@ def get_random_sample_transcribe(project_name):
             continue
 
         # fixed audio when it is absolute
-        file_audio = get_correct_audio_path(sp[0], path_project)
+        file_audio = get_correct_audio_path(sp[0], os.path.join(path_project, "wavs"))
         list_data.append([file_audio, sp[1]])
 
     if list_data == []:
