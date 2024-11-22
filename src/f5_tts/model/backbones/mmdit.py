@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 from x_transformers.x_transformers import RotaryEmbedding
 
@@ -85,6 +86,7 @@ class MMDiT(nn.Module):
         ff_mult=4,
         text_num_embeds=256,
         mel_dim=100,
+        use_checkpointing=False,  # P8e54
     ):
         super().__init__()
 
@@ -113,6 +115,8 @@ class MMDiT(nn.Module):
         self.norm_out = AdaLayerNormZero_Final(dim)  # final modulation
         self.proj_out = nn.Linear(dim, mel_dim)
 
+        self.use_checkpointing = use_checkpointing  # P8e54
+
     def forward(
         self,
         x: float["b n d"],  # nosied input audio  # noqa: F722
@@ -138,7 +142,10 @@ class MMDiT(nn.Module):
         rope_text = self.rotary_embed.forward_from_seq_len(text_len)
 
         for block in self.transformer_blocks:
-            c, x = block(x, c, t, mask=mask, rope=rope_audio, c_rope=rope_text)
+            if self.use_checkpointing:  # P0895
+                c, x = checkpoint(block, x, c, t, mask, rope_audio, rope_text)
+            else:
+                c, x = block(x, c, t, mask=mask, rope=rope_audio, c_rope=rope_text)
 
         x = self.norm_out(x, t)
         output = self.proj_out(x)

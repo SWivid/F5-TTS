@@ -47,6 +47,7 @@ class Trainer:
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
+        use_checkpointing: bool = False,  # Pcdd9
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -121,6 +122,8 @@ class Trainer:
         else:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
+
+        self.use_checkpointing = use_checkpointing  # Pcdd9
 
     @property
     def is_main(self):
@@ -295,9 +298,19 @@ class Trainer:
                         dur_loss = self.duration_predictor(mel_spec, lens=batch.get("durations"))
                         self.accelerator.log({"duration loss": dur_loss.item()}, step=global_step)
 
-                    loss, cond, pred = self.model(
-                        mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
-                    )
+                    if self.use_checkpointing:  # Pae0a
+                        from torch.utils.checkpoint import checkpoint
+                        loss, cond, pred = checkpoint(
+                            self.model,
+                            mel_spec,
+                            text_inputs,
+                            mel_lengths,
+                            self.noise_scheduler,
+                        )
+                    else:
+                        loss, cond, pred = self.model(
+                            mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
+                        )
                     self.accelerator.backward(loss)
 
                     if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
