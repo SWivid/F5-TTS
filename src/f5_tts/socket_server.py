@@ -2,27 +2,26 @@ import socket
 import struct
 import torch
 import torchaudio
-from threading import Thread
-
-
+import anthropic
 import gc
 import traceback
+from threading import Thread
+import os
 
-
-from infer.utils_infer import infer_batch_process, preprocess_ref_audio_text, load_vocoder, load_model
-from model.backbones.dit import DiT
-
+from f5_tts.infer.utils_infer import infer_batch_process, preprocess_ref_audio_text, load_vocoder, load_model
+from f5_tts.model.backbones.dit import DiT
 
 class TTSStreamingProcessor:
     def __init__(self, ckpt_file, vocab_file, ref_audio, ref_text, device=None, dtype=torch.float32):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
-        # Load the model using the provided checkpoint and vocab files
+        self.client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+        
+        # Load the TTS model
         self.model = load_model(
             model_cls=DiT,
             model_cfg=dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4),
             ckpt_path=ckpt_file,
-            mel_spec_type="vocos",  # or "bigvgan" depending on vocoder
+            mel_spec_type="vocos",
             vocab_file=vocab_file,
             ode_method="euler",
             use_ema=True,
@@ -31,89 +30,99 @@ class TTSStreamingProcessor:
 
         # Load the vocoder
         self.vocoder = load_vocoder(is_local=False)
-
-        # Set sampling rate for streaming
-        self.sampling_rate = 24000  # Consistency with client
-
+        self.sampling_rate = 24000  
+        
         # Set reference audio and text
         self.ref_audio = ref_audio
         self.ref_text = ref_text
+        
+        # System prompt for Claude
+        self.system_prompt = """You are an AI friend who always responds in formal Mongolian language using Cyrillic script. 
+        Your responses should be modern, friendly with a fun vibe tailored for GenZ and concise (1-2 sentences maximum).
+        But it must maintain proper Mongolian grammar and full words.
+        Respond directly in all lower-case Cyrillic Mongolian without any additional commentary or translations.
+        For example, if asked "Sain baina uu?" you might respond with "Сайн сайн, та сайн байна уу?"."""
 
-        # Warm up the model
-        self._warm_up()
+    def get_haiku_response(self, user_text):
+        """Get response from Claude Haiku and convert to Mongolian Cyrillic"""
+        try:
+            message = self.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=100,
+                system=self.system_prompt,
+                messages=[{
+                    "role": "user", 
+                    "content": user_text
+                }]
+            )
+            # Extract the actual text from the TextBlock
+            response_text = message.content[0].text if isinstance(message.content, list) else message.content
+            print(f"Raw response: {response_text}")
+            return response_text
 
-    def _warm_up(self):
-        """Warm up the model with a dummy input to ensure it's ready for real-time processing."""
-        print("Warming up the model...")
-        ref_audio, ref_text = preprocess_ref_audio_text(self.ref_audio, self.ref_text)
-        audio, sr = torchaudio.load(ref_audio)
-        gen_text = "Warm-up text for the model."
+        except Exception as e:
+            print(f"Error getting Haiku response: {e}")
+            return "Уучлаарай, алдаа гарлаа."
 
-        # Pass the vocoder as an argument here
-        infer_batch_process((audio, sr), ref_text, [gen_text], self.model, self.vocoder, device=self.device)
-        print("Warm-up completed.")
 
     def generate_stream(self, text, play_steps_in_s=0.5):
-        """Generate audio in chunks and yield them in real-time."""
-        # Preprocess the reference audio and text
-        ref_audio, ref_text = preprocess_ref_audio_text(self.ref_audio, self.ref_text)
+        """Generate audio in chunks and yield them."""
+        try:
+            # Get Mongolian response from Haiku
+            mongolian_response = self.get_haiku_response(text)
+            print(f"Processing Mongolian text: {mongolian_response}")
+            mongolian_response = mongolian_response.lower()
+            print(mongolian_response)
 
-        # Load reference audio
-        audio, sr = torchaudio.load(ref_audio)
+            # Preprocess reference audio and text
+            ref_audio, ref_text = preprocess_ref_audio_text(self.ref_audio, self.ref_text)
+            audio, sr = torchaudio.load(ref_audio)
 
-        # Run inference for the input text
-        audio_chunk, final_sample_rate, _ = infer_batch_process(
-            (audio, sr),
-            ref_text,
-            [text],
-            self.model,
-            self.vocoder,
-            device=self.device,  # Pass vocoder here
-        )
+            # Run inference - pass the text directly since it's now a string
+            audio_chunk, final_sample_rate, _ = infer_batch_process(
+                (audio, sr),
+                ref_text,
+                [mongolian_response],  # Still wrap in list as infer_batch_process expects a batch
+                self.model,
+                self.vocoder,
+                device=self.device,
+            )
 
-        # Break the generated audio into chunks and send them
-        chunk_size = int(final_sample_rate * play_steps_in_s)
-
-        if len(audio_chunk) < chunk_size:
-            packed_audio = struct.pack(f"{len(audio_chunk)}f", *audio_chunk)
-            yield packed_audio
-            return
-
-        for i in range(0, len(audio_chunk), chunk_size):
-            chunk = audio_chunk[i : i + chunk_size]
-
-            # Check if it's the final chunk
-            if i + chunk_size >= len(audio_chunk):
-                chunk = audio_chunk[i:]
-
-            # Send the chunk if it is not empty
-            if len(chunk) > 0:
+            # Break the generated audio into chunks and send them
+            chunk_size = int(final_sample_rate * play_steps_in_s)
+            for i in range(0, len(audio_chunk), chunk_size):
+                chunk = audio_chunk[i:i + chunk_size]
+                if len(chunk) == 0:
+                    break
                 packed_audio = struct.pack(f"{len(chunk)}f", *chunk)
                 yield packed_audio
 
+            # Send remaining audio if any
+            if len(audio_chunk) % chunk_size != 0:
+                remaining = audio_chunk[-(len(audio_chunk) % chunk_size):]
+                packed_audio = struct.pack(f"{len(remaining)}f", *remaining)
+                yield packed_audio
+
+        except Exception as e:
+            print(f"Error in generate_stream: {e}")
+            traceback.print_exc()
 
 def handle_client(client_socket, processor):
     try:
         while True:
-            # Receive data from the client
             data = client_socket.recv(1024).decode("utf-8")
             if not data:
                 break
 
             try:
-                # The client sends the text input
                 text = data.strip()
-
-                # Generate and stream audio chunks
                 for audio_chunk in processor.generate_stream(text):
                     client_socket.sendall(audio_chunk)
-
-                # Send end-of-audio signal
                 client_socket.sendall(b"END_OF_AUDIO")
 
-            except Exception as inner_e:
-                print(f"Error during processing: {inner_e}")
-                traceback.print_exc()  # Print the full traceback to diagnose the issue
+            except Exception as e:
+                print(f"Error during processing: {e}")
+                traceback.print_exc()
                 break
 
     except Exception as e:
@@ -121,7 +130,6 @@ def handle_client(client_socket, processor):
         traceback.print_exc()
     finally:
         client_socket.close()
-
 
 def start_server(host, port, processor):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -135,16 +143,14 @@ def start_server(host, port, processor):
         client_handler = Thread(target=handle_client, args=(client_socket, processor))
         client_handler.start()
 
-
 if __name__ == "__main__":
     try:
         # Load the model and vocoder using the provided files
-        ckpt_file = ""  # pointing your checkpoint "ckpts/model/model_1096.pt"
-        vocab_file = ""  # Add vocab file path if needed
-        ref_audio = ""  # add ref audio"./tests/ref_audio/reference.wav"
-        ref_text = ""
+        ckpt_file = "ckpts/mn_tts/model_last.pt"  # pointing your checkpoint "ckpts/model/model_1096.pt"
+        vocab_file = "data/mn_tts_char/vocab.txt"  # Add vocab file path if needed
+        ref_audio = "data/mn_tts_char/wavs/john.mp3"  # add ref audio"./tests/ref_audio/reference.wav"
+        ref_text = "Hello, my name is John. I am happy to be sharing this news with all of you."
 
-        # Initialize the processor with the model and vocoder
         processor = TTSStreamingProcessor(
             ckpt_file=ckpt_file,
             vocab_file=vocab_file,
@@ -153,7 +159,6 @@ if __name__ == "__main__":
             dtype=torch.float32,
         )
 
-        # Start the server
         start_server("0.0.0.0", 9998, processor)
     except KeyboardInterrupt:
         gc.collect()

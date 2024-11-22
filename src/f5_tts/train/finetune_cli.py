@@ -87,7 +87,7 @@ def main():
     if args.exp_name == "F5TTS_Base":
         wandb_resume_id = None
         model_cls = DiT
-        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4, dropout=0.2,  long_skip_connection=True)
+        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4, dropout=0.2)
         if args.finetune:
             if args.pretrain is None:
                 ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
@@ -146,6 +146,9 @@ def main():
         args.epochs,
         args.learning_rate,
         num_warmup_updates=args.num_warmup_updates,
+        cosine_T_0=2000,  # Adjust based on your needs
+        cosine_T_mult=1,  # Adjust based on your needs
+        cosine_eta_min_factor=1e-1,  # Adjust based on your needs
         save_per_updates=args.save_per_updates,
         checkpoint_path=checkpoint_path,
         batch_size=args.batch_size_per_gpu,
@@ -159,9 +162,11 @@ def main():
         wandb_resume_id=wandb_resume_id,
         log_samples=args.log_samples,
         last_per_steps=args.last_per_steps,
-        bnb_optimizer=args.bnb_optimizer,
+        bnb_optimizer=args.bnb_optimizer
     )
 
+    print(vars(trainer))
+    
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
 
     trainer.train(

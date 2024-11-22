@@ -10,7 +10,7 @@ from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 from ema_pytorch import EMA
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import LinearLR, SequentialLR
+from torch.optim.lr_scheduler import LinearLR, SequentialLR, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from tqdm import tqdm
 
@@ -28,6 +28,9 @@ class Trainer:
         epochs,
         learning_rate,
         num_warmup_updates=20000,
+        cosine_T_0=2000,  # Initial restart interval
+        cosine_T_mult=1,  # Multiplier for increasing restart interval
+        cosine_eta_min_factor=1e-3,  # Minimum lr factor
         save_per_updates=1000,
         checkpoint_path=None,
         batch_size=32,
@@ -48,6 +51,10 @@ class Trainer:
         bnb_optimizer: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
     ):
+        self.cosine_T_0 = cosine_T_0
+        self.cosine_T_mult = cosine_T_mult
+        self.cosine_eta_min_factor = cosine_eta_min_factor
+        
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
         if logger == "wandb" and not wandb.api.api_key:
@@ -135,6 +142,10 @@ class Trainer:
                 ema_model_state_dict=self.ema_model.state_dict(),
                 scheduler_state_dict=self.scheduler.state_dict(),
                 step=step,
+                # Add these to save scheduler state properly
+                cosine_T_0=self.cosine_T_0,
+                cosine_T_mult=self.cosine_T_mult,
+                cosine_eta_min_factor=self.cosine_eta_min_factor
             )
             if not os.path.exists(self.checkpoint_path):
                 os.makedirs(self.checkpoint_path)
@@ -185,6 +196,9 @@ class Trainer:
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             step = checkpoint["step"]
+            self.cosine_T_0 = checkpoint.get('cosine_T_0', 5000)
+            self.cosine_T_mult = checkpoint.get('cosine_T_mult', 2)
+            self.cosine_eta_min_factor = checkpoint.get('cosine_eta_min_factor', 1e-2)
         else:
             checkpoint["model_state_dict"] = {
                 k.replace("ema_model.", ""): v
@@ -194,6 +208,7 @@ class Trainer:
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
             step = 0
 
+        #step = 0
         del checkpoint
         gc.collect()
         return step
@@ -245,15 +260,15 @@ class Trainer:
         #  which means the length of dataloader calculated before, should consider the number of devices
         warmup_steps = (
             self.num_warmup_updates * self.accelerator.num_processes
-        )  # consider a fixed warmup steps while using accelerate multi-gpu ddp
-        # otherwise by default with split_batches=False, warmup steps change with num_processes
-        total_steps = len(train_dataloader) * self.epochs / self.grad_accumulation_steps
-        decay_steps = total_steps - warmup_steps
-        warmup_scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_steps)
-        decay_scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_steps)
-        self.scheduler = SequentialLR(
-            self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_steps]
         )
+        
+        self.scheduler = CosineAnnealingWarmRestarts(
+            self.optimizer,
+            T_0=2500,  
+            T_mult=2,
+            eta_min=0.1  # Explicit minimum learning rate
+        )
+
         train_dataloader, self.scheduler = self.accelerator.prepare(
             train_dataloader, self.scheduler
         )  # actual steps = 1 gpu steps / gpus
