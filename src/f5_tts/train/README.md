@@ -13,6 +13,9 @@ python src/f5_tts/train/datasets/prepare_emilia.py
 
 # Prepare the Wenetspeech4TTS dataset
 python src/f5_tts/train/datasets/prepare_wenetspeech4tts.py
+
+# Prepare the LibriTTS dataset
+python src/f5_tts/train/datasets/prepare_libritts.py
 ```
 
 ### 2. Create custom dataset with metadata.csv
