@@ -148,7 +148,7 @@ class Trainer:
         if (
             not exists(self.checkpoint_path)
             or not os.path.exists(self.checkpoint_path)
-            or not os.listdir(self.checkpoint_path)
+            or not any(filename.endswith(".pt") for filename in os.listdir(self.checkpoint_path))
         ):
             return 0
 
