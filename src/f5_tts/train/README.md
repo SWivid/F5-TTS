@@ -35,7 +35,7 @@ Once your datasets are prepared, you can start the training process.
 # setup accelerate config, e.g. use multi-gpu ddp, fp16
 # will be to: ~/.cache/huggingface/accelerate/default_config.yaml     
 accelerate config
-accelerate launch src/f5_tts/train/train.py
+accelerate launch src/f5_tts/train/train.py --config-name F5TTS_Base_train.yaml # F5TTS_Base_train.yaml | E2TTS_Base_train.yaml
 ```
 
 ### 2. Finetuning practice
