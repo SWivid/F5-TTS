@@ -34,8 +34,6 @@ win_length = 1024
 n_fft = 1024
 target_rms = 0.1
 
-
-tokenizer = "pinyin"
 rel_path = str(files("f5_tts").joinpath("../../"))
 
 
@@ -49,6 +47,7 @@ def main():
     parser.add_argument("-n", "--expname", required=True)
     parser.add_argument("-c", "--ckptstep", default=1200000, type=int)
     parser.add_argument("-m", "--mel_spec_type", default="vocos", type=str, choices=["bigvgan", "vocos"])
+    parser.add_argument("-to", "--tokenizer", default="pinyin", type=str, choices=["pinyin", "char"])
 
     parser.add_argument("-nfe", "--nfestep", default=32, type=int)
     parser.add_argument("-o", "--odemethod", default="euler")
@@ -64,6 +63,7 @@ def main():
     ckpt_step = args.ckptstep
     ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
     mel_spec_type = args.mel_spec_type
+    tokenizer = args.tokenizer
 
     nfe_step = args.nfestep
     ode_method = args.odemethod
