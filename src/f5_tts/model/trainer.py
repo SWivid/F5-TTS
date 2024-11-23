@@ -47,6 +47,8 @@ class Trainer:
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
+        is_local_vocoder: bool = False,  # use local path vocoder
+        local_vocoder_path: str = "",  # local vocoder path
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -108,7 +110,11 @@ class Trainer:
         self.max_samples = max_samples
         self.grad_accumulation_steps = grad_accumulation_steps
         self.max_grad_norm = max_grad_norm
+
+        # mel vocoder config
         self.vocoder_name = mel_spec_type
+        self.is_local_vocoder = is_local_vocoder
+        self.local_vocoder_path = local_vocoder_path
 
         self.noise_scheduler = noise_scheduler
 
@@ -199,7 +205,9 @@ class Trainer:
         if self.log_samples:
             from f5_tts.infer.utils_infer import cfg_strength, load_vocoder, nfe_step, sway_sampling_coef
 
-            vocoder = load_vocoder(vocoder_name=self.vocoder_name)
+            vocoder = load_vocoder(
+                vocoder_name=self.vocoder_name, is_local=self.is_local_vocoder, local_path=self.local_vocoder_path
+            )
             target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.target_sample_rate
             log_samples_path = f"{self.checkpoint_path}/samples"
             os.makedirs(log_samples_path, exist_ok=True)
