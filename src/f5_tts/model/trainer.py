@@ -338,20 +338,14 @@ class Trainer:
                                 sway_sampling_coef=sway_sampling_coef,
                             )
                             generated = generated.to(torch.float32)
+                            gen_mel_spec = generated[:, ref_audio_len:, :].permute(0, 2, 1).to(self.accelerator.device)
+                            ref_mel_spec = batch["mel"][0].unsqueeze(0)
                             if self.vocoder_name == "vocos":
-                                gen_audio = vocoder.decode(
-                                    generated[:, ref_audio_len:, :].permute(0, 2, 1).to(self.accelerator.device)
-                                ).cpu()
-                                ref_audio = vocoder.decode(batch["mel"][0].unsqueeze(0)).cpu()
+                                gen_audio = vocoder.decode(gen_mel_spec).cpu()
+                                ref_audio = vocoder.decode(ref_mel_spec).cpu()
                             elif self.vocoder_name == "bigvgan":
-                                gen_audio = (
-                                    vocoder(
-                                        generated[:, ref_audio_len:, :].permute(0, 2, 1).to(self.accelerator.device)
-                                    )
-                                    .squeeze(0)
-                                    .cpu()
-                                )
-                                ref_audio = vocoder(batch["mel"][0].unsqueeze(0)).squeeze(0).cpu()
+                                gen_audio = vocoder(gen_mel_spec).squeeze(0).cpu()
+                                ref_audio = vocoder(ref_mel_spec).squeeze(0).cpu()
 
                         torchaudio.save(f"{log_samples_path}/step_{global_step}_gen.wav", gen_audio, target_sample_rate)
                         torchaudio.save(f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio, target_sample_rate)
