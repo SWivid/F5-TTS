@@ -57,7 +57,7 @@ parser.add_argument(
     "-f",
     "--gen_file",
     type=str,
-    help="File with text to generate. Ignores --text",
+    help="File with text to generate. Ignores --gen_text",
 )
 parser.add_argument(
     "-o",
