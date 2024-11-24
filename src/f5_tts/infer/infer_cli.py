@@ -57,13 +57,19 @@ parser.add_argument(
     "-f",
     "--gen_file",
     type=str,
-    help="File with text to generate. Ignores --text",
+    help="File with text to generate. Ignores --gen_text",
 )
 parser.add_argument(
     "-o",
     "--output_dir",
     type=str,
     help="Path to output folder..",
+)
+parser.add_argument(
+    "-w",
+    "--output_file",
+    type=str,
+    help="Filename of output file..",
 )
 parser.add_argument(
     "--remove_silence",
@@ -104,13 +110,14 @@ if "voices" in config:
 if gen_file:
     gen_text = codecs.open(gen_file, "r", "utf-8").read()
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
+output_file = args.output_file if args.output_file else config["output_file"]
 model = args.model if args.model else config["model"]
 ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
 speed = args.speed
 
-wave_path = Path(output_dir) / "infer_cli_out.wav"
+wave_path = Path(output_dir) / output_file
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
 
 vocoder_name = args.vocoder_name
