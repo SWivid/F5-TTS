@@ -118,7 +118,6 @@ remove_silence = args.remove_silence if args.remove_silence else config["remove_
 speed = args.speed
 
 wave_path = Path(output_dir) / output_file
-print("Output: ",wave_path)
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
 
 vocoder_name = args.vocoder_name
