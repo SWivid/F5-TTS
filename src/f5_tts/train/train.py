@@ -48,11 +48,13 @@ def main(cfg):
         max_samples=cfg.datasets.max_samples,
         grad_accumulation_steps=cfg.optim.grad_accumulation_steps,
         max_grad_norm=cfg.optim.max_grad_norm,
+        logger=cfg.ckpts.logger,
         wandb_project="CFM-TTS",
         wandb_run_name=exp_name,
         wandb_resume_id=wandb_resume_id,
         last_per_steps=cfg.ckpts.last_per_steps,
         log_samples=True,
+        bnb_optimizer=cfg.optim.bnb_optimizer,
         mel_spec_type=mel_spec_type,
         is_local_vocoder=cfg.model.mel_spec.is_local_vocoder,
         local_vocoder_path=cfg.model.mel_spec.local_vocoder_path,
@@ -61,6 +63,7 @@ def main(cfg):
     train_dataset = load_dataset(cfg.datasets.name, tokenizer, mel_spec_kwargs=cfg.model.mel_spec)
     trainer.train(
         train_dataset,
+        num_workers=cfg.datasets.num_workers,
         resumable_with_seed=666,  # seed for shuffling dataset
     )
 

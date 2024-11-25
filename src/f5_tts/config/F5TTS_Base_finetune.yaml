@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: ckpts/finetune_${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
     
 datasets:
   name: Emilia_ZH_EN # dataset name
@@ -18,14 +18,16 @@ optim:
   bnb_optimizer: False # use bnb optimizer or not
 
 model:
-  name: E2TTS_Base # model name
+  name: F5TTS_Base # model name
   tokenizer: pinyin # tokenizer type
   tokenizer_path: None  # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
   arch:
-    dim: 1024 # model dimension
-    depth: 24 # number of transformer layers
-    heads: 16 # number of transformer heads
-    ff_mult: 4 # ff layer expansion
+    dim: 1024 # model dim
+    depth: 22 # model depth
+    heads: 16 # model heads
+    ff_mult: 2 # feedforward expansion
+    text_dim: 512 # text encoder dim
+    conv_layers: 4 # convolution layers
   mel_spec:
     target_sample_rate: 24000 # target sample rate
     n_mel_channels: 100 # mel channel
@@ -34,10 +36,11 @@ model:
     n_fft: 1024 # fft length
     mel_spec_type: vocos  # 'vocos' or 'bigvgan'
     is_local_vocoder: False # use local vocoder or not
-    local_vocoder_path: None # path to local vocoder
+    local_vocoder_path: None # local vocoder path
 
 ckpts:
   logger: wandb # wandb | tensorboard | None
   save_per_updates: 50000 # save checkpoint per steps
   last_per_steps: 5000 # save last checkpoint per steps
+  pretain_ckpt_path: ckpts/F5TTS_Base/model_1200000.pt
   save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}

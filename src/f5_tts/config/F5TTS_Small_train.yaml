@@ -7,6 +7,7 @@ datasets:
   batch_size_per_gpu: 38400  # 8 GPUs, 8 * 38400 = 307200
   batch_size_type: frame # "frame" or "sample"
   max_samples: 64  # max sequences per batch if use frame-wise batch_size. we set 32 for small models, 64 for base models
+  num_workers: 16 # number of workers
 
 optim:
   epochs: 15
@@ -14,6 +15,7 @@ optim:
   num_warmup_updates: 20000  # warmup steps
   grad_accumulation_steps: 1  # note: updates = steps / grad_accumulation_steps
   max_grad_norm: 1.0
+  bnb_optimizer: False
 
 model:
   name: F5TTS_Small
@@ -37,6 +39,7 @@ model:
     local_vocoder_path: None
 
 ckpts:
+  logger: wandb # wandb | tensorboard | None
   save_per_updates: 50000 # save checkpoint per steps
   last_per_steps: 5000 # save last checkpoint per steps
   save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}

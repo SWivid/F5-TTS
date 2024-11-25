@@ -91,7 +91,7 @@ class Trainer:
         elif self.logger == "tensorboard":
             from torch.utils.tensorboard import SummaryWriter
 
-            self.writer = SummaryWriter(log_dir=f"runs/{wandb_run_name}")
+            self.writer = SummaryWriter(log_dir=f"{checkpoint_path}/runs/{wandb_run_name}")
 
         self.model = model
 
