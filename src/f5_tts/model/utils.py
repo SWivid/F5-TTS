@@ -113,7 +113,7 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
         with open(tokenizer_path, "r", encoding="utf-8") as f:
             vocab_char_map = {}
             for i, char in enumerate(f):
-                vocab_char_map[char[:-1]] = i
+                vocab_char_map[char.strip()] = i  # ignore \n
         vocab_size = len(vocab_char_map)
         assert vocab_char_map[" "] == 0, "make sure space is of idx 0 in vocab.txt, cuz 0 is used for unknown char"
 
@@ -125,7 +125,7 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
         with open(dataset_name, "r", encoding="utf-8") as f:
             vocab_char_map = {}
             for i, char in enumerate(f):
-                vocab_char_map[char[:-1]] = i
+                vocab_char_map[char.strip()] = i
         vocab_size = len(vocab_char_map)
 
     return vocab_char_map, vocab_size
