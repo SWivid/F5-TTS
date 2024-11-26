@@ -843,6 +843,7 @@ def main(port, host, share, api, root_path):
     print("Starting app...")
     app.queue(api_open=api).launch(server_name=host, server_port=port, share=share, show_api=api, root_path=root_path)
 
+
 if __name__ == "__main__":
     if not USING_SPACES:
         main()
