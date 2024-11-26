@@ -207,9 +207,11 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
     if generated_audio_segments:
         final_wave = np.concatenate(generated_audio_segments)
 
+        # Save final concatenated audio
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        # Save entire wave file
         with open(wave_path, "wb") as f:
             sf.write(f.name, final_wave, final_sample_rate)
             # Remove silence
@@ -217,6 +219,16 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
                 remove_silence_for_generated_wav(f.name)
             print(f.name)
 
+        # Ensure the chunk directory exists
+        chunk_dir = "/content/aud/chunk"
+        if not os.path.exists(chunk_dir):
+            os.makedirs(chunk_dir)
+
+        # Save individual chunks as separate files
+        for idx, segment in enumerate(generated_audio_segments):
+            chunk_path = os.path.join(chunk_dir, f"chunk_{idx}.wav")
+            sf.write(chunk_path, segment, final_sample_rate)
+            print(f"Saved chunk {idx} at {chunk_path}")
 
 def main():
     main_process(ref_audio, ref_text, gen_text, ema_model, mel_spec_type, remove_silence, speed)
