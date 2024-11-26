@@ -831,10 +831,17 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     help="Share the app via Gradio share link",
 )
 @click.option("--api", "-a", default=True, is_flag=True, help="Allow API access")
-def main(port, host, share, api):
+@click.option(
+    "--root_path",
+    "-r",
+    default=None,
+    type=str,
+    help='The root path (or "mount point") of the application, if it\'s not served from the root ("/") of the domain. Often used when the application is behind a reverse proxy that forwards requests to the application, e.g. set "/myapp" or full URL for application served at "https://example.com/myapp".',
+)
+def main(port, host, share, api, root_path):
     global app
     print("Starting app...")
-    app.queue(api_open=api).launch(server_name=host, server_port=port, share=share, show_api=api)
+    app.queue(api_open=api).launch(server_name=host, server_port=port, share=share, show_api=api, root_path=root_path)
 
 
 if __name__ == "__main__":
