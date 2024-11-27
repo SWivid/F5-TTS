@@ -1,0 +1,43 @@
+hydra:
+  run:
+    dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    
+datasets:
+  name: Emilia_ZH_EN # dataset name
+  batch_size_per_gpu: 38400  # 8 GPUs, 8 * 38400 = 307200
+  batch_size_type: frame # "frame" or "sample"
+  max_samples: 64  # max sequences per batch if use frame-wise batch_size. we set 32 for small models, 64 for base models
+  num_workers: 16 # number of workers
+
+optim:
+  epochs: 15 # max epochs
+  learning_rate: 7.5e-5 # learning rate
+  num_warmup_updates: 20000  # warmup steps
+  grad_accumulation_steps: 1  # note: updates = steps / grad_accumulation_steps
+  max_grad_norm: 1.0 # gradient clipping
+  bnb_optimizer: False # use bnb optimizer or not
+
+model:
+  name: E2TTS_Base # model name
+  tokenizer: pinyin # tokenizer type
+  tokenizer_path: None  # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
+  arch:
+    dim: 1024 # model dimension
+    depth: 24 # number of transformer layers
+    heads: 16 # number of transformer heads
+    ff_mult: 4 # ff layer expansion
+  mel_spec:
+    target_sample_rate: 24000 # target sample rate
+    n_mel_channels: 100 # mel channel
+    hop_length: 256 # hop length
+    win_length: 1024 # window length
+    n_fft: 1024 # fft length
+    mel_spec_type: vocos  # 'vocos' or 'bigvgan'
+    is_local_vocoder: False # use local vocoder or not
+    local_vocoder_path: None # path to local vocoder
+
+ckpts:
+  logger: wandb # wandb | tensorboard | None
+  save_per_updates: 50000 # save checkpoint per steps
+  last_per_steps: 5000 # save last checkpoint per steps
+  save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
