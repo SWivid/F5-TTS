@@ -16,6 +16,9 @@ python src/f5_tts/train/datasets/prepare_wenetspeech4tts.py
 
 # Prepare the LibriTTS dataset
 python src/f5_tts/train/datasets/prepare_libritts.py
+
+# Prepare the LJSpeech dataset
+python src/f5_tts/train/datasets/prepare_ljspeech.py
 ```
 
 ### 2. Create custom dataset with metadata.csv
