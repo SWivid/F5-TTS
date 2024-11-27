@@ -103,7 +103,7 @@ def generate_response(messages, model, tokenizer):
 
 @gpu_decorator
 def infer(
-    ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15, speed=1, show_info=gr.Info
+    ref_audio_orig, ref_text, gen_text, model, remove_silence, nfe_step=32, cross_fade_duration=0.15, speed=1, show_info=gr.Info
 ):
     ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=show_info)
 
@@ -132,6 +132,7 @@ def infer(
         vocoder,
         cross_fade_duration=cross_fade_duration,
         speed=speed,
+        nfe_step=nfe_step,
         show_info=show_info,
         progress=gr.Progress(),
     )
@@ -192,6 +193,14 @@ with gr.Blocks() as app_tts:
             step=0.01,
             info="Set the duration of the cross-fade between audio clips.",
         )
+        nfe_slider = gr.Slider(
+            label="NFE Steps",
+            minimum=4,
+            maximum=64,
+            value=32,
+            step=2,
+            info="Set the number of denoising steps.",
+        )
 
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
@@ -202,6 +211,7 @@ with gr.Blocks() as app_tts:
         ref_text_input,
         gen_text_input,
         remove_silence,
+        nfe_slider,
         cross_fade_duration_slider,
         speed_slider,
     ):
@@ -211,6 +221,7 @@ with gr.Blocks() as app_tts:
             gen_text_input,
             tts_model_choice,
             remove_silence,
+            nfe_slider,
             cross_fade_duration_slider,
             speed_slider,
         )
@@ -223,6 +234,7 @@ with gr.Blocks() as app_tts:
             ref_text_input,
             gen_text_input,
             remove_silence,
+            nfe_slider,
             cross_fade_duration_slider,
             speed_slider,
         ],

@@ -87,6 +87,12 @@ parser.add_argument(
     default=1.0,
     help="Adjust the speed of the audio generation (default: 1.0)",
 )
+parser.add_argument(
+    "--nfe",
+    type=int,
+    default=32,
+    help="Set the number of denoising steps (default: 32)",
+)
 args = parser.parse_args()
 
 config = tomli.load(open(args.config, "rb"))
@@ -116,6 +122,7 @@ ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
 speed = args.speed
+nfe_step = args.nfe
 
 wave_path = Path(output_dir) / output_file
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
@@ -200,7 +207,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(
-            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed
+            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed, nfe_step=nfe_step
         )
         generated_audio_segments.append(audio)
 
