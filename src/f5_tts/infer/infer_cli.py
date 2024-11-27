@@ -33,7 +33,7 @@ parser.add_argument(
 parser.add_argument(
     "-m",
     "--model",
-    help="F5-TTS | E2-TTS",
+    help="F5-TTS | F5-TTS-small | E2-TTS",
 )
 parser.add_argument(
     "-p",
@@ -123,6 +123,7 @@ vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
 speed = args.speed
 nfe_step = args.nfe
+indic = False
 
 wave_path = Path(output_dir) / output_file
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
@@ -153,6 +154,19 @@ if model == "F5-TTS":
             exp_name = "F5TTS_Base_bigvgan"
             ckpt_step = 1250000
             ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.pt"))
+
+elif model == "F5-TTS-small":
+    model_cls = DiT
+    model_cfg = dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)
+    if ckpt_file == "":
+        if vocoder_name == "vocos":
+            indic = True
+            ckpt_file = str(cached_path(f"hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors"))
+            vocab_file=str(cached_path("hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt"))
+            # ckpt_file = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
+        elif vocoder_name == "bigvgan":
+            print("No default F5-TTS-small ckpt avalaible for bigvgan yet")
+            exit(1)
 
 elif model == "E2-TTS":
     assert vocoder_name == "vocos", "E2-TTS only supports vocoder vocos"
@@ -207,7 +221,7 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(
-            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed, nfe_step=nfe_step
+            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed, nfe_step=nfe_step, indic=indic
         )
         generated_audio_segments.append(audio)
 

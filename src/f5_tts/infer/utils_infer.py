@@ -363,6 +363,7 @@ def infer_process(
     speed=speed,
     fix_duration=fix_duration,
     device=device,
+    indic = False
 ):
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
@@ -388,6 +389,7 @@ def infer_process(
         speed=speed,
         fix_duration=fix_duration,
         device=device,
+        indic = indic
     )
 
 
@@ -410,6 +412,7 @@ def infer_batch_process(
     speed=1,
     fix_duration=None,
     device=None,
+    indic = False
 ):
     audio, sr = ref_audio
     if audio.shape[0] > 1:
@@ -431,7 +434,10 @@ def infer_batch_process(
     for i, gen_text in enumerate(progress.tqdm(gen_text_batches)):
         # Prepare the text
         text_list = [ref_text + gen_text]
-        final_text_list = convert_char_to_pinyin(text_list)
+        if not indic:
+            final_text_list = convert_char_to_pinyin(text_list)
+        else:
+            final_text_list = list(text_list)
 
         ref_audio_len = audio.shape[-1] // hop_length
         if fix_duration is not None:

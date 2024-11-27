@@ -49,6 +49,10 @@ tts_model_choice = DEFAULT_TTS_MODEL
 vocoder = load_vocoder()
 
 
+def load_f5tts_small(ckpt_path=str(cached_path("hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors")), vocab_path=str(cached_path("hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt"))):
+    F5TTS_small_model_cfg = dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)
+    return load_model(DiT, F5TTS_small_model_cfg, ckpt_path, vocab_file=vocab_path)
+
 def load_f5tts(ckpt_path=str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))):
     F5TTS_model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
     return load_model(DiT, F5TTS_model_cfg, ckpt_path)
@@ -70,6 +74,8 @@ def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
     return load_model(DiT, model_cfg, ckpt_path, vocab_file=vocab_path)
 
 
+
+F5TTS_small_ema_model = load_f5tts_small()
 F5TTS_ema_model = load_f5tts()
 E2TTS_ema_model = load_e2tts() if USING_SPACES else None
 custom_ema_model, pre_custom_path = None, ""
@@ -107,8 +113,13 @@ def infer(
 ):
     ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=show_info)
 
+    indic = False
+
     if model == "F5-TTS":
         ema_model = F5TTS_ema_model
+    elif model == "F5-TTS-small":
+        indic = True
+        ema_model = F5TTS_small_ema_model
     elif model == "E2-TTS":
         global E2TTS_ema_model
         if E2TTS_ema_model is None:
@@ -133,6 +144,7 @@ def infer(
         cross_fade_duration=cross_fade_duration,
         speed=speed,
         nfe_step=nfe_step,
+        indic=indic,
         show_info=show_info,
         progress=gr.Progress(),
     )
@@ -788,7 +800,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     with gr.Row():
         if not USING_SPACES:
             choose_tts_model = gr.Radio(
-                choices=[DEFAULT_TTS_MODEL, "E2-TTS", "Custom"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+                choices=[DEFAULT_TTS_MODEL, "F5-TTS-small", "E2-TTS", "Custom"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
             )
         else:
             choose_tts_model = gr.Radio(
