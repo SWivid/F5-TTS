@@ -45,5 +45,5 @@ Update the path with your batch-inferenced results, and carry out WER / SIM eval
 python src/f5_tts/eval/eval_seedtts_testset.py --gen_wav_dir <GEN_WAVE_DIR>
 
 # Evaluation for LibriSpeech-PC test-clean (cross-sentence)
-python src/f5_tts/eval/eval_librispeech_test_clean.py --gen_wav_dir <GEN_WAVE_DIR>
+python src/f5_tts/eval/eval_librispeech_test_clean.py --gen_wav_dir <GEN_WAVE_DIR> --librispeech_test_clean_path <TEST_CLEAN_PATH>
 ```
