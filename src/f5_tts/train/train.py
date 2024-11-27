@@ -1,4 +1,5 @@
 # training script.
+
 import os
 from importlib.resources import files
 
@@ -8,7 +9,7 @@ from f5_tts.model import CFM, DiT, Trainer, UNetT
 from f5_tts.model.dataset import load_dataset
 from f5_tts.model.utils import get_tokenizer
 
-os.chdir(str(files("f5_tts").joinpath("../..")))
+os.chdir(str(files("f5_tts").joinpath("../..")))  # change working directory to root of project (local editable)
 
 
 @hydra.main(version_base="1.3", config_path=str(files("f5_tts").joinpath("configs")), config_name=None)

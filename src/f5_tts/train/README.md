@@ -2,9 +2,9 @@
 
 ## Prepare Dataset
 
-Example data processing scripts for Emilia and Wenetspeech4TTS, and you may tailor your own one along with a Dataset class in `src/f5_tts/model/dataset.py`.
+Example data processing scripts, and you may tailor your own one along with a Dataset class in `src/f5_tts/model/dataset.py`.
 
-### 1. Datasets used for pretrained models
+### 1. Some specific Datasets preparing scripts
 Download corresponding dataset first, and fill in the path in scripts.
 
 ```bash
@@ -38,7 +38,9 @@ Once your datasets are prepared, you can start the training process.
 # setup accelerate config, e.g. use multi-gpu ddp, fp16
 # will be to: ~/.cache/huggingface/accelerate/default_config.yaml     
 accelerate config
-accelerate launch src/f5_tts/train/train.py --config-name F5TTS_Base_train.yaml # F5TTS_Base_train.yaml | E2TTS_Base_train.yaml
+
+# .yaml files are under src/f5_tts/configs directory
+accelerate launch src/f5_tts/train/train.py --config-name F5TTS_Base_train.yaml
 ```
 
 ### 2. Finetuning practice
