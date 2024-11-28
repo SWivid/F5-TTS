@@ -59,8 +59,8 @@ def main(cfg):
         log_samples=True,
         bnb_optimizer=cfg.optim.bnb_optimizer,
         mel_spec_type=mel_spec_type,
-        is_local_vocoder=cfg.model.mel_spec.is_local_vocoder,
-        local_vocoder_path=cfg.model.mel_spec.local_vocoder_path,
+        is_local_vocoder=cfg.model.vocoder.is_local,
+        local_vocoder_path=cfg.model.vocoder.local_path,
     )
 
     train_dataset = load_dataset(cfg.datasets.name, tokenizer, mel_spec_kwargs=cfg.model.mel_spec)
