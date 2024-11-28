@@ -72,7 +72,7 @@ Currently supported features:
 - Basic TTS with Chunk Inference
 - Multi-Style / Multi-Speaker Generation
 - Voice Chat powered by Qwen2.5-3B-Instruct
-- [Custom model](src/f5_tts/infer/SHARED.md) inference (local only)
+- [Custom inference with more language support](src/f5_tts/infer/SHARED.md)
 
 ```bash
 # Launch a Gradio app (web interface)

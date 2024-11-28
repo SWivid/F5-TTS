@@ -42,8 +42,8 @@ Then update in the following scripts with the paths you put evaluation model ckp
 Update the path with your batch-inferenced results, and carry out WER / SIM evaluations:
 ```bash
 # Evaluation for Seed-TTS test set
-python src/f5_tts/eval/eval_seedtts_testset.py
+python src/f5_tts/eval/eval_seedtts_testset.py --gen_wav_dir <GEN_WAVE_DIR>
 
 # Evaluation for LibriSpeech-PC test-clean (cross-sentence)
-python src/f5_tts/eval/eval_librispeech_test_clean.py
+python src/f5_tts/eval/eval_librispeech_test_clean.py --gen_wav_dir <GEN_WAVE_DIR> --librispeech_test_clean_path <TEST_CLEAN_PATH>
 ```
