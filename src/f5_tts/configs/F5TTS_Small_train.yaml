@@ -35,8 +35,9 @@ model:
     win_length: 1024
     n_fft: 1024
     mel_spec_type: vocos  # 'vocos' or 'bigvgan'
-    is_local_vocoder: False
-    local_vocoder_path: None
+  vocoder:
+    is_local: False  # use local offline ckpt or not
+    local_path: None  # local vocoder path
 
 ckpts:
   logger: wandb  # wandb | tensorboard | None
