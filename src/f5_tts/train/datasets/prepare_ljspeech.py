@@ -20,6 +20,7 @@ def main():
         lines = f.readlines()
         for line in tqdm(lines):
             uttr, text, norm_text = line.split("|")
+            norm_text = norm_text.strip()
             wav_path = Path(dataset_dir) / "wavs" / f"{uttr}.wav"
             duration = sf.info(wav_path).duration
             if duration < 0.4 or duration > 30:
