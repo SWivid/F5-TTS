@@ -48,6 +48,8 @@ Discussion board for Finetuning [#57](https://github.com/SWivid/F5-TTS/discussio
 
 Gradio UI training/finetuning with `src/f5_tts/train/finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
 
+The `use_ema = True` is harmful for early-stage finetuned checkpoints (which goes just few updates, thus ema weights still dominated by pretrained ones), try turn it off and see if provide better results.
+
 ### 3. Wandb Logging
 
 The `wandb/` dir will be created under path you run training/finetuning scripts.

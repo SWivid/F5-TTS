@@ -12,6 +12,8 @@ To avoid possible inference failures, make sure you have seen through the follow
 - Uppercased letters will be uttered letter by letter, so use lowercased letters for normal words. 
 - Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses.
 - Preprocess numbers to Chinese letters if you want to have them read in Chinese, otherwise in English.
+- If the generation output is blank (pure silence), check for ffmpeg installation (various tutorials online, blogs, videos, etc.).
+- Try turn off use_ema if using an early-stage finetuned checkpoint (which goes just few updates).
 
 
 ## Gradio App
