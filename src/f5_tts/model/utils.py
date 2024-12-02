@@ -10,6 +10,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 import jieba
 from pypinyin import lazy_pinyin, Style
+from cn2an import transform
 
 
 # seed everything
@@ -138,12 +139,22 @@ def convert_char_to_pinyin(text_list, polyphone=True):
     final_text_list = []
     god_knows_why_en_testset_contains_zh_quote = str.maketrans(
         {"“": '"', "”": '"', "‘": "'", "’": "'"}
-    )  # in case librispeech (orig no-pc) test-clean
-    custom_trans = str.maketrans({";": ","})  # add custom trans here, to address oov
+    )
+    custom_trans = str.maketrans({";": ","})
+
+    def normalize_text(text):
+        # 将阿拉伯数字转换为中文数字
+        text = transform(text, "an2cn")
+        return text
+
     for text in text_list:
         char_list = []
+        # 首先进行文本正规化
+        text = normalize_text(text)
         text = text.translate(god_knows_why_en_testset_contains_zh_quote)
         text = text.translate(custom_trans)
+        
+        # 剩余处理逻辑保持不变
         for seg in jieba.cut(text):
             seg_byte_len = len(bytes(seg, "UTF-8"))
             if seg_byte_len == len(seg):  # if pure alphabets and symbols
@@ -151,7 +162,7 @@ def convert_char_to_pinyin(text_list, polyphone=True):
                     char_list.append(" ")
                 char_list.extend(seg)
             elif polyphone and seg_byte_len == 3 * len(seg):  # if pure chinese characters
-                seg = lazy_pinyin(seg, style=Style.TONE3, tone_sandhi=True)
+                seg = lazy_pinyin(seg, style=Style.TONE3)
                 for c in seg:
                     if c not in "。，、；：？！《》【】—…":
                         char_list.append(" ")
