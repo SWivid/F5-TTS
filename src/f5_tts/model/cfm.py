@@ -15,6 +15,8 @@ from typing import Callable
 import torch
 import torch.nn.functional as F
 from torch import nn
+import torchaudio
+
 from torch.nn.utils.rnn import pad_sequence
 from torchdiffeq import odeint
 
@@ -208,6 +210,34 @@ class CFM(nn.Module):
             out = vocoder(out)
 
         return out, trajectory
+    
+    @staticmethod
+    def compute_contrastive_loss(pred, flow, temperature=0.1):
+        """
+        Compute frame-wise contrastive loss between predicted and target spectrograms
+        pred: [batch_size, time, mel_bins]
+        flow: [batch_size, time, mel_bins] 
+        """
+        batch_size, seq_len = pred.shape[0], pred.shape[1]
+        
+        # Normalize per frame
+        pred = F.normalize(pred, p=2, dim=-1)  # Normalize mel bins dimension
+        flow = F.normalize(flow, p=2, dim=-1)
+        
+        # Compute frame-wise similarities
+        sim = torch.bmm(pred, flow.transpose(-2, -1))  # [batch, time, time]
+        sim = sim / temperature
+        
+        # Labels are diagonal (each frame matches with itself temporally)
+        labels = torch.arange(seq_len, device=sim.device).expand(batch_size, seq_len)
+        
+        # Compute cross entropy loss per batch
+        loss = F.cross_entropy(
+            sim.view(batch_size * seq_len, seq_len),
+            labels.reshape(-1)
+        )
+        
+        return loss
 
     def forward(
         self,
@@ -217,7 +247,7 @@ class CFM(nn.Module):
         lens: int["b"] | None = None,  # noqa: F821
         noise_scheduler: str | None = None,
     ):
-        # handle raw wave
+        # Handle raw wave
         if inp.ndim == 2:
             inp = self.mel_spec(inp)
             inp = inp.permute(0, 2, 1)
@@ -225,7 +255,7 @@ class CFM(nn.Module):
 
         batch, seq_len, dtype, device, _σ1 = *inp.shape[:2], inp.dtype, self.device, self.sigma
 
-        # handle text as string
+        # Handle text as string
         if isinstance(text, list):
             if exists(self.vocab_char_map):
                 text = list_str_to_idx(text, self.vocab_char_map).to(device)
@@ -233,53 +263,78 @@ class CFM(nn.Module):
                 text = list_str_to_tensor(text).to(device)
             assert text.shape[0] == batch
 
-        # lens and mask
+        # Lens and mask
         if not exists(lens):
             lens = torch.full((batch,), seq_len, device=device)
 
-        mask = lens_to_mask(lens, length=seq_len)  # useless here, as collate_fn will pad to max length in batch
+        mask = lens_to_mask(lens, length=seq_len)
 
-        # get a random span to mask out for training conditionally
+        # Get a random span to mask out for training conditionally
         frac_lengths = torch.zeros((batch,), device=self.device).float().uniform_(*self.frac_lengths_mask)
         rand_span_mask = mask_from_frac_lengths(lens, frac_lengths)
 
         if exists(mask):
             rand_span_mask &= mask
 
-        # mel is x1
+        # Identify silence regions in the input spectrogram
+        silence_threshold = -40  # dB threshold for silence detection
+        target_silence_mask = (inp.mean(dim=-1) < silence_threshold).bool()  # Ground truth silence
+        rand_span_mask &= ~target_silence_mask  # Exclude silence from random masking
+
+        # Mel is x1
         x1 = inp
 
-        # x0 is gaussian noise
+        # x0 is Gaussian noise
         x0 = torch.randn_like(x1)
 
-        # time step
+        # Time step
         time = torch.rand((batch,), dtype=dtype, device=self.device)
         # TODO. noise_scheduler
 
-        # sample xt (φ_t(x) in the paper)
+        # Sample xt (φ_t(x) in the paper)
         t = time.unsqueeze(-1).unsqueeze(-1)
         φ = (1 - t) * x0 + t * x1
         flow = x1 - x0
 
-        # only predict what is within the random mask span for infilling
+        # Only predict what is within the random mask span for infilling
         cond = torch.where(rand_span_mask[..., None], torch.zeros_like(x1), x1)
 
-        # transformer and cfg training with a drop rate
-        drop_audio_cond = random() < self.audio_drop_prob  # p_drop in voicebox paper
-        if random() < self.cond_drop_prob:  # p_uncond in voicebox paper
+        # Transformer and classifier-free guidance (CFG) training with a drop rate
+        drop_audio_cond = random() < self.audio_drop_prob
+        if random() < self.cond_drop_prob:
             drop_audio_cond = True
             drop_text = True
         else:
             drop_text = False
 
-        # if want rigourously mask out padding, record in collate_fn in dataset.py, and pass in here
-        # adding mask will use more memory, thus also need to adjust batchsampler with scaled down threshold for long sequences
+        # Transformer predictions
         pred = self.transformer(
             x=φ, cond=cond, text=text, time=time, drop_audio_cond=drop_audio_cond, drop_text=drop_text
         )
 
-        # flow matching loss
-        loss = F.mse_loss(pred, flow, reduction="none")
-        loss = loss[rand_span_mask]
+        # Predicted silence mask (from model predictions)
+        predicted_silence_mask = (pred.mean(dim=-1) < silence_threshold).bool()
 
-        return loss.mean(), cond, pred
+        # Flow matching loss
+        raw_loss = F.mse_loss(pred, flow, reduction="none")
+
+        # Masked loss (excluding silence regions)
+        masked_loss = raw_loss[rand_span_mask]
+
+        # Silence detection
+        silence_threshold = -40
+        target_silence_mask = (inp.mean(dim=-1) < silence_threshold).bool()
+        predicted_silence_mask = (pred.mean(dim=-1) < silence_threshold).bool()
+        silence_penalty = torch.abs(predicted_silence_mask.float() - target_silence_mask.float()).mean()
+        
+        # Spectral loss - comparing mel-spectrograms directly
+        pred_mel = pred.transpose(1, 2)  # [batch, mel_bins, time]
+        flow_mel = flow.transpose(1, 2)
+        spectral_loss = F.mse_loss(pred_mel, flow_mel) * 0.01
+        
+        # Total loss with spectral component
+        total_loss = masked_loss.mean() + 0.1 * silence_penalty + spectral_loss
+        
+        return total_loss, cond, pred
+
+

@@ -90,7 +90,11 @@ def collate_fn(batch):
     # Pad mel spectrograms to the max length
     max_mel_length = max(mel_lengths)
     padded_mels = [F.pad(mel, (0, max_mel_length - mel.shape[1])) for mel in mels]
-    mels_tensor = torch.stack(padded_mels)
+    mels_tensor = torch.stack(padded_mels)  # Shape: [batch_size, n_mels, max_mel_length]
+
+    # Normalize silences and create silence masks
+    silence_threshold = -40  # dB threshold for silence detection
+    silence_masks = [(mel.mean(dim=0) < silence_threshold).bool() for mel in mels_tensor]
 
     # Prepare prosody features
     max_token_len = max_mel_length  # Match with the mel spectrogram length
@@ -122,6 +126,7 @@ def collate_fn(batch):
     batch = {
         'mel': mels_tensor,  # Shape: [batch_size, n_mels, max_mel_length]
         'mel_lengths': torch.tensor(mel_lengths, dtype=torch.long),
+        'silence_masks': torch.stack(silence_masks),  # Shape: [batch_size, max_mel_length]
         'prosody_features': prosody_features_list,
         'text': tokens_tensor,  # Token indices
         'original_text': [item['original_text'] for item in batch],

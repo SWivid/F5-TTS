@@ -29,7 +29,7 @@ class Trainer:
         learning_rate,
         num_warmup_updates=20000,
         cosine_T_0=2000,  # Initial restart interval
-        cosine_T_mult=1,  # Multiplier for increasing restart interval
+        cosine_T_mult=2,  # Multiplier for increasing restart interval
         cosine_eta_min_factor=1e-3,  # Minimum lr factor
         save_per_updates=1000,
         checkpoint_path=None,
@@ -53,6 +53,7 @@ class Trainer:
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
     ):
+        self.learning_rate = learning_rate 
         self.cosine_T_0 = cosine_T_0
         self.cosine_T_mult = cosine_T_mult
         self.cosine_eta_min_factor = cosine_eta_min_factor
@@ -178,7 +179,6 @@ class Trainer:
                 key=lambda x: int("".join(filter(str.isdigit, x))),
             )[-1]
         latest_checkpoint = "model_last.pt"
-        print(latest_checkpoint)
         #checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
         #checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
         checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
@@ -192,16 +192,12 @@ class Trainer:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
         if "step" in checkpoint:
-            # patch for backward compatibility, 305e3ea
-            for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
-                if key in checkpoint["model_state_dict"]:
-                    del checkpoint["model_state_dict"][key]
-
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
             self.accelerator.unwrap_model(self.optimizer).load_state_dict(checkpoint["optimizer_state_dict"])
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             step = checkpoint["step"]
+            # Load scheduler params
             self.cosine_T_0 = checkpoint.get('cosine_T_0', 5000)
             self.cosine_T_mult = checkpoint.get('cosine_T_mult', 2)
             self.cosine_eta_min_factor = checkpoint.get('cosine_eta_min_factor', 1e-2)
@@ -214,7 +210,7 @@ class Trainer:
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
             step = 0
 
-        #step = 0
+        step = 0
         del checkpoint
         gc.collect()
         return step
@@ -272,14 +268,15 @@ class Trainer:
         
         self.scheduler = CosineAnnealingWarmRestarts(
             self.optimizer,
-            T_0=2500,  
-            T_mult=2,
-            eta_min=0.1  # Explicit minimum learning rate
+            T_0=500,  # Shorter initial cycle
+            T_mult=1,   # Keep cycle length constant - change from 1.5 to 1
+            eta_min=self.learning_rate * 5e-2  # Higher min learning rate
         )
-
+        
+        # Prepare the scheduler
         train_dataloader, self.scheduler = self.accelerator.prepare(
             train_dataloader, self.scheduler
-        )  # actual steps = 1 gpu steps / gpus
+        )
         start_step = self.load_checkpoint()
         global_step = start_step
 
@@ -324,9 +321,22 @@ class Trainer:
                     loss, cond, pred = self.model(
                         mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
                     )
-                    self.accelerator.backward(loss)
+                    
+                    # Add silence-related penalties
+                    silence_threshold = -40  # Adjust based on your dataset
+                    target_silence_mask = torch.mean(mel_spec, dim=-1) < silence_threshold
+                    predicted_silence_mask = torch.mean(pred, dim=-1) < silence_threshold
+
+                    silence_penalty = torch.abs(predicted_silence_mask.float() - target_silence_mask.float()).mean()
+                    total_loss = loss + silence_penalty
+                    
+                    # Backpropagation
+                    self.accelerator.backward(total_loss)
 
                     if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
+                        for param in self.model.parameters():
+                            if param.grad is not None:
+                                param.grad = centralize_gradient(param.grad)
                         self.accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
                     self.optimizer.step()
