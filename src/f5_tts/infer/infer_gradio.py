@@ -13,6 +13,7 @@ import soundfile as sf
 import torchaudio
 from cached_path import cached_path
 from transformers import AutoModelForCausalLM, AutoTokenizer
+import json
 
 try:
     import spaces
@@ -38,11 +39,11 @@ from f5_tts.infer.utils_infer import (
     remove_silence_for_generated_wav,
     save_spectrogram,
 )
+from f5_tts.infer.speech_edit import edit_infer
 
 
 DEFAULT_TTS_MODEL = "F5-TTS"
 tts_model_choice = DEFAULT_TTS_MODEL
-
 
 # load models
 
@@ -152,6 +153,57 @@ def infer(
     return (final_sample_rate, final_wave), spectrogram_path, ref_text
 
 
+@gpu_decorator
+def infer_edit(
+    ref_audio_orig, ref_text, gen_text, model, remove_silence, parts_to_edit, fix_duration = None, show_info=gr.Info
+):
+    parts_to_edit = json.loads(parts_to_edit)
+    if fix_duration != "":
+        fix_duration = json.loads(fix_duration)
+    else:
+        fix_duration = None
+    ref_audio = ref_audio_orig
+
+    if model == "F5-TTS":
+        ema_model = F5TTS_ema_model
+    elif model == "E2-TTS":
+        global E2TTS_ema_model
+        if E2TTS_ema_model is None:
+            show_info("Loading E2-TTS model...")
+            E2TTS_ema_model = load_e2tts()
+        ema_model = E2TTS_ema_model
+    elif isinstance(model, list) and model[0] == "Custom":
+        assert not USING_SPACES, "Only official checkpoints allowed in Spaces."
+        global custom_ema_model, pre_custom_path
+        if pre_custom_path != model[1]:
+            show_info("Loading Custom TTS model...")
+            custom_ema_model = load_custom(model[1], vocab_path=model[2])
+            pre_custom_path = model[1]
+        ema_model = custom_ema_model
+    final_wave, final_sample_rate, combined_spectrogram = edit_infer(
+        ref_audio,
+        gen_text,
+        parts_to_edit,
+        fix_duration,
+        ema_model,
+        vocoder
+    )
+
+    # Remove silence
+    if remove_silence:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+            sf.write(f.name, final_wave, final_sample_rate)
+            remove_silence_for_generated_wav(f.name)
+            final_wave, _ = torchaudio.load(f.name)
+        final_wave = final_wave.squeeze().cpu().numpy()
+
+    # Save the spectrogram
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_spectrogram:
+        spectrogram_path = tmp_spectrogram.name
+        save_spectrogram(combined_spectrogram, spectrogram_path)
+
+    return (final_sample_rate, final_wave), spectrogram_path
+
 with gr.Blocks() as app_credits:
     gr.Markdown("""
 # Credits
@@ -229,6 +281,46 @@ with gr.Blocks() as app_tts:
         outputs=[audio_output, spectrogram_output, ref_text_input],
     )
 
+with gr.Blocks() as app_edit:
+    gr.Markdown("# Editable Audio")
+    ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
+    gen_text_input = gr.Textbox(label="Text to Generate", lines=5)
+    editable_time_line = gr.Textbox(label="Editable Time Line[[], []]", lines=2)
+    fix_duration = gr.Textbox(label="Fix Duration", lines=2)
+    generate_btn = gr.Button("Synthesize", variant="primary")
+
+    audio_output = gr.Audio(label="Synthesized Audio")
+    spectrogram_output = gr.Image(label="Spectrogram")
+
+    @gpu_decorator
+    def basic_edit(
+        ref_audio_input,
+        gen_text_input,
+        editable_time_line,
+        fix_duration,
+    ):
+        audio_out, spectrogram_path = infer_edit(
+            ref_audio_input,
+            "",
+            gen_text_input,
+            tts_model_choice,
+            False,
+            editable_time_line,
+            fix_duration,
+        )
+        return audio_out, spectrogram_path
+
+
+    generate_btn.click(
+        basic_edit,
+        inputs=[
+            ref_audio_input,
+            gen_text_input,
+            editable_time_line,
+            fix_duration,
+        ],
+        outputs=[audio_output, spectrogram_output],
+    )
 
 def parse_speechtypes_text(gen_text):
     # Pattern to find {speechtype}
@@ -815,8 +907,8 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     )
 
     gr.TabbedInterface(
-        [app_tts, app_multistyle, app_chat, app_credits],
-        ["Basic-TTS", "Multi-Speech", "Voice-Chat", "Credits"],
+        [app_tts, app_edit, app_multistyle, app_chat, app_credits],
+        ["Basic-TTS", "Edite-TTS", "Multi-Speech", "Voice-Chat", "Credits"],
     )
 
 
