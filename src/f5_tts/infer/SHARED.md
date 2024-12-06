@@ -17,10 +17,10 @@
 ### Supported Languages
 - [Multilingual](#multilingual)
     - [F5-TTS Base @ pretrain @ zh \& en](#f5-tts-base--pretrain--zh--en)
-- [Mandarin](#mandarin)
+- [Hindi](#hindi)
+    - [F5-TTS Small @ pretrain @ hi](#f5-tts-small--pretrain--hi)
 - [Japanese](#japanese)
     - [F5-TTS Base @ pretrain/finetune @ ja](#f5-tts-base--pretrainfinetune--ja)
-- [English](#english)
 - [French](#french)
     - [French LibriVox @ finetune @ fr](#french-librivox--finetune--fr)
 
@@ -40,7 +40,21 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 *Other infos, e.g. Author info, Github repo, Link to some sampled results, Usage instruction, Tutorial (Blog, Video, etc.) ...*
 
 
-## Mandarin
+## Hindi
+
+#### F5-TTS Small @ pretrain @ hi
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Small|[ckpt & vocab](https://huggingface.co/SPRINGLab/F5-Hindi-24KHz)|[IndicTTS Hi](https://huggingface.co/datasets/SPRINGLab/IndicTTS-Hindi) & [IndicVoices-R Hi](https://huggingface.co/datasets/SPRINGLab/IndicVoices-R_Hindi) |cc-by-4.0|
+
+```bash
+MODEL_CKPT: hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors
+VOCAB_FILE: hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt
+```
+
+Authors: SPRING Lab, Indian Institute of Technology, Madras
+<br>
+Website: https://asr.iitm.ac.in/    
 
 ## Japanese
 
@@ -53,9 +67,6 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 MODEL_CKPT: hf://Jmica/F5TTS/JA_8500000/model_8499660.pt
 VOCAB_FILE: hf://Jmica/F5TTS/JA_8500000/vocab_updated.txt
 ```
-
-## English
-
 
 ## French
 
