@@ -72,7 +72,7 @@ def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
 F5TTS_ema_model = load_f5tts()
 E2TTS_ema_model = load_e2tts() if USING_SPACES else None
 custom_ema_model, pre_custom_path = None, ""
-custom_model_type = "F5_TTS_Base" # "F5_TTS_Base" | "F5_TTS_Small"
+custom_model_type = "F5_TTS_Base"  # "F5_TTS_Base" | "F5_TTS_Small"
 
 chat_model_state = None
 chat_tokenizer_state = None
@@ -121,7 +121,7 @@ def infer(
         if pre_custom_path != model[1]:
             show_info("Loading Custom TTS model...")
             
-            #default model config to F5-TTS_Base
+            # default model config to F5-TTS_Base
             model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
             if model[3] == "F5_TTS_Small":
                 # if small is selected, use config for small F5-TTS model
@@ -773,7 +773,11 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
         if new_choice == "Custom":  # override in case webpage is refreshed
             custom_ckpt_path, custom_vocab_path, custom_model_type = load_last_used_custom()
             tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, custom_model_type]
-            return gr.update(visible=True, value=custom_ckpt_path), gr.update(visible=True, value=custom_vocab_path), gr.update(visible=True, value=custom_model_type)
+            return (
+                gr.update(visible=True, value=custom_ckpt_path),
+                gr.update(visible=True, value=custom_vocab_path),
+                gr.update(visible=True, value=custom_model_type),
+            )
         else:
             tts_model_choice = new_choice
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
