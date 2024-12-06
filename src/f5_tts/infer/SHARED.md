@@ -72,3 +72,17 @@ VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 - [Online Inference with Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
 - [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys).
 - [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434).
+
+## English
+
+
+## Finnish
+
+#### Finnish Common_Voice Vox_Populi @ finetune @ fi
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Finnish|[ckpt & vocab](https://huggingface.co/AsmoKoskinen/F5-TTS_Finnish_Model)|[Common Voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0)|[Vox Populi](https://huggingface.co/datasets/facebook/voxpopuli)|cc-by-nc-4.0|
+
+```bash
+MODEL_CKPT: hf://AsmoKoskinen/F5-TTS_Finish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors
+VOCAB_FILE: hf://AsmoKoskinen/F5-TTS_Finish_Model/vocab.txt
