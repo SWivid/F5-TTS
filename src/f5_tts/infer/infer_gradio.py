@@ -53,7 +53,6 @@ def load_f5tts(ckpt_path=str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_12
     F5TTS_model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
     return load_model(DiT, F5TTS_model_cfg, ckpt_path)
 
-
 def load_e2tts(ckpt_path=str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))):
     E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
     return load_model(UNetT, E2TTS_model_cfg, ckpt_path)
@@ -73,6 +72,7 @@ def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
 F5TTS_ema_model = load_f5tts()
 E2TTS_ema_model = load_e2tts() if USING_SPACES else None
 custom_ema_model, pre_custom_path = None, ""
+custom_model_type = "F5_TTS_Base" # "F5_TTS_Base" | "F5_TTS_Small"
 
 chat_model_state = None
 chat_tokenizer_state = None
@@ -120,7 +120,13 @@ def infer(
         global custom_ema_model, pre_custom_path
         if pre_custom_path != model[1]:
             show_info("Loading Custom TTS model...")
-            custom_ema_model = load_custom(model[1], vocab_path=model[2])
+            
+            #default model config to F5-TTS_Base
+            model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+            if model[3] == "F5_TTS_Small":
+                # if small is selected, use config for small F5-TTS model
+                model_cfg = dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)
+            custom_ema_model = load_custom(model[1], vocab_path=model[2], model_cfg=model_cfg)
             pre_custom_path = model[1]
         ema_model = custom_ema_model
 
@@ -749,29 +755,34 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     def load_last_used_custom():
         try:
             with open(last_used_custom, "r") as f:
-                return f.read().split(",")
+                # in case last_used_custom was saved before this change, the 3rd value is missing, thus we have to add it
+                values = f.read().split(",")
+                if len(values) == 2:
+                    values.append("F5_TTS_Base")
+                return values
         except FileNotFoundError:
             last_used_custom.parent.mkdir(parents=True, exist_ok=True)
             return [
                 "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
                 "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
+                "F5_TTS_Base",
             ]
 
     def switch_tts_model(new_choice):
         global tts_model_choice
         if new_choice == "Custom":  # override in case webpage is refreshed
-            custom_ckpt_path, custom_vocab_path = load_last_used_custom()
-            tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
-            return gr.update(visible=True, value=custom_ckpt_path), gr.update(visible=True, value=custom_vocab_path)
+            custom_ckpt_path, custom_vocab_path, custom_model_type = load_last_used_custom()
+            tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, custom_model_type]
+            return gr.update(visible=True, value=custom_ckpt_path), gr.update(visible=True, value=custom_vocab_path), gr.update(visible=True, value=custom_model_type)
         else:
             tts_model_choice = new_choice
-            return gr.update(visible=False), gr.update(visible=False)
+            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
 
-    def set_custom_model(custom_ckpt_path, custom_vocab_path):
+    def set_custom_model(custom_ckpt_path, custom_vocab_path, custom_model_type="F5_TTS_Base"):
         global tts_model_choice
-        tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
+        tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, custom_model_type]
         with open(last_used_custom, "w") as f:
-            f.write(f"{custom_ckpt_path},{custom_vocab_path}")
+            f.write(f"{custom_ckpt_path},{custom_vocab_path},{custom_model_type}")
 
     with gr.Row():
         if not USING_SPACES:
@@ -796,21 +807,33 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             label="VOCAB FILE: local_path | hf://user_id/repo_id/vocab_file",
             visible=False,
         )
+        custom_model_type = gr.Dropdown(
+            choices=["F5_TTS_Base", "F5_TTS_Small"],
+            value=load_last_used_custom()[2],
+            allow_custom_value=False,
+            label="Model type: F5_TTS_Base | F5_TTS_Small",
+            visible=False,
+        )
 
     choose_tts_model.change(
         switch_tts_model,
         inputs=[choose_tts_model],
-        outputs=[custom_ckpt_path, custom_vocab_path],
+        outputs=[custom_ckpt_path, custom_vocab_path, custom_model_type],
         show_progress="hidden",
     )
     custom_ckpt_path.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path],
+        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_type],
         show_progress="hidden",
     )
     custom_vocab_path.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path],
+        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_type],
+        show_progress="hidden",
+    )
+    custom_model_type.change(
+        set_custom_model,
+        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_type],
         show_progress="hidden",
     )
 
