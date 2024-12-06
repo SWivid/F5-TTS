@@ -23,7 +23,8 @@
 - [English](#english)
 - [French](#french)
     - [French LibriVox @ finetune @ fr](#french-librivox--finetune--fr)
-
+- [Finnish](#finnish)
+    - [Finnish Common Voice Vox Populi @ finetune @ fi](#finnish-common-voice-vox-populi--finetune--fi)
 
 ## Multilingual
 
@@ -38,7 +39,6 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 ```
 
 *Other infos, e.g. Author info, Github repo, Link to some sampled results, Usage instruction, Tutorial (Blog, Video, etc.) ...*
-
 
 ## Mandarin
 
@@ -55,7 +55,6 @@ VOCAB_FILE: hf://Jmica/F5TTS/JA_8500000/vocab_updated.txt
 ```
 
 ## English
-
 
 ## French
 
@@ -75,14 +74,14 @@ VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 
 ## English
 
-
 ## Finnish
 
 #### Finnish Common_Voice Vox_Populi @ finetune @ fi
-|Model|🤗Hugging Face|Data (Hours)|Model License|
+|Model|🤗Hugging Face|Data|Model License|
 |:---:|:------------:|:-----------:|:-------------:|
-|F5-TTS Finnish|[ckpt & vocab](https://huggingface.co/AsmoKoskinen/F5-TTS_Finnish_Model)|[Common Voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0)|[Vox Populi](https://huggingface.co/datasets/facebook/voxpopuli)|cc-by-nc-4.0|
+|F5-TTS Finnish|[ckpt & vocab](https://huggingface.co/AsmoKoskinen/F5-TTS_Finnish_Model)|[Common Voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0)[Vox Populi](https://huggingface.co/datasets/facebook/voxpopuli)|cc-by-nc-4.0|
 
 ```bash
 MODEL_CKPT: hf://AsmoKoskinen/F5-TTS_Finish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors
 VOCAB_FILE: hf://AsmoKoskinen/F5-TTS_Finish_Model/vocab.txt
+```
