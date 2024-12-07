@@ -41,6 +41,9 @@ accelerate config
 
 # .yaml files are under src/f5_tts/configs directory
 accelerate launch src/f5_tts/train/train.py --config-name F5TTS_Base_train.yaml
+
+# possible to overwrite accelerate and hydra config
+accelerate launch --mixed_precision=fp16 src/f5_tts/train/train.py --config-name F5TTS_Small_train.yaml ++datasets.batch_size_per_gpu=19200
 ```
 
 ### 2. Finetuning practice
