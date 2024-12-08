@@ -111,6 +111,7 @@ if gen_file:
     gen_text = codecs.open(gen_file, "r", "utf-8").read()
 output_dir = args.output_dir if args.output_dir else config["output_dir"]
 output_file = args.output_file if args.output_file else config["output_file"]
+#output_file = args.output_file if args.output_file else "output.wav"
 model = args.model if args.model else config["model"]
 ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
@@ -207,9 +208,11 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
     if generated_audio_segments:
         final_wave = np.concatenate(generated_audio_segments)
 
+        # Save final concatenated audio
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        # Save entire wave file
         with open(wave_path, "wb") as f:
             sf.write(f.name, final_wave, final_sample_rate)
             # Remove silence
@@ -217,6 +220,16 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
                 remove_silence_for_generated_wav(f.name)
             print(f.name)
 
+        # Ensure the gen_text chunk directory exists
+        gen_text_chunk_dir = os.path.join(output_dir,chunk_dir)
+        if not os.path.exists(gen_text_chunk_dir): #if Not create directory
+            os.makedirs(gen_text_chunk_dir)
+
+        # Save individual chunks as separate files
+        for idx, segment in enumerate(generated_audio_segments):
+            gen_text_chunk_path = os.path.join(output_dir ,gen_text_chunk_dir, f"chunk_{idx}.wav")
+            sf.write(gen_text_chunk_path, segment, final_sample_rate)
+            print(f"Saved gen_text chunk {idx} at {gen_text_chunk_path}")
 
 def main():
     main_process(ref_audio, ref_text, gen_text, ema_model, mel_spec_type, remove_silence, speed)
