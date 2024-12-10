@@ -1,3 +1,5 @@
+import argparse
+import os
 import socket
 import struct
 import torch
@@ -9,18 +11,39 @@ import gc
 import traceback
 
 
-from infer.utils_infer import infer_batch_process, preprocess_ref_audio_text, load_vocoder, load_model
+from infer.utils_infer import (
+    infer_batch_process,
+    preprocess_ref_audio_text,
+    load_vocoder,
+    load_model,
+)
 from model.backbones.dit import DiT
+
+parser = argparse.ArgumentParser()
 
 
 class TTSStreamingProcessor:
-    def __init__(self, ckpt_file, vocab_file, ref_audio, ref_text, device=None, dtype=torch.float32):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(
+        self,
+        ckpt_file,
+        vocab_file,
+        ref_audio,
+        ref_text,
+        device=None,
+        dtype=torch.float32,
+    ):
+        self.device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available() else "cpu"
+        )
 
         # Load the model using the provided checkpoint and vocab files
         self.model = load_model(
             model_cls=DiT,
-            model_cfg=dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4),
+            model_cfg=dict(
+                dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4
+            ),
             ckpt_path=ckpt_file,
             mel_spec_type="vocos",  # or "bigvgan" depending on vocoder
             vocab_file=vocab_file,
@@ -50,7 +73,14 @@ class TTSStreamingProcessor:
         gen_text = "Warm-up text for the model."
 
         # Pass the vocoder as an argument here
-        infer_batch_process((audio, sr), ref_text, [gen_text], self.model, self.vocoder, device=self.device)
+        infer_batch_process(
+            (audio, sr),
+            ref_text,
+            [gen_text],
+            self.model,
+            self.vocoder,
+            device=self.device,
+        )
         print("Warm-up completed.")
 
     def generate_stream(self, text, play_steps_in_s=0.5):
@@ -137,19 +167,45 @@ def start_server(host, port, processor):
 
 
 if __name__ == "__main__":
-    try:
-        # Load the model and vocoder using the provided files
-        ckpt_file = ""  # pointing your checkpoint "ckpts/model/model_1096.pt"
-        vocab_file = ""  # Add vocab file path if needed
-        ref_audio = ""  # add ref audio"./tests/ref_audio/reference.wav"
-        ref_text = ""
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "--checkpoint",
+        dest="ckpt_file",
+        help="Checkpoint file to load",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--vocab",
+        dest="vocab_file",
+        help="Vocab file to load",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--ref-audio",
+        dest="ref_audio",
+        help="Ref audio file to load",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--ref-text",
+        dest="ref_text",
+        help="Reference text for the provided reference audio",
+        required=True,
+    )
+
+    args = parser.parse_args()
+
+    try:
         # Initialize the processor with the model and vocoder
         processor = TTSStreamingProcessor(
-            ckpt_file=ckpt_file,
-            vocab_file=vocab_file,
-            ref_audio=ref_audio,
-            ref_text=ref_text,
+            ckpt_file=args.ckpt_file,
+            vocab_file=args.vocab_file,
+            ref_audio=args.ref_audio,
+            ref_text=args.ref_text,
             dtype=torch.float32,
         )
 
