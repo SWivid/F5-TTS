@@ -22,6 +22,8 @@
     - [Finnish Common\_Voice Vox\_Populi @ finetune @ fi](#finnish-common_voice-vox_populi--finetune--fi)
 - [French](#french)
     - [French LibriVox @ finetune @ fr](#french-librivox--finetune--fr)
+- [Italian](#italian)
+    - [F5-TTS Italian @ finetune @ it](#f5-tts-italian--finetune--it)
 - [Japanese](#japanese)
     - [F5-TTS Japanese @ pretrain/finetune @ ja](#f5-tts-japanese--pretrainfinetune--ja)
 - [Mandarin](#mandarin)
@@ -76,6 +78,22 @@ VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 - [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys).
 - [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434).
 
+
+## Italian
+
+#### F5-TTS Italian @ finetune @ it
+|Model|🤗Hugging Face|Data|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Italian|[ckpt & vocab](https://huggingface.co/alien79/F5-TTS-italian)|[ylacombe/cml-tts](https://huggingface.co/datasets/ylacombe/cml-tts) |cc-by-nc-4.0|
+
+```bash
+MODEL_CKPT: hf://alien79/F5-TTS-italian/model_159600.safetensors
+VOCAB_FILE: hf://alien79/F5-TTS-italian/vocab.txt
+```
+
+- Trained by [Mithril Man](https://github.com/MithrilMan)
+- Model details on [hf project home](https://huggingface.co/alien79/F5-TTS-italian)
+- Open to collaborations to further improve the model
 
 ## Japanese
 
