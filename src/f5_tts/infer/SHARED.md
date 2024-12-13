@@ -95,6 +95,7 @@ VOCAB_FILE: hf://alien79/F5-TTS-italian/vocab.txt
 - Model details on [hf project home](https://huggingface.co/alien79/F5-TTS-italian)
 - Open to collaborations to further improve the model
 
+
 ## Japanese
 
 #### F5-TTS Japanese @ pretrain/finetune @ ja
