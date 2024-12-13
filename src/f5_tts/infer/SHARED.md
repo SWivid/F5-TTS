@@ -57,8 +57,8 @@ VOCAB_FILE: hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt
 |F5-TTS Finnish|[ckpt & vocab](https://huggingface.co/AsmoKoskinen/F5-TTS_Finnish_Model)|[Common Voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0), [Vox Populi](https://huggingface.co/datasets/facebook/voxpopuli)|cc-by-nc-4.0|
 
 ```bash
-MODEL_CKPT: hf://AsmoKoskinen/F5-TTS_Finish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors
-VOCAB_FILE: hf://AsmoKoskinen/F5-TTS_Finish_Model/vocab.txt
+MODEL_CKPT: hf://AsmoKoskinen/F5-TTS_Finnish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors
+VOCAB_FILE: hf://AsmoKoskinen/F5-TTS_Finnish_Model/vocab.txt
 ```
 
 
