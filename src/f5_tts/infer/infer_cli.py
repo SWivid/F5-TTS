@@ -72,6 +72,11 @@ parser.add_argument(
     help="Filename of output file..",
 )
 parser.add_argument(
+    "--save_chunk",
+    action="store_true",
+    help="Save chunk audio if your text is too long.",
+)
+parser.add_argument(
     "--remove_silence",
     help="Remove silence.",
 )
@@ -87,6 +92,12 @@ parser.add_argument(
     default=1.0,
     help="Adjust the speed of the audio generation (default: 1.0)",
 )
+parser.add_argument(
+    "--nfe_step",
+    type=int,
+    default=32,
+    help="Set the number of denoising steps (default: 32)",
+)
 args = parser.parse_args()
 
 config = tomli.load(open(args.config, "rb"))
@@ -95,6 +106,7 @@ ref_audio = args.ref_audio if args.ref_audio else config["ref_audio"]
 ref_text = args.ref_text if args.ref_text != "666" else config["ref_text"]
 gen_text = args.gen_text if args.gen_text else config["gen_text"]
 gen_file = args.gen_file if args.gen_file else config["gen_file"]
+save_chunk = args.save_chunk if args.save_chunk else False
 
 # patches for pip pkg user
 if "infer/examples/" in ref_audio:
@@ -116,6 +128,7 @@ ckpt_file = args.ckpt_file if args.ckpt_file else ""
 vocab_file = args.vocab_file if args.vocab_file else ""
 remove_silence = args.remove_silence if args.remove_silence else config["remove_silence"]
 speed = args.speed
+nfe_step = args.nfe_step
 
 wave_path = Path(output_dir) / output_file
 # spectrogram_path = Path(output_dir) / "infer_cli_out.png"
@@ -200,7 +213,14 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
         ref_text = voices[voice]["ref_text"]
         print(f"Voice: {voice}")
         audio, final_sample_rate, spectragram = infer_process(
-            ref_audio, ref_text, gen_text, model_obj, vocoder, mel_spec_type=mel_spec_type, speed=speed
+            ref_audio,
+            ref_text,
+            gen_text,
+            model_obj,
+            vocoder,
+            mel_spec_type=mel_spec_type,
+            speed=speed,
+            nfe_step=nfe_step,
         )
         generated_audio_segments.append(audio)
 
@@ -216,6 +236,18 @@ def main_process(ref_audio, ref_text, text_gen, model_obj, mel_spec_type, remove
             if remove_silence:
                 remove_silence_for_generated_wav(f.name)
             print(f.name)
+            # Ensure the gen_text chunk directory exists
+
+            if save_chunk:
+                gen_text_chunk_dir = os.path.join(output_dir, "chunks")
+                if not os.path.exists(gen_text_chunk_dir):  # if Not create directory
+                    os.makedirs(gen_text_chunk_dir)
+
+                # Save individual chunks as separate files
+                for idx, segment in enumerate(generated_audio_segments):
+                    gen_text_chunk_path = os.path.join(output_dir, gen_text_chunk_dir, f"chunk_{idx}.wav")
+                    sf.write(gen_text_chunk_path, segment, final_sample_rate)
+                    print(f"Saved gen_text chunk {idx} at {gen_text_chunk_path}")
 
 
 def main():
