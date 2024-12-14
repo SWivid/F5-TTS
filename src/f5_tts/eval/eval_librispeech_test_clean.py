@@ -10,7 +10,7 @@ import multiprocessing as mp
 from importlib.resources import files
 
 import numpy as np
-
+import json
 from f5_tts.eval.utils_eval import (
     get_librispeech_test,
     run_asr_wer,
@@ -56,11 +56,18 @@ def main():
     # --------------------------- WER ---------------------------
     if eval_task == "wer":
         wers = []
+        wer_results = []
         with mp.Pool(processes=len(gpus)) as pool:
             args = [(rank, lang, sub_test_set, asr_ckpt_dir) for (rank, sub_test_set) in test_set]
             results = pool.map(run_asr_wer, args)
             for wers_ in results:
                 wers.extend(wers_)
+
+        with open(f"{gen_wav_dir}/{lang}_wer_results.jsonl", "w") as f:
+            for line in wers:
+                wer_results.append(line["wer"])
+                json_line = json.dumps(line, ensure_ascii=False)
+                f.write(json_line + "\n")
 
         wer = round(np.mean(wers) * 100, 3)
         print(f"\nTotal {len(wers)} samples")
