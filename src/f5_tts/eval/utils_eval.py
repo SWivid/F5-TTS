@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 from tqdm import tqdm
-
+from pathlib import Path
 from f5_tts.eval.ecapa_tdnn import ECAPA_TDNN_SMALL
 from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import convert_char_to_pinyin
@@ -360,7 +360,14 @@ def run_asr_wer(args):
         # dele = measures["deletions"] / len(ref_list)
         # inse = measures["insertions"] / len(ref_list)
 
-        wers.append(wer)
+        wers.append(
+            {
+                "wav": Path(gen_wav).stem,  # wav name
+                "truth": truth,  # raw_truth
+                "hypo": hypo,  # raw_hypo
+                "wer": wer,  # wer score
+            }
+        )
 
     return wers
 
