@@ -22,12 +22,12 @@
     - [Finnish Common\_Voice Vox\_Populi @ finetune @ fi](#finnish-common_voice-vox_populi--finetune--fi)
 - [French](#french)
     - [French LibriVox @ finetune @ fr](#french-librivox--finetune--fr)
+- [Hindi](#hindi)
+    - [F5-TTS Small @ pretrain @ hi](#f5-tts-small--pretrain--hi)
 - [Italian](#italian)
     - [F5-TTS Italian @ finetune @ it](#f5-tts-italian--finetune--it)
 - [Japanese](#japanese)
     - [F5-TTS Japanese @ pretrain/finetune @ ja](#f5-tts-japanese--pretrainfinetune--ja)
-- [Hindi](#hindi)
-    - [F5-TTS Small @ pretrain @ hi](#f5-tts-small--pretrain--hi)
 - [Mandarin](#mandarin)
 - [Spanish](#spanish)
     - [F5-TTS Spanish @ pretrain/finetune @ es](#f5-tts-spanish--pretrainfinetune--es)
@@ -81,6 +81,23 @@ VOCAB_FILE: hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt
 - [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434).
 
 
+## Hindi
+
+#### F5-TTS Small @ pretrain @ hi
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Small|[ckpt & vocab](https://huggingface.co/SPRINGLab/F5-Hindi-24KHz)|[IndicTTS Hi](https://huggingface.co/datasets/SPRINGLab/IndicTTS-Hindi) & [IndicVoices-R Hi](https://huggingface.co/datasets/SPRINGLab/IndicVoices-R_Hindi) |cc-by-4.0|
+
+```bash
+MODEL_CKPT: hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors
+VOCAB_FILE: hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt
+```
+
+Authors: SPRING Lab, Indian Institute of Technology, Madras
+<br>
+Website: https://asr.iitm.ac.in/
+
+
 ## Italian
 
 #### F5-TTS Italian @ finetune @ it
@@ -110,21 +127,6 @@ MODEL_CKPT: hf://Jmica/F5TTS/JA_8500000/model_8499660.pt
 VOCAB_FILE: hf://Jmica/F5TTS/JA_8500000/vocab_updated.txt
 ```
 
-## Hindi
-
-#### F5-TTS Small @ pretrain @ hi
-|Model|🤗Hugging Face|Data (Hours)|Model License|
-|:---:|:------------:|:-----------:|:-------------:|
-|F5-TTS Small|[ckpt & vocab](https://huggingface.co/SPRINGLab/F5-Hindi-24KHz)|[IndicTTS Hi](https://huggingface.co/datasets/SPRINGLab/IndicTTS-Hindi) & [IndicVoices-R Hi](https://huggingface.co/datasets/SPRINGLab/IndicVoices-R_Hindi) |cc-by-4.0|
-
-```bash
-MODEL_CKPT: hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors
-VOCAB_FILE: hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt
-```
-
-Authors: SPRING Lab, Indian Institute of Technology, Madras
-<br>
-Website: https://asr.iitm.ac.in/   
 
 ## Mandarin
 

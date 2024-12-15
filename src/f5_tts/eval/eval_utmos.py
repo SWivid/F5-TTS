@@ -1,46 +1,43 @@
-import torch
-import librosa
-from pathlib import Path
-import json
-from tqdm import tqdm
 import argparse
+import json
+from pathlib import Path
+
+import librosa
+import torch
+from tqdm import tqdm
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate UTMOS scores for audio files.")
-    parser.add_argument(
-        "--audio_dir", type=str, required=True, help="Path to the directory containing WAV audio files."
-    )
-    parser.add_argument("--ext", type=str, default="wav", help="audio extension.")
-    parser.add_argument("--device", type=str, default="cuda", help="Device to run inference on (e.g. 'cuda' or 'cpu').")
-
+    parser = argparse.ArgumentParser(description="UTMOS Evaluation")
+    parser.add_argument("--audio_dir", type=str, required=True, help="Audio file path.")
+    parser.add_argument("--ext", type=str, default="wav", help="Audio extension.")
     args = parser.parse_args()
 
-    device = "cuda" if args.device and torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     predictor = torch.hub.load("tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True)
     predictor = predictor.to(device)
 
-    lines = list(Path(args.audio_dir).rglob(f"*.{args.ext}"))
-    results = {}
-    utmos_result = 0
+    audio_paths = list(Path(args.audio_dir).rglob(f"*.{args.ext}"))
+    utmos_results = {}
+    utmos_score = 0
 
-    for line in tqdm(lines, desc="Processing"):
-        wave_name = line.stem
-        wave, sr = librosa.load(line, sr=None, mono=True)
-        wave_tensor = torch.from_numpy(wave).to(device).unsqueeze(0)
-        score = predictor(wave_tensor, sr)
-        results[str(wave_name)] = score.item()
-        utmos_result += score.item()
+    for audio_path in tqdm(audio_paths, desc="Processing"):
+        wav_name = audio_path.stem
+        wav, sr = librosa.load(audio_path, sr=None, mono=True)
+        wav_tensor = torch.from_numpy(wav).to(device).unsqueeze(0)
+        score = predictor(wav_tensor, sr)
+        utmos_results[str(wav_name)] = score.item()
+        utmos_score += score.item()
 
-    avg_score = utmos_result / len(lines) if len(lines) > 0 else 0
+    avg_score = utmos_score / len(audio_paths) if len(audio_paths) > 0 else 0
     print(f"UTMOS: {avg_score}")
 
-    output_path = Path(args.audio_dir) / "utmos_results.json"
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=4)
+    utmos_result_path = Path(args.audio_dir) / "utmos_results.json"
+    with open(utmos_result_path, "w", encoding="utf-8") as f:
+        json.dump(utmos_results, f, ensure_ascii=False, indent=4)
 
-    print(f"Results have been saved to {output_path}")
+    print(f"Results have been saved to {utmos_result_path}")
 
 
 if __name__ == "__main__":
