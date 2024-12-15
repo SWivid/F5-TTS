@@ -315,7 +315,7 @@ class Trainer:
                     self.scheduler.step()
                     self.optimizer.zero_grad()
 
-                if self.is_main:
+                if self.is_main and self.accelerator.sync_gradients:
                     self.ema_model.update()
 
                 global_step += 1
