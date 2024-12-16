@@ -105,6 +105,7 @@ class DiT(nn.Module):
         text_dim=None,
         conv_layers=0,
         long_skip_connection=False,
+        checkpoint_activations=False,
     ):
         super().__init__()
 
@@ -126,6 +127,16 @@ class DiT(nn.Module):
 
         self.norm_out = AdaLayerNormZero_Final(dim)  # final modulation
         self.proj_out = nn.Linear(dim, mel_dim)
+
+        self.checkpoint_activations = checkpoint_activations
+
+    def ckpt_wrapper(self, module):
+        # https://github.com/chuanyangjin/fast-DiT/blob/main/models.py
+        def ckpt_forward(*inputs):
+            outputs = module(*inputs)
+            return outputs
+
+        return ckpt_forward
 
     def forward(
         self,
@@ -152,7 +163,10 @@ class DiT(nn.Module):
             residual = x
 
         for block in self.transformer_blocks:
-            x = block(x, t, mask=mask, rope=rope)
+            if self.checkpoint_activations:
+                x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, t, mask, rope)
+            else:
+                x = block(x, t, mask=mask, rope=rope)
 
         if self.long_skip_connection is not None:
             x = self.long_skip_connection(torch.cat((x, residual), dim=-1))
