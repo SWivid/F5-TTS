@@ -776,7 +776,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     def load_last_used_custom():
         try:
             custom = []
-            with open(last_used_custom, "r", encoding='utf-8') as f:
+            with open(last_used_custom, "r", encoding="utf-8") as f:
                 for line in f:
                     custom.append(line.strip())
             return custom
@@ -801,7 +801,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     def set_custom_model(custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice
         tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, json.loads(custom_model_cfg)]
-        with open(last_used_custom, "w", encoding='utf-8') as f:
+        with open(last_used_custom, "w", encoding="utf-8") as f:
             f.write(custom_ckpt_path + "\n" + custom_vocab_path + "\n" + custom_model_cfg + "\n")
 
     with gr.Row():
