@@ -119,7 +119,7 @@ parser.add_argument(
 parser.add_argument(
     "--load_vocoder_from_local",
     action="store_true",
-    help="To load vocoder from local dir, default to ../checkpoints/charactr/vocos-mel-24khz",
+    help="To load vocoder from local dir, default to ../checkpoints/vocos-mel-24khz",
 )
 parser.add_argument(
     "--vocoder_name",
