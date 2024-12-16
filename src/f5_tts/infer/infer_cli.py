@@ -10,6 +10,7 @@ import numpy as np
 import soundfile as sf
 import tomli
 from cached_path import cached_path
+from omegaconf import OmegaConf
 
 from f5_tts.infer.utils_infer import (
     mel_spec_type,
@@ -50,6 +51,12 @@ parser.add_argument(
     "--model",
     type=str,
     help="The model name: F5-TTS | E2-TTS",
+)
+parser.add_argument(
+    "-mc",
+    "--model_cfg",
+    type=str,
+    help="The path to F5-TTS model config file .yaml",
 )
 parser.add_argument(
     "-p",
@@ -166,6 +173,7 @@ config = tomli.load(open(args.config, "rb"))
 # command-line interface parameters
 
 model = args.model or config.get("model", "F5-TTS")
+model_cfg = args.model_cfg or config.get("model_cfg", str(files("f5_tts").joinpath("configs/F5TTS_Base_train.yaml")))
 ckpt_file = args.ckpt_file or config.get("ckpt_file", "")
 vocab_file = args.vocab_file or config.get("vocab_file", "")
 
@@ -179,9 +187,9 @@ output_file = args.output_file or config.get(
     "output_file", f"infer_cli_{datetime.now().strftime(r'%Y%m%d_%H%M%S')}.wav"
 )
 
-save_chunk = args.save_chunk
-remove_silence = args.remove_silence
-load_vocoder_from_local = args.load_vocoder_from_local
+save_chunk = args.save_chunk or config.get("save_chunk", False)
+remove_silence = args.remove_silence or config.get("remove_silence", False)
+load_vocoder_from_local = args.load_vocoder_from_local or config.get("load_vocoder_from_local", False)
 
 vocoder_name = args.vocoder_name or config.get("vocoder_name", mel_spec_type)
 target_rms = args.target_rms or config.get("target_rms", target_rms)
@@ -235,7 +243,7 @@ vocoder = load_vocoder(vocoder_name=vocoder_name, is_local=load_vocoder_from_loc
 
 if model == "F5-TTS":
     model_cls = DiT
-    model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+    model_cfg = OmegaConf.load(model_cfg).model.arch
     if not ckpt_file:  # path not specified, download from repo
         if vocoder_name == "vocos":
             repo_name = "F5-TTS"
@@ -250,7 +258,8 @@ if model == "F5-TTS":
             ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.pt"))
 
 elif model == "E2-TTS":
-    assert vocoder_name == "vocos", "E2-TTS only supports vocoder vocos"
+    assert args.model_cfg is None, "E2-TTS does not support custom model_cfg yet"
+    assert vocoder_name == "vocos", "E2-TTS only supports vocoder vocos yet"
     model_cls = UNetT
     model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
     if not ckpt_file:  # path not specified, download from repo

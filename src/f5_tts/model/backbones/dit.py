@@ -131,8 +131,7 @@ class DiT(nn.Module):
         self.checkpoint_activations = checkpoint_activations
 
     def ckpt_wrapper(self, module):
-        """Code from https://github.com/chuanyangjin/fast-DiT/blob/1a8ecce58f346f877749f2dc67cdb190d295e4dc/models.py#L233-L237"""
-
+        # https://github.com/chuanyangjin/fast-DiT/blob/main/models.py
         def ckpt_forward(*inputs):
             outputs = module(*inputs)
             return outputs

@@ -28,7 +28,7 @@ model:
     ff_mult: 2
     text_dim: 512
     conv_layers: 4
-    checkpoint_activations: False # recompute activations and save memory for extra compute
+    checkpoint_activations: False  # recompute activations and save memory for extra compute
   mel_spec:
     target_sample_rate: 24000
     n_mel_channels: 100
