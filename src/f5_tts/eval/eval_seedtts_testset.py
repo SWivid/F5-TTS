@@ -1,8 +1,9 @@
 # Evaluate with Seed-TTS testset
 
-import sys
-import os
 import argparse
+import json
+import os
+import sys
 
 sys.path.append(os.getcwd())
 
@@ -10,7 +11,6 @@ import multiprocessing as mp
 from importlib.resources import files
 
 import numpy as np
-
 from f5_tts.eval.utils_eval import (
     get_seed_tts_test,
     run_asr_wer,
@@ -55,28 +55,39 @@ def main():
     # --------------------------- WER ---------------------------
 
     if eval_task == "wer":
+        wer_results = []
         wers = []
+
         with mp.Pool(processes=len(gpus)) as pool:
             args = [(rank, lang, sub_test_set, asr_ckpt_dir) for (rank, sub_test_set) in test_set]
             results = pool.map(run_asr_wer, args)
-            for wers_ in results:
-                wers.extend(wers_)
+            for r in results:
+                wer_results.extend(r)
+
+        wer_result_path = f"{gen_wav_dir}/{lang}_wer_results.jsonl"
+        with open(wer_result_path, "w") as f:
+            for line in wer_results:
+                wers.append(line["wer"])
+                json_line = json.dumps(line, ensure_ascii=False)
+                f.write(json_line + "\n")
 
         wer = round(np.mean(wers) * 100, 3)
         print(f"\nTotal {len(wers)} samples")
         print(f"WER      : {wer}%")
+        print(f"Results have been saved to {wer_result_path}")
 
     # --------------------------- SIM ---------------------------
+
     if eval_task == "sim":
-        sim_list = []
+        sims = []
         with mp.Pool(processes=len(gpus)) as pool:
             args = [(rank, sub_test_set, wavlm_ckpt_dir) for (rank, sub_test_set) in test_set]
             results = pool.map(run_sim, args)
-            for sim_ in results:
-                sim_list.extend(sim_)
+            for r in results:
+                sims.extend(r)
 
-        sim = round(sum(sim_list) / len(sim_list), 3)
-        print(f"\nTotal {len(sim_list)} samples")
+        sim = round(sum(sims) / len(sims), 3)
+        print(f"\nTotal {len(sims)} samples")
         print(f"SIM      : {sim}")
 
 

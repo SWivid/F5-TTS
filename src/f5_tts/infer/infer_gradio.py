@@ -1,6 +1,7 @@
 # ruff: noqa: E402
 # Above allows ruff to ignore E402: module level import not at top of file
 
+import json
 import re
 import tempfile
 from collections import OrderedDict
@@ -42,6 +43,12 @@ from f5_tts.infer.utils_infer import (
 
 DEFAULT_TTS_MODEL = "F5-TTS"
 tts_model_choice = DEFAULT_TTS_MODEL
+
+DEFAULT_TTS_MODEL_CFG = [
+    "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
+    "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
+    json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
+]
 
 
 # load models
@@ -103,7 +110,15 @@ def generate_response(messages, model, tokenizer):
 
 @gpu_decorator
 def infer(
-    ref_audio_orig, ref_text, gen_text, model, remove_silence, cross_fade_duration=0.15, speed=1, show_info=gr.Info
+    ref_audio_orig,
+    ref_text,
+    gen_text,
+    model,
+    remove_silence,
+    cross_fade_duration=0.15,
+    nfe_step=32,
+    speed=1,
+    show_info=gr.Info,
 ):
     ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=show_info)
 
@@ -120,7 +135,7 @@ def infer(
         global custom_ema_model, pre_custom_path
         if pre_custom_path != model[1]:
             show_info("Loading Custom TTS model...")
-            custom_ema_model = load_custom(model[1], vocab_path=model[2])
+            custom_ema_model = load_custom(model[1], vocab_path=model[2], model_cfg=model[3])
             pre_custom_path = model[1]
         ema_model = custom_ema_model
 
@@ -131,6 +146,7 @@ def infer(
         ema_model,
         vocoder,
         cross_fade_duration=cross_fade_duration,
+        nfe_step=nfe_step,
         speed=speed,
         show_info=show_info,
         progress=gr.Progress(),
@@ -184,6 +200,14 @@ with gr.Blocks() as app_tts:
             step=0.1,
             info="Adjust the speed of the audio.",
         )
+        nfe_slider = gr.Slider(
+            label="NFE Steps",
+            minimum=4,
+            maximum=64,
+            value=32,
+            step=2,
+            info="Set the number of denoising steps.",
+        )
         cross_fade_duration_slider = gr.Slider(
             label="Cross-Fade Duration (s)",
             minimum=0.0,
@@ -203,6 +227,7 @@ with gr.Blocks() as app_tts:
         gen_text_input,
         remove_silence,
         cross_fade_duration_slider,
+        nfe_slider,
         speed_slider,
     ):
         audio_out, spectrogram_path, ref_text_out = infer(
@@ -211,8 +236,9 @@ with gr.Blocks() as app_tts:
             gen_text_input,
             tts_model_choice,
             remove_silence,
-            cross_fade_duration_slider,
-            speed_slider,
+            cross_fade_duration=cross_fade_duration_slider,
+            nfe_step=nfe_slider,
+            speed=speed_slider,
         )
         return audio_out, spectrogram_path, gr.update(value=ref_text_out)
 
@@ -224,6 +250,7 @@ with gr.Blocks() as app_tts:
             gen_text_input,
             remove_silence,
             cross_fade_duration_slider,
+            nfe_slider,
             speed_slider,
         ],
         outputs=[audio_output, spectrogram_output, ref_text_input],
@@ -744,34 +771,38 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 """
     )
 
-    last_used_custom = files("f5_tts").joinpath("infer/.cache/last_used_custom.txt")
+    last_used_custom = files("f5_tts").joinpath("infer/.cache/last_used_custom_model_info.txt")
 
     def load_last_used_custom():
         try:
-            with open(last_used_custom, "r") as f:
-                return f.read().split(",")
+            custom = []
+            with open(last_used_custom, "r", encoding="utf-8") as f:
+                for line in f:
+                    custom.append(line.strip())
+            return custom
         except FileNotFoundError:
             last_used_custom.parent.mkdir(parents=True, exist_ok=True)
-            return [
-                "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
-                "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
-            ]
+            return DEFAULT_TTS_MODEL_CFG
 
     def switch_tts_model(new_choice):
         global tts_model_choice
         if new_choice == "Custom":  # override in case webpage is refreshed
-            custom_ckpt_path, custom_vocab_path = load_last_used_custom()
-            tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
-            return gr.update(visible=True, value=custom_ckpt_path), gr.update(visible=True, value=custom_vocab_path)
+            custom_ckpt_path, custom_vocab_path, custom_model_cfg = load_last_used_custom()
+            tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, json.loads(custom_model_cfg)]
+            return (
+                gr.update(visible=True, value=custom_ckpt_path),
+                gr.update(visible=True, value=custom_vocab_path),
+                gr.update(visible=True, value=custom_model_cfg),
+            )
         else:
             tts_model_choice = new_choice
-            return gr.update(visible=False), gr.update(visible=False)
+            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
 
-    def set_custom_model(custom_ckpt_path, custom_vocab_path):
+    def set_custom_model(custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice
-        tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path]
-        with open(last_used_custom, "w") as f:
-            f.write(f"{custom_ckpt_path},{custom_vocab_path}")
+        tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, json.loads(custom_model_cfg)]
+        with open(last_used_custom, "w", encoding="utf-8") as f:
+            f.write(custom_ckpt_path + "\n" + custom_vocab_path + "\n" + custom_model_cfg + "\n")
 
     with gr.Row():
         if not USING_SPACES:
@@ -783,34 +814,46 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
                 choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
             )
         custom_ckpt_path = gr.Dropdown(
-            choices=["hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"],
+            choices=[DEFAULT_TTS_MODEL_CFG[0]],
             value=load_last_used_custom()[0],
             allow_custom_value=True,
-            label="MODEL CKPT: local_path | hf://user_id/repo_id/model_ckpt",
+            label="Model: local_path | hf://user_id/repo_id/model_ckpt",
             visible=False,
         )
         custom_vocab_path = gr.Dropdown(
-            choices=["hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt"],
+            choices=[DEFAULT_TTS_MODEL_CFG[1]],
             value=load_last_used_custom()[1],
             allow_custom_value=True,
-            label="VOCAB FILE: local_path | hf://user_id/repo_id/vocab_file",
+            label="Vocab: local_path | hf://user_id/repo_id/vocab_file",
+            visible=False,
+        )
+        custom_model_cfg = gr.Dropdown(
+            choices=[DEFAULT_TTS_MODEL_CFG[2]],
+            value=load_last_used_custom()[2],
+            allow_custom_value=True,
+            label="Config: in a dictionary form",
             visible=False,
         )
 
     choose_tts_model.change(
         switch_tts_model,
         inputs=[choose_tts_model],
-        outputs=[custom_ckpt_path, custom_vocab_path],
+        outputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_ckpt_path.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path],
+        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_vocab_path.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path],
+        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        show_progress="hidden",
+    )
+    custom_model_cfg.change(
+        set_custom_model,
+        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
 

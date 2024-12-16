@@ -8,6 +8,7 @@ gen_text = ""
 gen_file = "infer/examples/multi/story.txt"
 remove_silence = true
 output_dir = "tests"
+output_file = "infer_cli_story.wav"
 
 [voices.town]
 ref_audio = "infer/examples/multi/town.flac"
