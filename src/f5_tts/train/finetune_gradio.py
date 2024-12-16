@@ -26,11 +26,12 @@ from datasets import Dataset as Dataset_
 from datasets.arrow_writer import ArrowWriter
 from safetensors.torch import save_file
 from scipy.io import wavfile
-from transformers import pipeline
 from cached_path import cached_path
 from f5_tts.api import F5TTS
 from f5_tts.model.utils import convert_char_to_pinyin
+from f5_tts.infer.utils_infer import transcribe
 from importlib.resources import files
+
 
 training_process = None
 system = platform.system()
@@ -43,11 +44,9 @@ last_ema = None
 
 path_data = str(files("f5_tts").joinpath("../../data"))
 path_project_ckpts = str(files("f5_tts").joinpath("../../ckpts"))
-file_train = "src/f5_tts/train/finetune_cli.py"
+file_train = str(files("f5_tts").joinpath("train/finetune_cli.py"))
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-
-pipe = None
 
 
 # Save settings from a JSON file
@@ -70,6 +69,7 @@ def save_settings(
     tokenizer_file,
     mixed_precision,
     logger,
+    ch_8bit_adam,
 ):
     path_project = os.path.join(path_project_ckpts, project_name)
     os.makedirs(path_project, exist_ok=True)
@@ -93,6 +93,7 @@ def save_settings(
         "tokenizer_file": tokenizer_file,
         "mixed_precision": mixed_precision,
         "logger": logger,
+        "bnb_optimizer": ch_8bit_adam,
     }
     with open(file_setting, "w") as f:
         json.dump(settings, f, indent=4)
@@ -124,6 +125,7 @@ def load_settings(project_name):
             "tokenizer_file": "",
             "mixed_precision": "none",
             "logger": "wandb",
+            "bnb_optimizer": False,
         }
         return (
             settings["exp_name"],
@@ -143,12 +145,15 @@ def load_settings(project_name):
             settings["tokenizer_file"],
             settings["mixed_precision"],
             settings["logger"],
+            settings["bnb_optimizer"],
         )
 
     with open(file_setting, "r") as f:
         settings = json.load(f)
         if "logger" not in settings:
             settings["logger"] = "wandb"
+        if "bnb_optimizer" not in settings:
+            settings["bnb_optimizer"] = False
     return (
         settings["exp_name"],
         settings["learning_rate"],
@@ -167,6 +172,7 @@ def load_settings(project_name):
         settings["tokenizer_file"],
         settings["mixed_precision"],
         settings["logger"],
+        settings["bnb_optimizer"],
     )
 
 
@@ -381,18 +387,17 @@ def start_training(
     mixed_precision="fp16",
     stream=False,
     logger="wandb",
+    ch_8bit_adam=False,
 ):
-    global training_process, tts_api, stop_signal, pipe
+    global training_process, tts_api, stop_signal
 
-    if tts_api is not None or pipe is not None:
+    if tts_api is not None:
         if tts_api is not None:
             del tts_api
-        if pipe is not None:
-            del pipe
+
         gc.collect()
         torch.cuda.empty_cache()
         tts_api = None
-        pipe = None
 
     path_project = os.path.join(path_data, dataset_name)
 
@@ -447,11 +452,10 @@ def start_training(
         f"--dataset_name {dataset_name}"
     )
 
-    if finetune:
-        cmd += f" --finetune {finetune}"
+    cmd += f" --finetune {finetune}"
 
     if file_checkpoint_train != "":
-        cmd += f" --file_checkpoint_train {file_checkpoint_train}"
+        cmd += f" --pretrain {file_checkpoint_train}"
 
     if tokenizer_file != "":
         cmd += f" --tokenizer_path {tokenizer_file}"
@@ -460,7 +464,10 @@ def start_training(
 
     cmd += f" --log_samples True --logger {logger} "
 
-    print(cmd)
+    if ch_8bit_adam:
+        cmd += " --bnb_optimizer True "
+
+    print("run command : \n" + cmd + "\n")
 
     save_settings(
         dataset_name,
@@ -481,6 +488,7 @@ def start_training(
         tokenizer_file,
         mixed_precision,
         logger,
+        ch_8bit_adam,
     )
 
     try:
@@ -641,27 +649,6 @@ def create_data_project(name, tokenizer_type):
     return gr.update(choices=project_list, value=name)
 
 
-def transcribe(file_audio, language="english"):
-    global pipe
-
-    if pipe is None:
-        pipe = pipeline(
-            "automatic-speech-recognition",
-            model="openai/whisper-large-v3-turbo",
-            torch_dtype=torch.float16,
-            device=device,
-        )
-
-    text_transcribe = pipe(
-        file_audio,
-        chunk_length_s=30,
-        batch_size=128,
-        generate_kwargs={"task": "transcribe", "language": language},
-        return_timestamps=False,
-    )["text"].strip()
-    return text_transcribe
-
-
 def transcribe_all(name_project, audio_files, language, user=False, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_dataset = os.path.join(path_project, "dataset")
@@ -758,11 +745,9 @@ def get_correct_audio_path(
     # Case 2: If it has a supported extension but is not a full path
     elif has_supported_extension(audio_input) and not os.path.isabs(audio_input):
         file_audio = os.path.join(base_path, audio_input)
-        print("2")
 
     # Case 3: If only the name is given (no extension and not a full path)
     elif not has_supported_extension(audio_input) and not os.path.isabs(audio_input):
-        print("3")
         for ext in supported_formats:
             potential_file = os.path.join(base_path, f"{audio_input}.{ext}")
             if os.path.exists(potential_file):
@@ -816,9 +801,12 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
             continue
 
         if duration < 1 or duration > 25:
-            error_files.append([file_audio, "duration < 1 or > 25 "])
+            if duration > 25:
+                error_files.append([file_audio, "duration > 25 sec"])
+            if duration < 1:
+                error_files.append([file_audio, "duration < 1 sec "])
             continue
-        if len(text) < 4:
+        if len(text) < 3:
             error_files.append([file_audio, "very small text len 3"])
             continue
 
@@ -1189,7 +1177,10 @@ def get_random_sample_transcribe(project_name):
         sp = item.split("|")
         if len(sp) != 2:
             continue
-        list_data.append([os.path.join(path_project, "wavs", sp[0] + ".wav"), sp[1]])
+
+        # fixed audio when it is absolute
+        file_audio = get_correct_audio_path(sp[0], os.path.join(path_project, "wavs"))
+        list_data.append([file_audio, sp[1]])
 
     if list_data == []:
         return "", None
@@ -1208,7 +1199,9 @@ def get_random_sample_infer(project_name):
     )
 
 
-def infer(project, file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step, use_ema):
+def infer(
+    project, file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step, use_ema, speed, seed, remove_silence
+):
     global last_checkpoint, last_device, tts_api, last_ema
 
     if not os.path.isfile(file_checkpoint):
@@ -1238,8 +1231,17 @@ def infer(project, file_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe
         print("update >> ", device_test, file_checkpoint, use_ema)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-        tts_api.infer(gen_text=gen_text, ref_text=ref_text, ref_file=ref_audio, nfe_step=nfe_step, file_wave=f.name)
-        return f.name, tts_api.device
+        tts_api.infer(
+            gen_text=gen_text.lower().strip(),
+            ref_text=ref_text.lower().strip(),
+            ref_file=ref_audio,
+            nfe_step=nfe_step,
+            file_wave=f.name,
+            speed=speed,
+            seed=seed,
+            remove_silence=remove_silence,
+        )
+        return f.name, tts_api.device, str(tts_api.seed)
 
 
 def check_finetune(finetune):
@@ -1506,6 +1508,7 @@ Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
      ```"""
             )
             ch_tokenizern = gr.Checkbox(label="Create Vocabulary", value=False, visible=False)
+
             bt_prepare = bt_create = gr.Button("Prepare")
             txt_info_prepare = gr.Text(label="Info", value="")
             txt_vocab_prepare = gr.Text(label="Vocab", value="")
@@ -1560,6 +1563,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 last_per_steps = gr.Number(label="Last per Steps", value=100)
 
             with gr.Row():
+                ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
                 mixed_precision = gr.Radio(label="mixed_precision", choices=["none", "fp16", "bf16"], value="none")
                 cd_logger = gr.Radio(label="logger", choices=["wandb", "tensorboard"], value="wandb")
                 start_button = gr.Button("Start Training")
@@ -1584,6 +1588,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     tokenizer_filev,
                     mixed_precisionv,
                     cd_loggerv,
+                    ch_8bit_adamv,
                 ) = load_settings(projects_selelect)
                 exp_name.value = exp_namev
                 learning_rate.value = learning_ratev
@@ -1602,6 +1607,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 tokenizer_file.value = tokenizer_filev
                 mixed_precision.value = mixed_precisionv
                 cd_logger.value = cd_loggerv
+                ch_8bit_adam.value = ch_8bit_adamv
 
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Text(label="Info", value="")
@@ -1660,6 +1666,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     mixed_precision,
                     ch_stream,
                     cd_logger,
+                    ch_8bit_adam,
                 ],
                 outputs=[txt_info_train, start_button, stop_button],
             )
@@ -1732,12 +1739,17 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
         with gr.TabItem("Test Model"):
             gr.Markdown("""```plaintext 
-SOS: Check the use_ema setting (True or False) for your model to see what works best for you. 
+SOS: Check the use_ema setting (True or False) for your model to see what works best for you. use seed -1 from random
 ```""")
             exp_name = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
 
-            nfe_step = gr.Number(label="NFE Step", value=32)
+            with gr.Row():
+                nfe_step = gr.Number(label="NFE Step", value=32)
+                speed = gr.Slider(label="Speed", value=1.0, minimum=0.3, maximum=2.0, step=0.1)
+                seed = gr.Number(label="Seed", value=-1, minimum=-1)
+                remove_silence = gr.Checkbox(label="Remove Silence")
+
             ch_use_ema = gr.Checkbox(label="Use EMA", value=True)
             with gr.Row():
                 cm_checkpoint = gr.Dropdown(
@@ -1757,14 +1769,27 @@ SOS: Check the use_ema setting (True or False) for your model to see what works 
 
             with gr.Row():
                 txt_info_gpu = gr.Textbox("", label="Device")
+                seed_info = gr.Text(label="Seed :")
                 check_button_infer = gr.Button("Infer")
 
             gen_audio = gr.Audio(label="Audio Gen", type="filepath")
 
             check_button_infer.click(
                 fn=infer,
-                inputs=[cm_project, cm_checkpoint, exp_name, ref_text, ref_audio, gen_text, nfe_step, ch_use_ema],
-                outputs=[gen_audio, txt_info_gpu],
+                inputs=[
+                    cm_project,
+                    cm_checkpoint,
+                    exp_name,
+                    ref_text,
+                    ref_audio,
+                    gen_text,
+                    nfe_step,
+                    ch_use_ema,
+                    speed,
+                    seed,
+                    remove_silence,
+                ],
+                outputs=[gen_audio, txt_info_gpu, seed_info],
             )
 
             bt_checkpoint_refresh.click(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])

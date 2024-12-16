@@ -1,100 +1,72 @@
 # training script.
 
+import os
 from importlib.resources import files
+
+import hydra
 
 from f5_tts.model import CFM, DiT, Trainer, UNetT
 from f5_tts.model.dataset import load_dataset
 from f5_tts.model.utils import get_tokenizer
 
-# -------------------------- Dataset Settings --------------------------- #
-
-target_sample_rate = 24000
-n_mel_channels = 100
-hop_length = 256
-win_length = 1024
-n_fft = 1024
-mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
-
-tokenizer = "pinyin"  # 'pinyin', 'char', or 'custom'
-tokenizer_path = None  # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
-dataset_name = "Emilia_ZH_EN"
-
-# -------------------------- Training Settings -------------------------- #
-
-exp_name = "F5TTS_Base"  # F5TTS_Base | E2TTS_Base
-
-learning_rate = 7.5e-5
-
-batch_size_per_gpu = 38400  # 8 GPUs, 8 * 38400 = 307200
-batch_size_type = "frame"  # "frame" or "sample"
-max_samples = 64  # max sequences per batch if use frame-wise batch_size. we set 32 for small models, 64 for base models
-grad_accumulation_steps = 1  # note: updates = steps / grad_accumulation_steps
-max_grad_norm = 1.0
-
-epochs = 11  # use linear decay, thus epochs control the slope
-num_warmup_updates = 20000  # warmup steps
-save_per_updates = 50000  # save checkpoint per steps
-last_per_steps = 5000  # save last checkpoint per steps
-
-# model params
-if exp_name == "F5TTS_Base":
-    wandb_resume_id = None
-    model_cls = DiT
-    model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
-elif exp_name == "E2TTS_Base":
-    wandb_resume_id = None
-    model_cls = UNetT
-    model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
+os.chdir(str(files("f5_tts").joinpath("../..")))  # change working directory to root of project (local editable)
 
 
-# ----------------------------------------------------------------------- #
+@hydra.main(version_base="1.3", config_path=str(files("f5_tts").joinpath("configs")), config_name=None)
+def main(cfg):
+    tokenizer = cfg.model.tokenizer
+    mel_spec_type = cfg.model.mel_spec.mel_spec_type
+    exp_name = f"{cfg.model.name}_{mel_spec_type}_{cfg.model.tokenizer}_{cfg.datasets.name}"
 
-
-def main():
-    if tokenizer == "custom":
-        tokenizer_path = tokenizer_path
+    # set text tokenizer
+    if tokenizer != "custom":
+        tokenizer_path = cfg.datasets.name
     else:
-        tokenizer_path = dataset_name
+        tokenizer_path = cfg.model.tokenizer_path
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
 
-    mel_spec_kwargs = dict(
-        n_fft=n_fft,
-        hop_length=hop_length,
-        win_length=win_length,
-        n_mel_channels=n_mel_channels,
-        target_sample_rate=target_sample_rate,
-        mel_spec_type=mel_spec_type,
-    )
+    # set model
+    if "F5TTS" in cfg.model.name:
+        model_cls = DiT
+    elif "E2TTS" in cfg.model.name:
+        model_cls = UNetT
+    wandb_resume_id = None
 
     model = CFM(
-        transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
-        mel_spec_kwargs=mel_spec_kwargs,
+        transformer=model_cls(**cfg.model.arch, text_num_embeds=vocab_size, mel_dim=cfg.model.mel_spec.n_mel_channels),
+        mel_spec_kwargs=cfg.model.mel_spec,
         vocab_char_map=vocab_char_map,
     )
 
+    # init trainer
     trainer = Trainer(
         model,
-        epochs,
-        learning_rate,
-        num_warmup_updates=num_warmup_updates,
-        save_per_updates=save_per_updates,
-        checkpoint_path=str(files("f5_tts").joinpath(f"../../ckpts/{exp_name}")),
-        batch_size=batch_size_per_gpu,
-        batch_size_type=batch_size_type,
-        max_samples=max_samples,
-        grad_accumulation_steps=grad_accumulation_steps,
-        max_grad_norm=max_grad_norm,
+        epochs=cfg.optim.epochs,
+        learning_rate=cfg.optim.learning_rate,
+        num_warmup_updates=cfg.optim.num_warmup_updates,
+        save_per_updates=cfg.ckpts.save_per_updates,
+        checkpoint_path=str(files("f5_tts").joinpath(f"../../{cfg.ckpts.save_dir}")),
+        batch_size=cfg.datasets.batch_size_per_gpu,
+        batch_size_type=cfg.datasets.batch_size_type,
+        max_samples=cfg.datasets.max_samples,
+        grad_accumulation_steps=cfg.optim.grad_accumulation_steps,
+        max_grad_norm=cfg.optim.max_grad_norm,
+        logger=cfg.ckpts.logger,
         wandb_project="CFM-TTS",
         wandb_run_name=exp_name,
         wandb_resume_id=wandb_resume_id,
-        last_per_steps=last_per_steps,
+        last_per_steps=cfg.ckpts.last_per_steps,
         log_samples=True,
+        bnb_optimizer=cfg.optim.bnb_optimizer,
         mel_spec_type=mel_spec_type,
+        is_local_vocoder=cfg.model.vocoder.is_local,
+        local_vocoder_path=cfg.model.vocoder.local_path,
     )
 
-    train_dataset = load_dataset(dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
+    train_dataset = load_dataset(cfg.datasets.name, tokenizer, mel_spec_kwargs=cfg.model.mel_spec)
     trainer.train(
         train_dataset,
+        num_workers=cfg.datasets.num_workers,
         resumable_with_seed=666,  # seed for shuffling dataset
     )
 

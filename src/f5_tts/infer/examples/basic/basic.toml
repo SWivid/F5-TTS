@@ -8,3 +8,4 @@ gen_text = "I don't really care what you call me. I've been a silent spectator, 
 gen_file = ""
 remove_silence = false
 output_dir = "tests"
+output_file = "infer_cli_out.wav"

@@ -74,6 +74,11 @@ class TTSStreamingProcessor:
         # Break the generated audio into chunks and send them
         chunk_size = int(final_sample_rate * play_steps_in_s)
 
+        if len(audio_chunk) < chunk_size:
+            packed_audio = struct.pack(f"{len(audio_chunk)}f", *audio_chunk)
+            yield packed_audio
+            return
+
         for i in range(0, len(audio_chunk), chunk_size):
             chunk = audio_chunk[i : i + chunk_size]
 
@@ -81,19 +86,10 @@ class TTSStreamingProcessor:
             if i + chunk_size >= len(audio_chunk):
                 chunk = audio_chunk[i:]
 
-            # Avoid sending empty or repeated chunks
-            if len(chunk) == 0:
-                break
-
-            # Pack and send the audio chunk
-            packed_audio = struct.pack(f"{len(chunk)}f", *chunk)
-            yield packed_audio
-
-        # Ensure that no final word is repeated by not resending partial chunks
-        if len(audio_chunk) % chunk_size != 0:
-            remaining_chunk = audio_chunk[-(len(audio_chunk) % chunk_size) :]
-            packed_audio = struct.pack(f"{len(remaining_chunk)}f", *remaining_chunk)
-            yield packed_audio
+            # Send the chunk if it is not empty
+            if len(chunk) > 0:
+                packed_audio = struct.pack(f"{len(chunk)}f", *chunk)
+                yield packed_audio
 
 
 def handle_client(client_socket, processor):

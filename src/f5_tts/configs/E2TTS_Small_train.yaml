@@ -1,0 +1,44 @@
+hydra:
+  run:
+    dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    
+datasets:
+  name: Emilia_ZH_EN
+  batch_size_per_gpu: 38400  # 8 GPUs, 8 * 38400 = 307200
+  batch_size_type: frame  # "frame" or "sample"
+  max_samples: 64  # max sequences per batch if use frame-wise batch_size. we set 32 for small models, 64 for base models
+  num_workers: 16
+
+optim:
+  epochs: 15
+  learning_rate: 7.5e-5
+  num_warmup_updates: 20000  # warmup steps
+  grad_accumulation_steps: 1  # note: updates = steps / grad_accumulation_steps
+  max_grad_norm: 1.0
+  bnb_optimizer: False  
+
+model:
+  name: E2TTS_Small
+  tokenizer: pinyin
+  tokenizer_path: None  # if tokenizer = 'custom', define the path to the tokenizer you want to use (should be vocab.txt)
+  arch:
+    dim: 768
+    depth: 20
+    heads: 12
+    ff_mult: 4
+  mel_spec:
+    target_sample_rate: 24000
+    n_mel_channels: 100
+    hop_length: 256
+    win_length: 1024
+    n_fft: 1024
+    mel_spec_type: vocos  # 'vocos' or 'bigvgan'
+  vocoder:
+    is_local: False  # use local offline ckpt or not
+    local_path: None  # local vocoder path
+
+ckpts:
+  logger: wandb  # wandb | tensorboard | None
+  save_per_updates: 50000  # save checkpoint per steps
+  last_per_steps: 5000  # save last checkpoint per steps
+  save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}

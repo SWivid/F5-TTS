@@ -34,8 +34,6 @@ win_length = 1024
 n_fft = 1024
 target_rms = 0.1
 
-
-tokenizer = "pinyin"
 rel_path = str(files("f5_tts").joinpath("../../"))
 
 
@@ -49,6 +47,7 @@ def main():
     parser.add_argument("-n", "--expname", required=True)
     parser.add_argument("-c", "--ckptstep", default=1200000, type=int)
     parser.add_argument("-m", "--mel_spec_type", default="vocos", type=str, choices=["bigvgan", "vocos"])
+    parser.add_argument("-to", "--tokenizer", default="pinyin", type=str, choices=["pinyin", "char"])
 
     parser.add_argument("-nfe", "--nfestep", default=32, type=int)
     parser.add_argument("-o", "--odemethod", default="euler")
@@ -64,6 +63,7 @@ def main():
     ckpt_step = args.ckptstep
     ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
     mel_spec_type = args.mel_spec_type
+    tokenizer = args.tokenizer
 
     nfe_step = args.nfestep
     ode_method = args.odemethod
@@ -187,15 +187,15 @@ def main():
                 # Final result
                 for i, gen in enumerate(generated):
                     gen = gen[ref_mel_lens[i] : total_mel_lens[i], :].unsqueeze(0)
-                    gen_mel_spec = gen.permute(0, 2, 1)
+                    gen_mel_spec = gen.permute(0, 2, 1).to(torch.float32)
                     if mel_spec_type == "vocos":
-                        generated_wave = vocoder.decode(gen_mel_spec)
+                        generated_wave = vocoder.decode(gen_mel_spec).cpu()
                     elif mel_spec_type == "bigvgan":
-                        generated_wave = vocoder(gen_mel_spec)
+                        generated_wave = vocoder(gen_mel_spec).squeeze(0).cpu()
 
                     if ref_rms_list[i] < target_rms:
                         generated_wave = generated_wave * ref_rms_list[i] / target_rms
-                    torchaudio.save(f"{output_dir}/{utts[i]}.wav", generated_wave.squeeze(0).cpu(), target_sample_rate)
+                    torchaudio.save(f"{output_dir}/{utts[i]}.wav", generated_wave, target_sample_rate)
 
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:

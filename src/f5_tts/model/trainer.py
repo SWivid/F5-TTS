@@ -47,6 +47,8 @@ class Trainer:
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
+        is_local_vocoder: bool = False,  # use local path vocoder
+        local_vocoder_path: str = "",  # local vocoder path
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -108,7 +110,11 @@ class Trainer:
         self.max_samples = max_samples
         self.grad_accumulation_steps = grad_accumulation_steps
         self.max_grad_norm = max_grad_norm
+
+        # mel vocoder config
         self.vocoder_name = mel_spec_type
+        self.is_local_vocoder = is_local_vocoder
+        self.local_vocoder_path = local_vocoder_path
 
         self.noise_scheduler = noise_scheduler
 
@@ -148,7 +154,7 @@ class Trainer:
         if (
             not exists(self.checkpoint_path)
             or not os.path.exists(self.checkpoint_path)
-            or not os.listdir(self.checkpoint_path)
+            or not any(filename.endswith(".pt") for filename in os.listdir(self.checkpoint_path))
         ):
             return 0
 
@@ -199,7 +205,9 @@ class Trainer:
         if self.log_samples:
             from f5_tts.infer.utils_infer import cfg_strength, load_vocoder, nfe_step, sway_sampling_coef
 
-            vocoder = load_vocoder(vocoder_name=self.vocoder_name)
+            vocoder = load_vocoder(
+                vocoder_name=self.vocoder_name, is_local=self.is_local_vocoder, local_path=self.local_vocoder_path
+            )
             target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.target_sample_rate
             log_samples_path = f"{self.checkpoint_path}/samples"
             os.makedirs(log_samples_path, exist_ok=True)
@@ -324,26 +332,31 @@ class Trainer:
                     self.save_checkpoint(global_step)
 
                     if self.log_samples and self.accelerator.is_local_main_process:
-                        ref_audio, ref_audio_len = vocoder.decode(batch["mel"][0].unsqueeze(0)), mel_lengths[0]
-                        torchaudio.save(
-                            f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio.cpu(), target_sample_rate
-                        )
+                        ref_audio_len = mel_lengths[0]
+                        infer_text = [
+                            text_inputs[0] + ([" "] if isinstance(text_inputs[0], list) else " ") + text_inputs[0]
+                        ]
                         with torch.inference_mode():
                             generated, _ = self.accelerator.unwrap_model(self.model).sample(
                                 cond=mel_spec[0][:ref_audio_len].unsqueeze(0),
-                                text=[text_inputs[0] + [" "] + text_inputs[0]],
+                                text=infer_text,
                                 duration=ref_audio_len * 2,
                                 steps=nfe_step,
                                 cfg_strength=cfg_strength,
                                 sway_sampling_coef=sway_sampling_coef,
                             )
-                        generated = generated.to(torch.float32)
-                        gen_audio = vocoder.decode(
-                            generated[:, ref_audio_len:, :].permute(0, 2, 1).to(self.accelerator.device)
-                        )
-                        torchaudio.save(
-                            f"{log_samples_path}/step_{global_step}_gen.wav", gen_audio.cpu(), target_sample_rate
-                        )
+                            generated = generated.to(torch.float32)
+                            gen_mel_spec = generated[:, ref_audio_len:, :].permute(0, 2, 1).to(self.accelerator.device)
+                            ref_mel_spec = batch["mel"][0].unsqueeze(0)
+                            if self.vocoder_name == "vocos":
+                                gen_audio = vocoder.decode(gen_mel_spec).cpu()
+                                ref_audio = vocoder.decode(ref_mel_spec).cpu()
+                            elif self.vocoder_name == "bigvgan":
+                                gen_audio = vocoder(gen_mel_spec).squeeze(0).cpu()
+                                ref_audio = vocoder(ref_mel_spec).squeeze(0).cpu()
+
+                        torchaudio.save(f"{log_samples_path}/step_{global_step}_gen.wav", gen_audio, target_sample_rate)
+                        torchaudio.save(f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio, target_sample_rate)
 
                 if global_step % self.last_per_steps == 0:
                     self.save_checkpoint(global_step, last=True)

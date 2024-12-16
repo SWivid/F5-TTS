@@ -3,7 +3,6 @@ import sys
 from importlib.resources import files
 
 import soundfile as sf
-import torch
 import tqdm
 from cached_path import cached_path
 
@@ -15,6 +14,7 @@ from f5_tts.infer.utils_infer import (
     preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
     save_spectrogram,
+    transcribe,
     target_sample_rate,
 )
 from f5_tts.model import DiT, UNetT
@@ -42,9 +42,12 @@ class F5TTS:
         self.mel_spec_type = vocoder_name
 
         # Set device
-        self.device = device or (
-            "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        )
+        if device is not None:
+            self.device = device
+        else:
+            import torch
+
+            self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
         # Load models
         self.load_vocoder_model(vocoder_name, local_path=local_path, hf_cache_dir=hf_cache_dir)
@@ -81,6 +84,9 @@ class F5TTS:
         self.ema_model = load_model(
             model_cls, model_cfg, ckpt_file, mel_spec_type, vocab_file, ode_method, use_ema, self.device
         )
+
+    def transcribe(self, ref_audio, language=None):
+        return transcribe(ref_audio, language)
 
     def export_wav(self, wav, file_wave, remove_silence=False):
         sf.write(file_wave, wav, self.target_sample_rate)
