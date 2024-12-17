@@ -137,6 +137,7 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 
 ## Mandarin
 
+
 ## Russian
 
 #### F5-TTS Base @ ru @ HotDro4illa
@@ -144,13 +145,13 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 |:---:|:------------:|:-----------:|:-------------:|
 |F5-TTS Base|[ckpt & vocab](https://huggingface.co/hotstone228/F5-TTS-Russian)|[Common voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0)|cc-by-nc-4.0|
 
-- Finetuned by [HotDro4illa](https://github.com/HotDro4illa)
-- Any improvements are welcome
 ```bash
 Model: hf://hotstone228/F5-TTS-Russian/model_last.safetensors
 Vocab: hf://hotstone228/F5-TTS-Russian/vocab.txt
 Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "conv_layers": 4}
 ```
+- Finetuned by [HotDro4illa](https://github.com/HotDro4illa)
+- Any improvements are welcome
 
 
 ## Spanish
