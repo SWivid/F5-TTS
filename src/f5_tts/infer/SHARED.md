@@ -29,6 +29,8 @@
 - [Japanese](#japanese)
     - [F5-TTS Base @ ja @ Jmica](#f5-tts-base--ja--jmica)
 - [Mandarin](#mandarin)
+- [Russian](#russian)
+    - [F5-TTS Base @ ru @ HotDro4illa](#f5-tts-base--ru--hotdro4illa)
 - [Spanish](#spanish)
     - [F5-TTS Base @ es @ jpgallegoar](#f5-tts-base--es--jpgallegoar)
 
@@ -134,6 +136,22 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 
 
 ## Mandarin
+
+
+## Russian
+
+#### F5-TTS Base @ ru @ HotDro4illa
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/hotstone228/F5-TTS-Russian)|[Common voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0)|cc-by-nc-4.0|
+
+```bash
+Model: hf://hotstone228/F5-TTS-Russian/model_last.safetensors
+Vocab: hf://hotstone228/F5-TTS-Russian/vocab.txt
+Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "conv_layers": 4}
+```
+- Finetuned by [HotDro4illa](https://github.com/HotDro4illa)
+- Any improvements are welcome
 
 
 ## Spanish
