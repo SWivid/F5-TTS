@@ -123,7 +123,7 @@ python src/f5_tts/infer/speech_edit.py
 
 To communicate with socket server you need to run 
 ```bash
-python src/f5_tts/socket_server.py
+python src/f5_tts/socket_server.py --checkpoint /path/to/ckpt.pt --vocab /path/to/vocab.txt --ref-audio /path/to/ref/audio.wav --ref-text "Some reference text"
 ```
 
 <details>
