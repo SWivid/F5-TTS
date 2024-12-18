@@ -1,5 +1,4 @@
 import argparse
-import os
 import socket
 import struct
 import torch
@@ -170,6 +169,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--host",
+        dest="host",
+        help="Server address",
+        default="0.0.0.0",
+    )
+
+    parser.add_argument(
+        "--port",
+        dest="port",
+        help="Server port",
+        default=9998,
+    )
+
+    parser.add_argument(
         "--checkpoint",
         dest="ckpt_file",
         help="Checkpoint file to load",
@@ -210,6 +223,6 @@ if __name__ == "__main__":
         )
 
         # Start the server
-        start_server("0.0.0.0", 9998, processor)
+        start_server(args.host, args.port, processor)
     except KeyboardInterrupt:
         gc.collect()
