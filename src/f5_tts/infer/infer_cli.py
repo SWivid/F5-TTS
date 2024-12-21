@@ -178,7 +178,7 @@ ckpt_file = args.ckpt_file or config.get("ckpt_file", "")
 vocab_file = args.vocab_file or config.get("vocab_file", "")
 
 ref_audio = args.ref_audio or config.get("ref_audio", "infer/examples/basic/basic_ref_en.wav")
-ref_text = args.ref_text or config.get("ref_text", "Some call me nature, others call me mother nature.")
+ref_text = args.ref_text if args.ref_text is not None else config.get("ref_text", "Some call me nature, others call me mother nature.")
 gen_text = args.gen_text or config.get("gen_text", "Here we generate something just for test.")
 gen_file = args.gen_file or config.get("gen_file", "")
 
