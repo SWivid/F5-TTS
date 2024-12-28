@@ -453,7 +453,7 @@ def start_training(
     )
 
     if finetune:
-        cmd += f" --finetune"
+        cmd += " --finetune"
 
     if file_checkpoint_train != "":
         cmd += f" --pretrain {file_checkpoint_train}"
