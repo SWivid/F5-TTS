@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument("--num_warmup_updates", type=int, default=300, help="Warmup steps")
     parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X steps")
     parser.add_argument("--last_per_steps", type=int, default=50000, help="Save last checkpoint every X steps")
-    parser.add_argument("--finetune", action="store_true", default=False, help="Use Finetune")
+    parser.add_argument("--finetune", action="store_true", help="Use Finetune")
     parser.add_argument("--pretrain", type=str, default=None, help="the path to the checkpoint")
     parser.add_argument(
         "--tokenizer", type=str, default="pinyin", choices=["pinyin", "char", "custom"], help="Tokenizer type"
@@ -61,14 +61,12 @@ def parse_args():
     parser.add_argument(
         "--log_samples",
         action="store_true",
-        default=False,
         help="Log inferenced samples per ckpt save steps",
     )
     parser.add_argument("--logger", type=str, default=None, choices=["wandb", "tensorboard"], help="logger")
     parser.add_argument(
         "--bnb_optimizer",
         action="store_true",
-        default=False,
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
 
