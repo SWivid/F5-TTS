@@ -452,7 +452,8 @@ def start_training(
         f"--dataset_name {dataset_name}"
     )
 
-    cmd += f" --finetune {finetune}"
+    if finetune:
+        cmd += f" --finetune {finetune}"
 
     if file_checkpoint_train != "":
         cmd += f" --pretrain {file_checkpoint_train}"
