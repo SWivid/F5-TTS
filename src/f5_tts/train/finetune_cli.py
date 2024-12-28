@@ -60,14 +60,14 @@ def parse_args():
     )
     parser.add_argument(
         "--log_samples",
-        type=bool,
+        action="store_true",
         default=False,
         help="Log inferenced samples per ckpt save steps",
     )
     parser.add_argument("--logger", type=str, default=None, choices=["wandb", "tensorboard"], help="logger")
     parser.add_argument(
         "--bnb_optimizer",
-        type=bool,
+        action="store_true",
         default=False,
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
