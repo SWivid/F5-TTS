@@ -453,7 +453,7 @@ def start_training(
     )
 
     if finetune:
-        cmd += f" --finetune {finetune}"
+        cmd += f" --finetune"
 
     if file_checkpoint_train != "":
         cmd += f" --pretrain {file_checkpoint_train}"
@@ -461,12 +461,12 @@ def start_training(
     if tokenizer_file != "":
         cmd += f" --tokenizer_path {tokenizer_file}"
 
-    cmd += f" --tokenizer {tokenizer_type} "
+    cmd += f" --tokenizer {tokenizer_type}"
 
-    cmd += f" --log_samples True --logger {logger} "
+    cmd += f" --log_samples --logger {logger}"
 
     if ch_8bit_adam:
-        cmd += " --bnb_optimizer True "
+        cmd += " --bnb_optimizer"
 
     print("run command : \n" + cmd + "\n")
 
