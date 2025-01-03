@@ -30,6 +30,8 @@
 - [Japanese](#japanese)
     - [F5-TTS Base @ ja @ Jmica](#f5-tts-base--ja--jmica)
 - [Mandarin](#mandarin)
+- [Russian](#russian)
+    - [F5-TTS Base @ ru @ HotDro4illa](#f5-tts-base--ru--hotdro4illa)
 - [Spanish](#spanish)
     - [F5-TTS Base @ es @ jpgallegoar](#f5-tts-base--es--jpgallegoar)
 
@@ -62,6 +64,7 @@ Model: hf://sinhprous/F5TTS-stabilized-LJSpeech/model_130000.pt
 Vocab: hf://sinhprous/F5TTS-stabilized-LJSpeech/vocab.txt
 Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "conv_layers": 4}
 ```
+
 
 ## Finnish
 
@@ -135,16 +138,32 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 #### F5-TTS Base @ ja @ Jmica
 |Model|🤗Hugging Face|Data (Hours)|Model License|
 |:---:|:------------:|:-----------:|:-------------:|
-|F5-TTS Base|[ckpt & vocab](https://huggingface.co/Jmica/F5TTS/tree/main/JA_8500000)|[Emilia 1.7k JA](https://huggingface.co/datasets/amphion/Emilia-Dataset/tree/fc71e07) & [Galgame Dataset 5.4k](https://huggingface.co/datasets/OOPPEENN/Galgame_Dataset)|cc-by-nc-4.0|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/Jmica/F5TTS/tree/main/JA_25498980)|[Emilia 1.7k JA](https://huggingface.co/datasets/amphion/Emilia-Dataset/tree/fc71e07) & [Galgame Dataset 5.4k](https://huggingface.co/datasets/OOPPEENN/Galgame_Dataset)|cc-by-nc-4.0|
 
 ```bash
-Model: hf://Jmica/F5TTS/JA_8500000/model_8499660.pt
-Vocab: hf://Jmica/F5TTS/JA_8500000/vocab_updated.txt
+Model: hf://Jmica/F5TTS/JA_25498980/model_25498980.pt
+Vocab: hf://Jmica/F5TTS/JA_25498980/vocab_updated.txt
 Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "conv_layers": 4}
 ```
 
 
 ## Mandarin
+
+
+## Russian
+
+#### F5-TTS Base @ ru @ HotDro4illa
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/hotstone228/F5-TTS-Russian)|[Common voice](https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0)|cc-by-nc-4.0|
+
+```bash
+Model: hf://hotstone228/F5-TTS-Russian/model_last.safetensors
+Vocab: hf://hotstone228/F5-TTS-Russian/vocab.txt
+Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "conv_layers": 4}
+```
+- Finetuned by [HotDro4illa](https://github.com/HotDro4illa)
+- Any improvements are welcome
 
 
 ## Spanish
