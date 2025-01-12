@@ -49,6 +49,7 @@ class Trainer:
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
+        keep_last_n_checkpoints: int = 5,  # number of recent checkpoints to keep
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -128,6 +129,8 @@ class Trainer:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
+        self.keep_last_n_checkpoints = keep_last_n_checkpoints
+
     @property
     def is_main(self):
         return self.accelerator.is_main_process
@@ -149,6 +152,19 @@ class Trainer:
                 print(f"Saved last checkpoint at step {step}")
             else:
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{step}.pt")
+                # Implement rolling checkpoint system
+                if hasattr(self, 'keep_last_n_checkpoints') and self.keep_last_n_checkpoints > 0:
+                    # Get all checkpoint files except model_last.pt
+                    checkpoints = [f for f in os.listdir(self.checkpoint_path) 
+                                 if f.startswith('model_') and f.endswith('.pt') 
+                                 and f != 'model_last.pt']
+                    # Sort by step number
+                    checkpoints.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
+                    # Remove old checkpoints if we have more than keep_last_n_checkpoints
+                    while len(checkpoints) > self.keep_last_n_checkpoints:
+                        oldest_checkpoint = checkpoints.pop(0)
+                        os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
+                        print(f"Removed old checkpoint: {oldest_checkpoint}")
 
     def load_checkpoint(self):
         if (
