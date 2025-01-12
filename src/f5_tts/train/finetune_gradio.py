@@ -1572,7 +1572,11 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             with gr.Row():
                 save_per_updates = gr.Number(label="Save per Updates", value=300)
                 last_per_steps = gr.Number(label="Last per Steps", value=100)
-                keep_last_n_checkpoints = gr.Number(label="Keep Last N Checkpoints", value=5)
+                keep_last_n_checkpoints = gr.Number(
+                    label="Keep Last N Checkpoints", 
+                    value=0,
+                    info="Set to 0 or negative to disable (keep all checkpoints). Positive numbers limit the number of checkpoints kept."
+                )
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")

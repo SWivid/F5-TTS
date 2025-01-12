@@ -49,7 +49,7 @@ class Trainer:
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
-        keep_last_n_checkpoints: int = 5,  # number of recent checkpoints to keep
+        keep_last_n_checkpoints: int | None = None,  # number of recent checkpoints to keep (None or <=0 to keep all)
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -129,7 +129,7 @@ class Trainer:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
-        self.keep_last_n_checkpoints = keep_last_n_checkpoints
+        self.keep_last_n_checkpoints = keep_last_n_checkpoints if keep_last_n_checkpoints is not None else None
 
     @property
     def is_main(self):
@@ -152,8 +152,8 @@ class Trainer:
                 print(f"Saved last checkpoint at step {step}")
             else:
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{step}.pt")
-                # Implement rolling checkpoint system
-                if hasattr(self, 'keep_last_n_checkpoints') and self.keep_last_n_checkpoints > 0:
+                # Implement rolling checkpoint system - only if keep_last_n_checkpoints is positive
+                if self.keep_last_n_checkpoints is not None and self.keep_last_n_checkpoints > 0:
                     # Get all checkpoint files except model_last.pt
                     checkpoints = [f for f in os.listdir(self.checkpoint_path) 
                                  if f.startswith('model_') and f.endswith('.pt') 
