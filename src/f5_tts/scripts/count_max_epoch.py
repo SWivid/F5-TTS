@@ -20,13 +20,13 @@ grad_accum = 1
 mini_batch_frames = frames_per_gpu * grad_accum * gpus
 mini_batch_hours = mini_batch_frames * mel_hop_length / mel_sampling_rate / 3600
 updates_per_epoch = total_hours / mini_batch_hours
-steps_per_epoch = updates_per_epoch * grad_accum
+# steps_per_epoch = updates_per_epoch * grad_accum
 
 # result
 epochs = wanted_max_updates / updates_per_epoch
 print(f"epochs should be set to: {epochs:.0f} ({epochs/grad_accum:.1f} x gd_acum {grad_accum})")
 print(f"progress_bar should show approx. 0/{updates_per_epoch:.0f} updates")
-print(f"                      or approx. 0/{steps_per_epoch:.0f} steps")
+# print(f"                      or approx. 0/{steps_per_epoch:.0f} steps")
 
 # others
 print(f"total {total_hours:.0f} hours")
