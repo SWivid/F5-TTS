@@ -128,7 +128,7 @@ def load_settings(project_name):
             "mixed_precision": "none",
             "logger": "wandb",
             "bnb_optimizer": False,
-            "keep_last_n_checkpoints": 5,
+            "keep_last_n_checkpoints": 0,
         }
         return (
             settings["exp_name"],
@@ -159,7 +159,7 @@ def load_settings(project_name):
         if "bnb_optimizer" not in settings:
             settings["bnb_optimizer"] = False
         if "keep_last_n_checkpoints" not in settings:
-            settings["keep_last_n_checkpoints"] = 5
+            settings["keep_last_n_checkpoints"] = 0
     return (
         settings["exp_name"],
         settings["learning_rate"],
@@ -395,7 +395,7 @@ def start_training(
     stream=False,
     logger="wandb",
     ch_8bit_adam=False,
-    keep_last_n_checkpoints=5,
+    keep_last_n_checkpoints=0,
 ):
     global training_process, tts_api, stop_signal
 
