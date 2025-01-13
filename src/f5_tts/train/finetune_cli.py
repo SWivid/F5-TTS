@@ -73,7 +73,7 @@ def parse_args():
         "--keep_last_n_checkpoints",
         type=int,
         default=None,
-        help="Number of recent checkpoints to keep (excluding model_last.pt). Set to 0 or negative to disable (keep all checkpoints)",
+        help="Number of recent checkpoints to keep (excluding model_last.pt). Set to 0 to disable (keep all checkpoints). Must be 0 or positive.",
     )
 
     return parser.parse_args()

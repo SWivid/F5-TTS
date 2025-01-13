@@ -1575,7 +1575,10 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 keep_last_n_checkpoints = gr.Number(
                     label="Keep Last N Checkpoints", 
                     value=0,
-                    info="Set to 0 or negative to disable (keep all checkpoints). Positive numbers limit the number of checkpoints kept."
+                    minimum=0,
+                    step=1,
+                    precision=0,
+                    info="Set to 0 to disable (keep all checkpoints). Positive numbers limit the number of checkpoints kept."
                 )
 
             with gr.Row():

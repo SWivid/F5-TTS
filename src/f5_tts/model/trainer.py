@@ -49,8 +49,12 @@ class Trainer:
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
-        keep_last_n_checkpoints: int | None = None,  # number of recent checkpoints to keep (None or <=0 to keep all)
+        keep_last_n_checkpoints: int | None = None,  # number of recent checkpoints to keep (None or 0 to keep all)
     ):
+        # Validate keep_last_n_checkpoints
+        if keep_last_n_checkpoints is not None and keep_last_n_checkpoints < 0:
+            raise ValueError("keep_last_n_checkpoints must be 0 or positive")
+
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
         if logger == "wandb" and not wandb.api.api_key:
