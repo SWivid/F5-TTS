@@ -128,7 +128,7 @@ def load_settings(project_name):
             "mixed_precision": "none",
             "logger": "wandb",
             "bnb_optimizer": False,
-            "keep_last_n_checkpoints": 0,
+            "keep_last_n_checkpoints": -1,  # Default to keep all checkpoints
         }
         return (
             settings["exp_name"],
@@ -159,7 +159,7 @@ def load_settings(project_name):
         if "bnb_optimizer" not in settings:
             settings["bnb_optimizer"] = False
         if "keep_last_n_checkpoints" not in settings:
-            settings["keep_last_n_checkpoints"] = 0
+            settings["keep_last_n_checkpoints"] = -1  # Default to keep all checkpoints
         if "last_per_updates" not in settings:  # patch for backward compatibility, with before f992c4e
             settings["last_per_updates"] = settings["last_per_steps"] // settings["grad_accumulation_steps"]
     return (
@@ -397,7 +397,7 @@ def start_training(
     stream=False,
     logger="wandb",
     ch_8bit_adam=False,
-    keep_last_n_checkpoints=0,
+    keep_last_n_checkpoints=-1,
 ):
     global training_process, tts_api, stop_signal
 
@@ -1575,14 +1575,12 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 save_per_updates = gr.Number(label="Save per Updates", value=300)
                 last_per_updates = gr.Number(label="Last per Updates", value=100)
                 keep_last_n_checkpoints = gr.Number(
-                    label="Keep Last N Checkpoints", 
-                    value=0,
-                    minimum=0,
+                    label="Keep Last N Checkpoints",
+                    value=-1,
                     step=1,
                     precision=0,
-                    info="Set to 0 to disable (keep all checkpoints). Positive numbers limit the number of checkpoints kept."
+                    info="-1: Keep all checkpoints, 0: Only save final model_last.pt, N>0: Keep last N checkpoints",
                 )
-
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
