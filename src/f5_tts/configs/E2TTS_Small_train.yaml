@@ -12,7 +12,7 @@ datasets:
 optim:
   epochs: 15
   learning_rate: 7.5e-5
-  num_warmup_updates: 20000  # warmup steps
+  num_warmup_updates: 20000  # warmup updates
   grad_accumulation_steps: 1  # note: updates = steps / grad_accumulation_steps
   max_grad_norm: 1.0
   bnb_optimizer: False  
@@ -39,6 +39,6 @@ model:
 
 ckpts:
   logger: wandb  # wandb | tensorboard | None
-  save_per_updates: 50000  # save checkpoint per steps
-  last_per_steps: 5000  # save last checkpoint per steps
+  save_per_updates: 50000  # save checkpoint per updates
+  last_per_updates: 5000  # save last checkpoint per updates
   save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import math
 import os
 
 import torch
@@ -42,7 +43,7 @@ class Trainer:
         wandb_run_name="test_run",
         wandb_resume_id: str = None,
         log_samples: bool = False,
-        last_per_steps=None,
+        last_per_updates=None,
         accelerate_kwargs: dict = dict(),
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
@@ -56,6 +57,11 @@ class Trainer:
             logger = None
         print(f"Using logger: {logger}")
         self.log_samples = log_samples
+
+        if grad_accumulation_steps > 1 and self.is_main:
+            print(
+                "Gradient accumulation checkpointing with per_updates now, old logic per_steps used with before f992c4e"
+            )
 
         self.accelerator = Accelerator(
             log_with=logger if logger == "wandb" else None,
@@ -102,7 +108,7 @@ class Trainer:
         self.epochs = epochs
         self.num_warmup_updates = num_warmup_updates
         self.save_per_updates = save_per_updates
-        self.last_per_steps = default(last_per_steps, save_per_updates * grad_accumulation_steps)
+        self.last_per_updates = default(last_per_updates, save_per_updates)
         self.checkpoint_path = default(checkpoint_path, "ckpts/test_e2-tts")
 
         self.batch_size = batch_size
@@ -132,7 +138,7 @@ class Trainer:
     def is_main(self):
         return self.accelerator.is_main_process
 
-    def save_checkpoint(self, step, last=False):
+    def save_checkpoint(self, update, last=False):
         self.accelerator.wait_for_everyone()
         if self.is_main:
             checkpoint = dict(
@@ -140,15 +146,15 @@ class Trainer:
                 optimizer_state_dict=self.accelerator.unwrap_model(self.optimizer).state_dict(),
                 ema_model_state_dict=self.ema_model.state_dict(),
                 scheduler_state_dict=self.scheduler.state_dict(),
-                step=step,
+                update=update,
             )
             if not os.path.exists(self.checkpoint_path):
                 os.makedirs(self.checkpoint_path)
             if last:
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
-                print(f"Saved last checkpoint at step {step}")
+                print(f"Saved last checkpoint at update {update}")
             else:
-                self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{step}.pt")
+                self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
 
     def load_checkpoint(self):
         if (
@@ -177,7 +183,14 @@ class Trainer:
         if self.is_main:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
-        if "step" in checkpoint:
+        if "update" in checkpoint or "step" in checkpoint:
+            # patch for backward compatibility, with before f992c4e
+            if "step" in checkpoint:
+                checkpoint["update"] = checkpoint["step"] // self.grad_accumulation_steps
+                if self.grad_accumulation_steps > 1 and self.is_main:
+                    print(
+                        "F5-TTS WARNING: Loading checkpoint saved with per_steps logic (before f992c4e), will convert to per_updates according to grad_accumulation_steps setting, may have unexpected behaviour."
+                    )
             # patch for backward compatibility, 305e3ea
             for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
                 if key in checkpoint["model_state_dict"]:
@@ -187,19 +200,19 @@ class Trainer:
             self.accelerator.unwrap_model(self.optimizer).load_state_dict(checkpoint["optimizer_state_dict"])
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-            step = checkpoint["step"]
+            update = checkpoint["update"]
         else:
             checkpoint["model_state_dict"] = {
                 k.replace("ema_model.", ""): v
                 for k, v in checkpoint["ema_model_state_dict"].items()
-                if k not in ["initted", "step"]
+                if k not in ["initted", "update", "step"]
             }
             self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
-            step = 0
+            update = 0
 
         del checkpoint
         gc.collect()
-        return step
+        return update
 
     def train(self, train_dataset: Dataset, num_workers=16, resumable_with_seed: int = None):
         if self.log_samples:
@@ -248,25 +261,26 @@ class Trainer:
 
         #  accelerator.prepare() dispatches batches to devices;
         #  which means the length of dataloader calculated before, should consider the number of devices
-        warmup_steps = (
+        warmup_updates = (
             self.num_warmup_updates * self.accelerator.num_processes
         )  # consider a fixed warmup steps while using accelerate multi-gpu ddp
         # otherwise by default with split_batches=False, warmup steps change with num_processes
-        total_steps = len(train_dataloader) * self.epochs / self.grad_accumulation_steps
-        decay_steps = total_steps - warmup_steps
-        warmup_scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_steps)
-        decay_scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_steps)
+        total_updates = math.ceil(len(train_dataloader) / self.grad_accumulation_steps) * self.epochs
+        decay_updates = total_updates - warmup_updates
+        warmup_scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates)
+        decay_scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates)
         self.scheduler = SequentialLR(
-            self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_steps]
+            self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_updates]
         )
         train_dataloader, self.scheduler = self.accelerator.prepare(
             train_dataloader, self.scheduler
-        )  # actual steps = 1 gpu steps / gpus
-        start_step = self.load_checkpoint()
-        global_step = start_step
+        )  # actual multi_gpu updates = single_gpu updates / gpu nums
+        start_update = self.load_checkpoint()
+        global_update = start_update
 
         if exists(resumable_with_seed):
             orig_epoch_step = len(train_dataloader)
+            start_step = start_update * self.grad_accumulation_steps
             skipped_epoch = int(start_step // orig_epoch_step)
             skipped_batch = start_step % orig_epoch_step
             skipped_dataloader = self.accelerator.skip_first_batches(train_dataloader, num_batches=skipped_batch)
@@ -276,23 +290,21 @@ class Trainer:
         for epoch in range(skipped_epoch, self.epochs):
             self.model.train()
             if exists(resumable_with_seed) and epoch == skipped_epoch:
-                progress_bar = tqdm(
-                    skipped_dataloader,
-                    desc=f"Epoch {epoch+1}/{self.epochs}",
-                    unit="step",
-                    disable=not self.accelerator.is_local_main_process,
-                    initial=skipped_batch,
-                    total=orig_epoch_step,
-                )
+                progress_bar_initial = math.ceil(skipped_batch / self.grad_accumulation_steps)
+                current_dataloader = skipped_dataloader
             else:
-                progress_bar = tqdm(
-                    train_dataloader,
-                    desc=f"Epoch {epoch+1}/{self.epochs}",
-                    unit="step",
-                    disable=not self.accelerator.is_local_main_process,
-                )
+                progress_bar_initial = 0
+                current_dataloader = train_dataloader
 
-            for batch in progress_bar:
+            progress_bar = tqdm(
+                range(math.ceil(len(train_dataloader) / self.grad_accumulation_steps)),
+                desc=f"Epoch {epoch+1}/{self.epochs}",
+                unit="update",
+                disable=not self.accelerator.is_local_main_process,
+                initial=progress_bar_initial,
+            )
+
+            for batch in current_dataloader:
                 with self.accelerator.accumulate(self.model):
                     text_inputs = batch["text"]
                     mel_spec = batch["mel"].permute(0, 2, 1)
@@ -301,7 +313,7 @@ class Trainer:
                     # TODO. add duration predictor training
                     if self.duration_predictor is not None and self.accelerator.is_local_main_process:
                         dur_loss = self.duration_predictor(mel_spec, lens=batch.get("durations"))
-                        self.accelerator.log({"duration loss": dur_loss.item()}, step=global_step)
+                        self.accelerator.log({"duration loss": dur_loss.item()}, step=global_update)
 
                     loss, cond, pred = self.model(
                         mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
@@ -318,18 +330,20 @@ class Trainer:
                 if self.is_main and self.accelerator.sync_gradients:
                     self.ema_model.update()
 
-                global_step += 1
+                    global_update += 1
+                    progress_bar.update(1)
+                    progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
                 if self.accelerator.is_local_main_process:
-                    self.accelerator.log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_step)
+                    self.accelerator.log(
+                        {"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update
+                    )
                     if self.logger == "tensorboard":
-                        self.writer.add_scalar("loss", loss.item(), global_step)
-                        self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_step)
+                        self.writer.add_scalar("loss", loss.item(), global_update)
+                        self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_update)
 
-                progress_bar.set_postfix(step=str(global_step), loss=loss.item())
-
-                if global_step % (self.save_per_updates * self.grad_accumulation_steps) == 0:
-                    self.save_checkpoint(global_step)
+                if global_update % self.save_per_updates == 0:
+                    self.save_checkpoint(global_update)
 
                     if self.log_samples and self.accelerator.is_local_main_process:
                         ref_audio_len = mel_lengths[0]
@@ -355,12 +369,16 @@ class Trainer:
                                 gen_audio = vocoder(gen_mel_spec).squeeze(0).cpu()
                                 ref_audio = vocoder(ref_mel_spec).squeeze(0).cpu()
 
-                        torchaudio.save(f"{log_samples_path}/step_{global_step}_gen.wav", gen_audio, target_sample_rate)
-                        torchaudio.save(f"{log_samples_path}/step_{global_step}_ref.wav", ref_audio, target_sample_rate)
+                        torchaudio.save(
+                            f"{log_samples_path}/update_{global_update}_gen.wav", gen_audio, target_sample_rate
+                        )
+                        torchaudio.save(
+                            f"{log_samples_path}/update_{global_update}_ref.wav", ref_audio, target_sample_rate
+                        )
 
-                if global_step % self.last_per_steps == 0:
-                    self.save_checkpoint(global_step, last=True)
+                if global_update % self.last_per_updates == 0:
+                    self.save_checkpoint(global_update, last=True)
 
-        self.save_checkpoint(global_step, last=True)
+        self.save_checkpoint(global_update, last=True)
 
         self.accelerator.end_training()
