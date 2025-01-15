@@ -61,6 +61,7 @@ def main(cfg):
         mel_spec_type=mel_spec_type,
         is_local_vocoder=cfg.model.vocoder.is_local,
         local_vocoder_path=cfg.model.vocoder.local_path,
+        keep_last_n_checkpoints=getattr(cfg.ckpts, "keep_last_n_checkpoints", None),
     )
 
     train_dataset = load_dataset(cfg.datasets.name, tokenizer, mel_spec_kwargs=cfg.model.mel_spec)
