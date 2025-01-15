@@ -46,6 +46,12 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--num_warmup_updates", type=int, default=300, help="Warmup updates")
     parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X updates")
+    parser.add_argument(
+        "--keep_last_n_checkpoints",
+        type=int,
+        default=-1,
+        help="-1 to keep all, 0 to not save intermediate, > 0 to keep last N checkpoints",
+    )
     parser.add_argument("--last_per_updates", type=int, default=50000, help="Save last checkpoint every X updates")
     parser.add_argument("--finetune", action="store_true", help="Use Finetune")
     parser.add_argument("--pretrain", type=str, default=None, help="the path to the checkpoint")
@@ -68,12 +74,6 @@ def parse_args():
         "--bnb_optimizer",
         action="store_true",
         help="Use 8-bit Adam optimizer from bitsandbytes",
-    )
-    parser.add_argument(
-        "--keep_last_n_checkpoints",
-        type=int,
-        default=-1,
-        help="-1 (default) to keep all checkpoints, 0 to not save intermediate checkpoints, positive N to keep last N checkpoints",
     )
 
     return parser.parse_args()
@@ -151,6 +151,7 @@ def main():
         args.learning_rate,
         num_warmup_updates=args.num_warmup_updates,
         save_per_updates=args.save_per_updates,
+        keep_last_n_checkpoints=args.keep_last_n_checkpoints,
         checkpoint_path=checkpoint_path,
         batch_size=args.batch_size_per_gpu,
         batch_size_type=args.batch_size_type,
@@ -164,7 +165,6 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
-        keep_last_n_checkpoints=args.keep_last_n_checkpoints,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

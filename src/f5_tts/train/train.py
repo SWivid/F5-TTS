@@ -45,6 +45,7 @@ def main(cfg):
         learning_rate=cfg.optim.learning_rate,
         num_warmup_updates=cfg.optim.num_warmup_updates,
         save_per_updates=cfg.ckpts.save_per_updates,
+        keep_last_n_checkpoints=getattr(cfg.ckpts, "keep_last_n_checkpoints", -1),
         checkpoint_path=str(files("f5_tts").joinpath(f"../../{cfg.ckpts.save_dir}")),
         batch_size=cfg.datasets.batch_size_per_gpu,
         batch_size_type=cfg.datasets.batch_size_type,
@@ -61,7 +62,6 @@ def main(cfg):
         mel_spec_type=mel_spec_type,
         is_local_vocoder=cfg.model.vocoder.is_local,
         local_vocoder_path=cfg.model.vocoder.local_path,
-        keep_last_n_checkpoints=getattr(cfg.ckpts, "keep_last_n_checkpoints", None),
     )
 
     train_dataset = load_dataset(cfg.datasets.name, tokenizer, mel_spec_kwargs=cfg.model.mel_spec)
