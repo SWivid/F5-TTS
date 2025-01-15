@@ -30,6 +30,7 @@ class Trainer:
         learning_rate,
         num_warmup_updates=20000,
         save_per_updates=1000,
+        keep_last_n_checkpoints: int = -1,  # -1 to keep all, 0 to not save intermediate, > 0 to keep last N checkpoints
         checkpoint_path=None,
         batch_size=32,
         batch_size_type: str = "sample",
@@ -50,17 +51,7 @@ class Trainer:
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
-        keep_last_n_checkpoints: int
-        | None = -1,  # -1 (default) to keep all, 0 to not save intermediate ckpts, positive N to keep last N checkpoints
     ):
-        # Validate keep_last_n_checkpoints
-        if not isinstance(keep_last_n_checkpoints, int):
-            raise ValueError("keep_last_n_checkpoints must be an integer")
-        if keep_last_n_checkpoints < -1:
-            raise ValueError(
-                "keep_last_n_checkpoints must be -1 (keep all), 0 (no intermediate checkpoints), or positive integer"
-            )
-
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
         if logger == "wandb" and not wandb.api.api_key:
@@ -118,6 +109,7 @@ class Trainer:
         self.epochs = epochs
         self.num_warmup_updates = num_warmup_updates
         self.save_per_updates = save_per_updates
+        self.keep_last_n_checkpoints = keep_last_n_checkpoints
         self.last_per_updates = default(last_per_updates, save_per_updates)
         self.checkpoint_path = default(checkpoint_path, "ckpts/test_e2-tts")
 
@@ -144,8 +136,6 @@ class Trainer:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
-        self.keep_last_n_checkpoints = keep_last_n_checkpoints if keep_last_n_checkpoints is not None else None
-
     @property
     def is_main(self):
         return self.accelerator.is_main_process
@@ -166,22 +156,16 @@ class Trainer:
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
                 print(f"Saved last checkpoint at update {update}")
             else:
-                # Skip saving intermediate checkpoints if keep_last_n_checkpoints is 0
                 if self.keep_last_n_checkpoints == 0:
                     return
-
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
-                # Implement rolling checkpoint system - only if keep_last_n_checkpoints is positive
                 if self.keep_last_n_checkpoints > 0:
-                    # Get all checkpoint files except model_last.pt
                     checkpoints = [
                         f
                         for f in os.listdir(self.checkpoint_path)
                         if f.startswith("model_") and f.endswith(".pt") and f != "model_last.pt"
                     ]
-                    # Sort by step number
                     checkpoints.sort(key=lambda x: int(x.split("_")[1].split(".")[0]))
-                    # Remove old checkpoints if we have more than keep_last_n_checkpoints
                     while len(checkpoints) > self.keep_last_n_checkpoints:
                         oldest_checkpoint = checkpoints.pop(0)
                         os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
