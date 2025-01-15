@@ -70,6 +70,7 @@ def save_settings(
     mixed_precision,
     logger,
     ch_8bit_adam,
+    keep_last_n_checkpoints,
 ):
     path_project = os.path.join(path_project_ckpts, project_name)
     os.makedirs(path_project, exist_ok=True)
@@ -94,6 +95,7 @@ def save_settings(
         "mixed_precision": mixed_precision,
         "logger": logger,
         "bnb_optimizer": ch_8bit_adam,
+        "keep_last_n_checkpoints": keep_last_n_checkpoints,
     }
     with open(file_setting, "w") as f:
         json.dump(settings, f, indent=4)
@@ -126,6 +128,7 @@ def load_settings(project_name):
             "mixed_precision": "none",
             "logger": "wandb",
             "bnb_optimizer": False,
+            "keep_last_n_checkpoints": -1,  # Default to keep all checkpoints
         }
         return (
             settings["exp_name"],
@@ -146,6 +149,7 @@ def load_settings(project_name):
             settings["mixed_precision"],
             settings["logger"],
             settings["bnb_optimizer"],
+            settings["keep_last_n_checkpoints"],
         )
 
     with open(file_setting, "r") as f:
@@ -154,6 +158,8 @@ def load_settings(project_name):
             settings["logger"] = "wandb"
         if "bnb_optimizer" not in settings:
             settings["bnb_optimizer"] = False
+        if "keep_last_n_checkpoints" not in settings:
+            settings["keep_last_n_checkpoints"] = -1  # Default to keep all checkpoints
         if "last_per_updates" not in settings:  # patch for backward compatibility, with before f992c4e
             settings["last_per_updates"] = settings["last_per_steps"] // settings["grad_accumulation_steps"]
     return (
@@ -175,6 +181,7 @@ def load_settings(project_name):
         settings["mixed_precision"],
         settings["logger"],
         settings["bnb_optimizer"],
+        settings["keep_last_n_checkpoints"],
     )
 
 
@@ -390,6 +397,7 @@ def start_training(
     stream=False,
     logger="wandb",
     ch_8bit_adam=False,
+    keep_last_n_checkpoints=-1,
 ):
     global training_process, tts_api, stop_signal
 
@@ -451,7 +459,8 @@ def start_training(
         f"--num_warmup_updates {num_warmup_updates} "
         f"--save_per_updates {save_per_updates} "
         f"--last_per_updates {last_per_updates} "
-        f"--dataset_name {dataset_name}"
+        f"--dataset_name {dataset_name} "
+        f"--keep_last_n_checkpoints {keep_last_n_checkpoints}"
     )
 
     if finetune:
@@ -492,6 +501,7 @@ def start_training(
         mixed_precision,
         logger,
         ch_8bit_adam,
+        keep_last_n_checkpoints,
     )
 
     try:
@@ -1564,6 +1574,13 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             with gr.Row():
                 save_per_updates = gr.Number(label="Save per Updates", value=300)
                 last_per_updates = gr.Number(label="Last per Updates", value=100)
+                keep_last_n_checkpoints = gr.Number(
+                    label="Keep Last N Checkpoints",
+                    value=-1,
+                    step=1,
+                    precision=0,
+                    info="-1: Keep all checkpoints, 0: Only save final model_last.pt, N>0: Keep last N checkpoints",
+                )
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
@@ -1592,6 +1609,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     mixed_precisionv,
                     cd_loggerv,
                     ch_8bit_adamv,
+                    keep_last_n_checkpointsv,
                 ) = load_settings(projects_selelect)
                 exp_name.value = exp_namev
                 learning_rate.value = learning_ratev
@@ -1611,6 +1629,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 mixed_precision.value = mixed_precisionv
                 cd_logger.value = cd_loggerv
                 ch_8bit_adam.value = ch_8bit_adamv
+                keep_last_n_checkpoints.value = keep_last_n_checkpointsv
 
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Text(label="Info", value="")
@@ -1670,6 +1689,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     ch_stream,
                     cd_logger,
                     ch_8bit_adam,
+                    keep_last_n_checkpoints,
                 ],
                 outputs=[txt_info_train, start_button, stop_button],
             )

@@ -44,4 +44,5 @@ ckpts:
   logger: wandb  # wandb | tensorboard | None
   save_per_updates: 50000  # save checkpoint per updates
   last_per_updates: 5000  # save last checkpoint per updates
+  keep_last_n_checkpoints: -1  # -1 (default) to keep all checkpoints, 0 to not save intermediate checkpoints, positive N to keep last N checkpoints
   save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}

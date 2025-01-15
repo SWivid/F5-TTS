@@ -69,6 +69,12 @@ def parse_args():
         action="store_true",
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
+    parser.add_argument(
+        "--keep_last_n_checkpoints",
+        type=int,
+        default=-1,
+        help="-1 (default) to keep all checkpoints, 0 to not save intermediate checkpoints, positive N to keep last N checkpoints",
+    )
 
     return parser.parse_args()
 
@@ -158,6 +164,7 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
+        keep_last_n_checkpoints=args.keep_last_n_checkpoints,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
