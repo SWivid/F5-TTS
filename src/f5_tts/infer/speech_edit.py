@@ -10,7 +10,15 @@ from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder, save_spectro
 from f5_tts.model import CFM, DiT, UNetT
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "xpu"
+    if torch.xpu.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
 
 
 # --------------------- Dataset Settings -------------------- #
