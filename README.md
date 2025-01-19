@@ -32,6 +32,10 @@ pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https:/
 
 # AMD GPU: install pytorch with your ROCm version, e.g.
 pip install torch==2.5.1+rocm6.2 torchaudio==2.5.1+rocm6.2 --extra-index-url https://download.pytorch.org/whl/rocm6.2
+
+# intel GPU: install pytorch with your XPU version, e.g.
+# Intel® Deep Learning Essentials or Intel® oneAPI Base Toolkit must be installed
+pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
 ```
 
 Then you can choose from a few options below:
