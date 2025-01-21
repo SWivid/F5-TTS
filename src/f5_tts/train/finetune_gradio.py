@@ -161,7 +161,6 @@ def load_settings(project_name):
     )
 
 
-
 # Load metadata
 def get_audio_duration(audio_path):
     """Calculate the duration mono of an audio file."""
@@ -1609,7 +1608,6 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 mixed_precision.value = mixed_precision_value
                 cd_logger.value = logger_value
                 ch_8bit_adam.value = bnb_optimizer_value
-
 
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Text(label="Info", value="")
