@@ -17,7 +17,13 @@ from model.backbones.dit import DiT
 class TTSStreamingProcessor:
     def __init__(self, ckpt_file, vocab_file, ref_audio, ref_text, device=None, dtype=torch.float32):
         self.device = device or (
-            "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+            "cuda"
+            if torch.cuda.is_available()
+            else "xpu"
+            if torch.xpu.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
 
         # Load the model using the provided checkpoint and vocab files

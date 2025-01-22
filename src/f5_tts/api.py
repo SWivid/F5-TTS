@@ -47,7 +47,15 @@ class F5TTS:
         else:
             import torch
 
-            self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+            self.device = (
+                "cuda"
+                if torch.cuda.is_available()
+                else "xpu"
+                if torch.xpu.is_available()
+                else "mps"
+                if torch.backends.mps.is_available()
+                else "cpu"
+            )
 
         # Load models
         self.load_vocoder_model(vocoder_name, local_path=local_path, hf_cache_dir=hf_cache_dir)
