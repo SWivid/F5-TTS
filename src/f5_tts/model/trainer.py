@@ -160,10 +160,14 @@ class Trainer:
                     return
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
                 if self.keep_last_n_checkpoints > 0:
+                    # Updated logic to exclude pretrained model from rotation
                     checkpoints = [
                         f
                         for f in os.listdir(self.checkpoint_path)
-                        if f.startswith("model_") and f.endswith(".pt") and f != "model_last.pt"
+                        if f.startswith("model_")
+                        and not f.startswith("pretrained_")  # Exclude pretrained models
+                        and f.endswith(".pt")
+                        and f != "model_last.pt"
                     ]
                     checkpoints.sort(key=lambda x: int(x.split("_")[1].split(".")[0]))
                     while len(checkpoints) > self.keep_last_n_checkpoints:
@@ -183,10 +187,24 @@ class Trainer:
         if "model_last.pt" in os.listdir(self.checkpoint_path):
             latest_checkpoint = "model_last.pt"
         else:
-            latest_checkpoint = sorted(
-                [f for f in os.listdir(self.checkpoint_path) if f.endswith(".pt")],
-                key=lambda x: int("".join(filter(str.isdigit, x))),
-            )[-1]
+            # Updated to consider pretrained models for loading but prioritize training checkpoints
+            all_checkpoints = [
+                f
+                for f in os.listdir(self.checkpoint_path)
+                if (f.startswith("model_") or f.startswith("pretrained_")) and f.endswith(".pt")
+            ]
+
+            # First try to find regular training checkpoints
+            training_checkpoints = [f for f in all_checkpoints if f.startswith("model_") and f != "model_last.pt"]
+            if training_checkpoints:
+                latest_checkpoint = sorted(
+                    training_checkpoints,
+                    key=lambda x: int("".join(filter(str.isdigit, x))),
+                )[-1]
+            else:
+                # If no training checkpoints, use pretrained model
+                latest_checkpoint = next(f for f in all_checkpoints if f.startswith("pretrained_"))
+
         # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
         checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
 
