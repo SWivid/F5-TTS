@@ -990,7 +990,7 @@ def calculate_train(
 
 def extract_and_save_ema_model(checkpoint_path: str, new_checkpoint_path: str, safetensors: bool) -> str:
     try:
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, weights_only=True)
         print("Original Checkpoint Keys:", checkpoint.keys())
 
         ema_model_state_dict = checkpoint.get("ema_model_state_dict", None)
