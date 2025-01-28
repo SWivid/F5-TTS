@@ -1261,12 +1261,22 @@ def get_checkpoints_project(project_name, is_gradio=True):
 
     if os.path.isdir(path_project_ckpts):
         files_checkpoints = glob(os.path.join(path_project_ckpts, project_name, "*.pt"))
-        files_checkpoints = sorted(
-            files_checkpoints,
-            key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0])
-            if os.path.basename(x) != "model_last.pt"
-            else float("inf"),
+        # Separate pretrained and regular checkpoints
+        pretrained_checkpoints = [f for f in files_checkpoints if "pretrained_" in os.path.basename(f)]
+        regular_checkpoints = [
+            f
+            for f in files_checkpoints
+            if "pretrained_" not in os.path.basename(f) and "model_last.pt" not in os.path.basename(f)
+        ]
+        last_checkpoint = [f for f in files_checkpoints if "model_last.pt" in os.path.basename(f)]
+
+        # Sort regular checkpoints by number
+        regular_checkpoints = sorted(
+            regular_checkpoints, key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0])
         )
+
+        # Combine in order: pretrained, regular, last
+        files_checkpoints = pretrained_checkpoints + regular_checkpoints + last_checkpoint
     else:
         files_checkpoints = []
 
