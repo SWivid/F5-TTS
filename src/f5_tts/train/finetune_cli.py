@@ -111,8 +111,10 @@ def main():
         if not os.path.isdir(checkpoint_path):
             os.makedirs(checkpoint_path, exist_ok=True)
 
-        # Change: Add 'pretrained_' prefix to copied model
-        file_checkpoint = os.path.join(checkpoint_path, "pretrained_" + os.path.basename(ckpt_path))
+        file_checkpoint = os.path.basename(ckpt_path)
+        if not file_checkpoint.startswith("pretrained_"):  # Change: Add 'pretrained_' prefix to copied model
+            file_checkpoint = "pretrained_" + file_checkpoint
+        file_checkpoint = os.path.join(checkpoint_path, file_checkpoint)
         if not os.path.isfile(file_checkpoint):
             shutil.copy2(ckpt_path, file_checkpoint)
             print("copy checkpoint for finetune")
