@@ -544,7 +544,7 @@ def start_training(
                         output = stdout_queue.get_nowait()
                         print(output, end="")
                         match = re.search(
-                            r"Epoch (\d+)/(\d+):\s+(\d+)%\|.*\[(\d+:\d+)<.*?loss=(\d+\.\d+), step=(\d+)", output
+                            r"Epoch (\d+)/(\d+):\s+(\d+)%\|.*\[(\d+:\d+)<.*?loss=(\d+\.\d+), update=(\d+)", output
                         )
                         if match:
                             current_epoch = match.group(1)
@@ -552,13 +552,13 @@ def start_training(
                             percent_complete = match.group(3)
                             elapsed_time = match.group(4)
                             loss = match.group(5)
-                            current_step = match.group(6)
+                            current_update = match.group(6)
                             message = (
                                 f"Epoch: {current_epoch}/{total_epochs}, "
                                 f"Progress: {percent_complete}%, "
                                 f"Elapsed Time: {elapsed_time}, "
                                 f"Loss: {loss}, "
-                                f"Step: {current_step}"
+                                f"Update: {current_update}"
                             )
                             yield message, gr.update(interactive=False), gr.update(interactive=True)
                         elif output.strip():
