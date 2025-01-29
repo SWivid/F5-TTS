@@ -154,45 +154,68 @@ class Trainer:
             if not os.path.exists(self.checkpoint_path):
                 os.makedirs(self.checkpoint_path)
 
-            # Atomic save implementation
+            # Clean up any orphaned temporary files from previous failed saves
+            for tmp_file in os.listdir(self.checkpoint_path):
+                if tmp_file.endswith(".tmp"):
+                    try:
+                        os.remove(os.path.join(self.checkpoint_path, tmp_file))
+                    except OSError:
+                        pass
+
             def atomic_save(data, final_path):
-                # Create temporary file in the same directory
-                temp_dir = os.path.dirname(final_path)
-                with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False, suffix=".tmp") as tmp_file:
-                    temp_path = tmp_file.name
-                    # Save to temporary file
-                    self.accelerator.save(data, temp_path)
-                    # Ensure data is written to disk
-                    tmp_file.flush()
-                    os.fsync(tmp_file.fileno())
-                # Atomic rename to final path
-                if os.path.exists(final_path):
-                    os.replace(temp_path, final_path)  # Atomic on Unix and Windows
-                else:
-                    os.rename(temp_path, final_path)  # Atomic operation
+                temp_path = None
+                try:
+                    # Create temporary file in the same directory
+                    temp_dir = os.path.dirname(final_path)
+                    with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False, suffix=".tmp") as tmp_file:
+                        temp_path = tmp_file.name
+                        # Save to temporary file
+                        self.accelerator.save(data, temp_path)
+                        # Ensure data is written to disk
+                        tmp_file.flush()
+                        os.fsync(tmp_file.fileno())
+
+                    # Atomic rename to final path
+                    if os.path.exists(final_path):
+                        os.replace(temp_path, final_path)  # Atomic on Unix and Windows
+                    else:
+                        os.rename(temp_path, final_path)  # Atomic operation
+
+                    temp_path = None  # Successfully renamed, don't delete in finally
+                    return True
+                except Exception as e:
+                    print(f"Error saving checkpoint: {str(e)}")
+                    return False
+                finally:
+                    # Clean up temporary file if something went wrong
+                    if temp_path and os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except OSError:
+                            pass
 
             if last:
-                atomic_save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
-                print(f"Saved last checkpoint at update {update}")
+                if atomic_save(checkpoint, f"{self.checkpoint_path}/model_last.pt"):
+                    print(f"Saved last checkpoint at update {update}")
             else:
                 if self.keep_last_n_checkpoints == 0:
                     return
-                atomic_save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
-                if self.keep_last_n_checkpoints > 0:
-                    # Updated logic to exclude pretrained model from rotation
-                    checkpoints = [
-                        f
-                        for f in os.listdir(self.checkpoint_path)
-                        if f.startswith("model_")
-                        and not f.startswith("pretrained_")  # Exclude pretrained models
-                        and f.endswith(".pt")
-                        and f != "model_last.pt"
-                    ]
-                    checkpoints.sort(key=lambda x: int(x.split("_")[1].split(".")[0]))
-                    while len(checkpoints) > self.keep_last_n_checkpoints:
-                        oldest_checkpoint = checkpoints.pop(0)
-                        os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
-                        print(f"Removed old checkpoint: {oldest_checkpoint}")
+                if atomic_save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt"):
+                    if self.keep_last_n_checkpoints > 0:
+                        # Updated logic to exclude pretrained model from rotation
+                        checkpoints = [
+                            f
+                            for f in os.listdir(self.checkpoint_path)
+                            if f.startswith("model_")
+                            and not f.startswith("pretrained_")  # Exclude pretrained models
+                            and f.endswith(".pt")
+                            and f != "model_last.pt"
+                        ]
+                        checkpoints.sort(key=lambda x: int(x.split("_")[1].split(".")[0]))
+                        while len(checkpoints) > self.keep_last_n_checkpoints:
+                            oldest_checkpoint = checkpoints.pop(0)
+                            os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
+                            print(f"Removed old checkpoint: {oldest_checkpoint}")
 
     def load_checkpoint(self):
         if (
