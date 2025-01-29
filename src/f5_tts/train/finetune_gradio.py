@@ -1744,25 +1744,25 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             def setup_load_settings():
                 output_components = [
-                    exp_name,                 # 1
-                    learning_rate,           # 2
-                    batch_size_per_gpu,      # 3
-                    batch_size_type,         # 4
-                    max_samples,             # 5
-                    grad_accumulation_steps, # 6
-                    max_grad_norm,           # 7
-                    epochs,                  # 8
-                    num_warmup_updates,      # 9
-                    save_per_updates,        # 10
-                    keep_last_n_checkpoints, # 11 (was missing)
-                    last_per_updates,        # 12
-                    ch_finetune,            # 13
-                    file_checkpoint_train,   # 14
-                    tokenizer_type,          # 15
-                    tokenizer_file,          # 16
-                    mixed_precision,         # 17
-                    cd_logger,              # 18
-                    ch_8bit_adam,           # 19 (was missing)
+                    exp_name,  # 1
+                    learning_rate,  # 2
+                    batch_size_per_gpu,  # 3
+                    batch_size_type,  # 4
+                    max_samples,  # 5
+                    grad_accumulation_steps,  # 6
+                    max_grad_norm,  # 7
+                    epochs,  # 8
+                    num_warmup_updates,  # 9
+                    save_per_updates,  # 10
+                    keep_last_n_checkpoints,  # 11 (was missing)
+                    last_per_updates,  # 12
+                    ch_finetune,  # 13
+                    file_checkpoint_train,  # 14
+                    tokenizer_type,  # 15
+                    tokenizer_file,  # 16
+                    mixed_precision,  # 17
+                    cd_logger,  # 18
+                    ch_8bit_adam,  # 19 (was missing)
                 ]
                 return output_components
 
