@@ -360,8 +360,9 @@ class Trainer:
                     self.scheduler.step()
                     self.optimizer.zero_grad()
 
-                if self.is_main and self.accelerator.sync_gradients:
-                    self.ema_model.update()
+                if self.accelerator.sync_gradients:
+                    if self.is_main:
+                        self.ema_model.update()
 
                     global_update += 1
                     progress_bar.update(1)
