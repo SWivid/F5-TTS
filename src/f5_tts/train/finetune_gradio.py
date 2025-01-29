@@ -1744,25 +1744,26 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             def setup_load_settings():
                 output_components = [
-                    exp_name,
-                    learning_rate,
-                    batch_size_per_gpu,
-                    batch_size_type,
-                    max_samples,
-                    grad_accumulation_steps,
-                    max_grad_norm,
-                    epochs,
-                    num_warmup_updates,
-                    save_per_updates,
-                    last_per_updates,
-                    ch_finetune,
-                    file_checkpoint_train,
-                    tokenizer_type,
-                    tokenizer_file,
-                    mixed_precision,
-                    cd_logger,
+                    exp_name,  # 1
+                    learning_rate,  # 2
+                    batch_size_per_gpu,  # 3
+                    batch_size_type,  # 4
+                    max_samples,  # 5
+                    grad_accumulation_steps,  # 6
+                    max_grad_norm,  # 7
+                    epochs,  # 8
+                    num_warmup_updates,  # 9
+                    save_per_updates,  # 10
+                    keep_last_n_checkpoints,  # 11
+                    last_per_updates,  # 12
+                    ch_finetune,  # 13
+                    file_checkpoint_train,  # 14
+                    tokenizer_type,  # 15
+                    tokenizer_file,  # 16
+                    mixed_precision,  # 17
+                    cd_logger,  # 18
+                    ch_8bit_adam,  # 19
                 ]
-
                 return output_components
 
             outputs = setup_load_settings()
