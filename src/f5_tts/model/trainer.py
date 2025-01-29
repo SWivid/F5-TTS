@@ -3,6 +3,7 @@ from __future__ import annotations
 import gc
 import math
 import os
+import tempfile
 
 import torch
 import torchaudio
@@ -152,13 +153,31 @@ class Trainer:
             )
             if not os.path.exists(self.checkpoint_path):
                 os.makedirs(self.checkpoint_path)
+
+            # Atomic save implementation
+            def atomic_save(data, final_path):
+                # Create temporary file in the same directory
+                temp_dir = os.path.dirname(final_path)
+                with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False, suffix=".tmp") as tmp_file:
+                    temp_path = tmp_file.name
+                    # Save to temporary file
+                    self.accelerator.save(data, temp_path)
+                    # Ensure data is written to disk
+                    tmp_file.flush()
+                    os.fsync(tmp_file.fileno())
+                # Atomic rename to final path
+                if os.path.exists(final_path):
+                    os.replace(temp_path, final_path)  # Atomic on Unix and Windows
+                else:
+                    os.rename(temp_path, final_path)  # Atomic operation
+
             if last:
-                self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
+                atomic_save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
                 print(f"Saved last checkpoint at update {update}")
             else:
                 if self.keep_last_n_checkpoints == 0:
                     return
-                self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
+                atomic_save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
                 if self.keep_last_n_checkpoints > 0:
                     # Updated logic to exclude pretrained model from rotation
                     checkpoints = [
@@ -184,14 +203,31 @@ class Trainer:
             return 0
 
         self.accelerator.wait_for_everyone()
-        if "model_last.pt" in os.listdir(self.checkpoint_path):
+
+        # Helper function to validate checkpoint file
+        def is_valid_checkpoint(filepath):
+            try:
+                # Attempt to load checkpoint header only
+                torch.load(filepath, map_location="cpu", weights_only=True)
+                return True
+            except Exception:
+                if os.path.exists(filepath):
+                    # Remove corrupted checkpoint
+                    os.remove(filepath)
+                return False
+
+        # First try to find a valid model_last.pt
+        last_checkpoint = f"{self.checkpoint_path}/model_last.pt"
+        if os.path.exists(last_checkpoint) and is_valid_checkpoint(last_checkpoint):
             latest_checkpoint = "model_last.pt"
         else:
-            # Updated to consider pretrained models for loading but prioritize training checkpoints
+            # Look for other valid checkpoints
             all_checkpoints = [
                 f
                 for f in os.listdir(self.checkpoint_path)
-                if (f.startswith("model_") or f.startswith("pretrained_")) and f.endswith(".pt")
+                if (f.startswith("model_") or f.startswith("pretrained_"))
+                and f.endswith(".pt")
+                and is_valid_checkpoint(os.path.join(self.checkpoint_path, f))
             ]
 
             # First try to find regular training checkpoints
@@ -203,9 +239,12 @@ class Trainer:
                 )[-1]
             else:
                 # If no training checkpoints, use pretrained model
-                latest_checkpoint = next(f for f in all_checkpoints if f.startswith("pretrained_"))
+                pretrained = [f for f in all_checkpoints if f.startswith("pretrained_")]
+                if not pretrained:
+                    return 0
+                latest_checkpoint = pretrained[0]
 
-        # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
+        # Load the validated checkpoint
         checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
 
         # patch for backward compatibility, 305e3ea
