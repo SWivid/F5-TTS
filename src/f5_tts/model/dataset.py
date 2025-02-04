@@ -1,5 +1,4 @@
 import json
-import random
 from importlib.resources import files
 
 import torch
