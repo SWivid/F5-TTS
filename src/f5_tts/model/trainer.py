@@ -279,7 +279,11 @@ class Trainer:
             self.accelerator.even_batches = False
             sampler = SequentialSampler(train_dataset)
             batch_sampler = DynamicBatchSampler(
-                sampler, self.batch_size, max_samples=self.max_samples, random_seed=resumable_with_seed, drop_last=False
+                sampler,
+                self.batch_size,
+                max_samples=self.max_samples,
+                random_seed=resumable_with_seed,  # This enables reproducible shuffling
+                drop_last=False,
             )
             train_dataloader = DataLoader(
                 train_dataset,
@@ -328,6 +332,10 @@ class Trainer:
             else:
                 progress_bar_initial = 0
                 current_dataloader = train_dataloader
+
+            # Set epoch for the batch sampler if it exists
+            if hasattr(train_dataloader, "batch_sampler") and hasattr(train_dataloader.batch_sampler, "set_epoch"):
+                train_dataloader.batch_sampler.set_epoch(epoch)
 
             progress_bar = tqdm(
                 range(math.ceil(len(train_dataloader) / self.grad_accumulation_steps)),
