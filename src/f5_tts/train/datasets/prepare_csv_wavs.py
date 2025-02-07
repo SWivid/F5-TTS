@@ -111,14 +111,15 @@ def prepare_csv_wavs_dir(input_dir, num_workers=None):
             # Process files in chunks for better efficiency
             for i in range(0, len(audio_path_text_pairs), CHUNK_SIZE):
                 chunk = audio_path_text_pairs[i:i + CHUNK_SIZE]
+                # Submit futures in order
                 chunk_futures = [
                     executor.submit(process_audio_file, pair[0], pair[1], polyphone)
                     for pair in chunk
                 ]
                 
-                # Process chunk results with progress bar
+                # Iterate over futures in the original submission order to preserve ordering
                 for future in tqdm(
-                    concurrent.futures.as_completed(chunk_futures),
+                    chunk_futures,
                     total=len(chunk),
                     desc=f"Processing chunk {i//CHUNK_SIZE + 1}/{(total_files + CHUNK_SIZE - 1)//CHUNK_SIZE}"
                 ):
