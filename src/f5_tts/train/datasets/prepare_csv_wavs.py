@@ -1,12 +1,13 @@
 import os
 import sys
+import subprocess  # For invoking ffprobe
+import shutil
 
 sys.path.append(os.getcwd())
 
 import argparse
 import csv
 import json
-import shutil
 from importlib.resources import files
 from pathlib import Path
 
@@ -38,11 +39,21 @@ def prepare_csv_wavs_dir(input_dir):
     sub_result, durations = [], []
     vocab_set = set()
     polyphone = True
+
     for audio_path, text in audio_path_text_pairs:
         if not Path(audio_path).exists():
             print(f"audio {audio_path} not found, skipping")
             continue
-        audio_duration = get_audio_duration(audio_path)
+
+        try:
+            audio_duration = get_audio_duration(audio_path)
+            # Validate that the duration is positive.
+            if audio_duration <= 0:
+                raise ValueError(f"Duration {audio_duration} is non-positive.")
+        except Exception as e:
+            print(f"Warning: Failed to process {audio_path} due to error: {e}. Skipping corrupt file.")
+            continue
+
         # assume tokenizer = "pinyin"  ("pinyin" | "char")
         text = convert_char_to_pinyin([text], polyphone=polyphone)[0]
         sub_result.append({"audio_path": audio_path, "text": text, "duration": audio_duration})
@@ -53,8 +64,28 @@ def prepare_csv_wavs_dir(input_dir):
 
 
 def get_audio_duration(audio_path):
-    audio, sample_rate = torchaudio.load(audio_path)
-    return audio.shape[1] / sample_rate
+    """
+    Get the duration of an audio file in seconds using ffmpeg's ffprobe.
+    Falls back to torchaudio.load() if ffprobe fails.
+    """
+    try:
+        # Optimized command using format=duration
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            audio_path
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        duration_str = result.stdout.strip()
+        if duration_str:
+            return float(duration_str)
+        else:
+            raise ValueError("Empty duration string from ffprobe.")
+    except Exception as e:
+        print(f"Warning: ffprobe failed for {audio_path} with error: {e}. Falling back to torchaudio.")
+        audio, sample_rate = torchaudio.load(audio_path)
+        return audio.shape[1] / sample_rate
 
 
 def read_audio_text_pairs(csv_file_path):
@@ -123,15 +154,18 @@ def prepare_and_save_set(inp_dir, out_dir, is_finetune: bool = True):
 
 
 def cli():
-    # finetune: python scripts/prepare_csv_wavs.py /path/to/input_dir /path/to/output_dir_pinyin
-    # pretrain: python scripts/prepare_csv_wavs.py /path/to/output_dir_pinyin --pretrain
+    # Before processing, check if ffprobe is available.
+    if shutil.which("ffprobe") is None:
+        print("Warning: ffprobe is not available. Duration extraction will rely on torchaudio (which may be slower).")
+    
+    # Usage:
+    # For fine-tuning: python scripts/prepare_csv_wavs.py /path/to/input_dir /path/to/output_dir_pinyin
+    # For pre-training: python scripts/prepare_csv_wavs.py /path/to/input_dir /path/to/output_dir_pinyin --pretrain
     parser = argparse.ArgumentParser(description="Prepare and save dataset.")
     parser.add_argument("inp_dir", type=str, help="Input directory containing the data.")
     parser.add_argument("out_dir", type=str, help="Output directory to save the prepared data.")
     parser.add_argument("--pretrain", action="store_true", help="Enable for new pretrain, otherwise is a fine-tune")
-
     args = parser.parse_args()
-
     prepare_and_save_set(args.inp_dir, args.out_dir, is_finetune=not args.pretrain)
 
 
