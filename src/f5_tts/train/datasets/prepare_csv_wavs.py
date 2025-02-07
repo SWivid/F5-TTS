@@ -35,7 +35,7 @@ def is_csv_wavs_format(input_dataset_dir):
 
 
 # Configuration constants
-BATCH_SIZE = 32  # Batch size for text conversion
+BATCH_SIZE = 100  # Batch size for text conversion
 MAX_WORKERS = max(1, multiprocessing.cpu_count() - 1)  # Leave one CPU free
 THREAD_NAME_PREFIX = "AudioProcessor"
 CHUNK_SIZE = 100  # Number of files to process per worker batch
