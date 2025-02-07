@@ -94,11 +94,10 @@ def prepare_csv_wavs_dir(input_dir, num_workers=None):
 
     polyphone = True
     total_files = len(audio_path_text_pairs)
-    print(f"\nProcessing {total_files} audio files...")
     
     # Use provided worker count or calculate optimal number
     worker_count = num_workers if num_workers is not None else min(MAX_WORKERS, total_files)
-    print(f"Using {worker_count} workers for processing...")
+    print(f"\nProcessing {total_files} audio files using {worker_count} workers...")
 
     with graceful_exit():
         # Initialize thread pool with optimized settings
@@ -107,8 +106,9 @@ def prepare_csv_wavs_dir(input_dir, num_workers=None):
             thread_name_prefix=THREAD_NAME_PREFIX
         ) as exec:
             executor = exec
-            # Process files in chunks for better efficiency
             results = []
+            
+            # Process files in chunks for better efficiency
             for i in range(0, len(audio_path_text_pairs), CHUNK_SIZE):
                 chunk = audio_path_text_pairs[i:i + CHUNK_SIZE]
                 chunk_futures = [
@@ -229,10 +229,10 @@ def save_prepped_dataset(out_dir, result, duration_list, text_vocab_set, is_fine
     print(f"For {dataset_name}, total {sum(duration_list)/3600:.2f} hours")
 
 
-def prepare_and_save_set(inp_dir, out_dir, is_finetune: bool = True):
+def prepare_and_save_set(inp_dir, out_dir, is_finetune: bool = True, num_workers: int = None):
     if is_finetune:
         assert PRETRAINED_VOCAB_PATH.exists(), f"pretrained vocab.txt not found: {PRETRAINED_VOCAB_PATH}"
-    sub_result, durations, vocab_set = prepare_csv_wavs_dir(inp_dir)
+    sub_result, durations, vocab_set = prepare_csv_wavs_dir(inp_dir, num_workers=num_workers)
     save_prepped_dataset(out_dir, sub_result, durations, vocab_set, is_finetune)
 
 
@@ -242,19 +242,33 @@ def cli():
         if shutil.which("ffprobe") is None:
             print("Warning: ffprobe is not available. Duration extraction will rely on torchaudio (which may be slower).")
         
-        # Usage:
-        # For fine-tuning: python scripts/prepare_csv_wavs.py /path/to/input_dir /path/to/output_dir_pinyin
-        # For pre-training: python scripts/prepare_csv_wavs.py /path/to/input_dir /path/to/output_dir_pinyin --pretrain
-        parser = argparse.ArgumentParser(description="Prepare and save dataset.")
+        # Usage examples in help text
+        parser = argparse.ArgumentParser(
+            description="Prepare and save dataset.",
+            epilog="""
+Examples:
+    # For fine-tuning (default):
+    python prepare_csv_wavs.py /input/dataset/path /output/dataset/path
+    
+    # For pre-training:
+    python prepare_csv_wavs.py /input/dataset/path /output/dataset/path --pretrain
+    
+    # With custom worker count:
+    python prepare_csv_wavs.py /input/dataset/path /output/dataset/path --workers 4
+            """
+        )
         parser.add_argument("inp_dir", type=str, help="Input directory containing the data.")
         parser.add_argument("out_dir", type=str, help="Output directory to save the prepared data.")
         parser.add_argument("--pretrain", action="store_true", help="Enable for new pretrain, otherwise is a fine-tune")
         parser.add_argument("--workers", type=int, help=f"Number of worker threads (default: {MAX_WORKERS})")
         args = parser.parse_args()
         
-        # Pass worker count to prepare_csv_wavs_dir
-        prepare_csv_wavs_dir(args.inp_dir, num_workers=args.workers)
-        prepare_and_save_set(args.inp_dir, args.out_dir, is_finetune=not args.pretrain)
+        prepare_and_save_set(
+            args.inp_dir, 
+            args.out_dir, 
+            is_finetune=not args.pretrain,
+            num_workers=args.workers
+        )
     except KeyboardInterrupt:
         print("\nOperation cancelled by user. Cleaning up...")
         if executor is not None:
