@@ -87,6 +87,33 @@ f5-tts_infer-gradio --port 7860 --host 0.0.0.0
 f5-tts_infer-gradio --share
 ```
 
+<details>
+<summary>NVIDIA device docker compose file example</summary>
+
+``` yaml
+services:
+  f5-tts:
+    image: ghcr.io/swivid/f5-tts:main
+    ports:
+      - "7860:7860"
+    environment:
+      GRADIO_SERVER_PORT: 7860
+    entrypoint: ["f5-tts_infer-gradio", "--port", "7860", "--host", "0.0.0.0"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  f5-tts:
+    driver: local
+```
+
+</details>
+
 ### 2. CLI Inference
 
 ```bash
