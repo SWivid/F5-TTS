@@ -3,6 +3,12 @@ import os
 os.environ["PYTOCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 
 import torch
+
+try:
+    pass
+except Exception:
+    pass
+
 import torch.nn.functional as F
 import torchaudio
 

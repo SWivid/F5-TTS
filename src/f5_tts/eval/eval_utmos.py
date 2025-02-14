@@ -4,6 +4,12 @@ from pathlib import Path
 
 import librosa
 import torch
+
+try:
+    pass
+except Exception:
+    pass
+
 from tqdm import tqdm
 
 

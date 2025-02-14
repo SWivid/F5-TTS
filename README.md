@@ -35,7 +35,10 @@ pip install torch==2.5.1+rocm6.2 torchaudio==2.5.1+rocm6.2 --extra-index-url htt
 
 # Intel GPU: install pytorch with your XPU version, e.g.
 # Intel® Deep Learning Essentials or Intel® oneAPI Base Toolkit must be installed
-pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/test/xpu
+# Intel GPU support is also available through IPEX (Intel® Extension for PyTorch)
+# IPEX does not require the Intel® Deep Learning Essentials or Intel® oneAPI Base Toolkit
+# See: https://pytorch-extension.intel.com/installation?request=platform
 ```
 
 Then you can choose from a few options below:
