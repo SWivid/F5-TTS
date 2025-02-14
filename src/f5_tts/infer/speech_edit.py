@@ -5,7 +5,7 @@ os.environ["PYTOCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 import torch
 
 try:
-    pass
+    import intel_extension_for_pytorch as ipex
 except Exception:
     pass
 

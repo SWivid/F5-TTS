@@ -23,7 +23,7 @@ import numpy as np
 import torch
 
 try:
-    pass
+    import intel_extension_for_pytorch as ipex
 except Exception:
     pass
 
