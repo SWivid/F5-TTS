@@ -18,6 +18,12 @@ matplotlib.use("Agg")
 import matplotlib.pylab as plt
 import numpy as np
 import torch
+
+try:
+    pass
+except Exception:
+    pass
+
 import torchaudio
 import tqdm
 from huggingface_hub import snapshot_download, hf_hub_download

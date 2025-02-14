@@ -3,6 +3,12 @@ import gc
 import socket
 import struct
 import torch
+
+try:
+    pass
+except Exception:
+    pass
+
 import torchaudio
 import traceback
 from importlib.resources import files
