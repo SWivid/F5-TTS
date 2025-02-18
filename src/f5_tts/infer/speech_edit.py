@@ -1,6 +1,6 @@
 import os
 
-os.environ["PYTOCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 
 import torch
 import torch.nn.functional as F
