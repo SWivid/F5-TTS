@@ -22,40 +22,75 @@
 
 ## Installation
 
+### Create a separate environment if needed
+
 ```bash
 # Create a python 3.10 conda env (you could also use virtualenv)
 conda create -n f5-tts python=3.10
 conda activate f5-tts
-
-# NVIDIA GPU: install pytorch with your CUDA version, e.g.
-pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
-
-# AMD GPU: install pytorch with your ROCm version, e.g. (Linux only)
-pip install torch==2.5.1+rocm6.2 torchaudio==2.5.1+rocm6.2 --extra-index-url https://download.pytorch.org/whl/rocm6.2
-
-# Intel GPU: install pytorch with your XPU version, e.g.
-# Intel® Deep Learning Essentials or Intel® oneAPI Base Toolkit must be installed
-pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
 ```
 
-Then you can choose from a few options below:
+### Install PyTorch with matched device
 
-### 1. As a pip package (if just for inference)
+<details>
+<summary>NVIDIA GPU</summary>
 
-```bash
-pip install git+https://github.com/SWivid/F5-TTS.git
-```
+> ```bash
+> # Install pytorch with your CUDA version, e.g.
+> pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+> ```
 
-### 2. Local editable (if also do training, finetuning)
+</details>
 
-```bash
-git clone https://github.com/SWivid/F5-TTS.git
-cd F5-TTS
-# git submodule update --init --recursive  # (optional, if need bigvgan)
-pip install -e .
-```
+<details>
+<summary>AMD GPU</summary>
 
-### 3. Docker usage
+> ```bash
+> # Install pytorch with your ROCm version (Linux only), e.g.
+> pip install torch==2.5.1+rocm6.2 torchaudio==2.5.1+rocm6.2 --extra-index-url https://download.pytorch.org/whl/rocm6.2
+> ```
+
+</details>
+
+<details>
+<summary>Intel GPU</summary>
+
+> ```bash
+> # Install pytorch with your XPU version, e.g.
+> # Intel® Deep Learning Essentials or Intel® oneAPI Base Toolkit must be installed
+> pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
+> ```
+
+</details>
+
+<details>
+<summary>Apple Silicon</summary>
+
+> ```bash
+> # Install the stable pytorch, e.g.
+> pip install torch torchaudio
+> ```
+
+</details>
+
+### Then you can choose one from below:
+
+> ### 1. As a pip package (if just for inference)
+> 
+> ```bash
+> pip install git+https://github.com/SWivid/F5-TTS.git
+> ```
+> 
+> ### 2. Local editable (if also do training, finetuning)
+> 
+> ```bash
+> git clone https://github.com/SWivid/F5-TTS.git
+> cd F5-TTS
+> # git submodule update --init --recursive  # (optional, if need > bigvgan)
+> pip install -e .
+> ```
+
+### Docker usage also available
 ```bash
 # Build from Dockerfile
 docker build -t f5tts:v1 .
@@ -90,7 +125,7 @@ f5-tts_infer-gradio --share
 <details>
 <summary>NVIDIA device docker compose file example</summary>
 
-``` yaml
+```yaml
 services:
   f5-tts:
     image: ghcr.io/swivid/f5-tts:main
