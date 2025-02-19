@@ -120,9 +120,6 @@ f5-tts_infer-gradio --port 7860 --host 0.0.0.0
 
 # Launch a share link
 f5-tts_infer-gradio --share
-
-# Automatically open in default web browser
-f5-tts_infer-gradio --autolaunch
 ```
 
 <details>

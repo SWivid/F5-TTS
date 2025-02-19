@@ -23,12 +23,24 @@ Currently supported features:
 - Basic TTS with Chunk Inference
 - Multi-Style / Multi-Speaker Generation
 - Voice Chat powered by Qwen2.5-3B-Instruct
+- [Custom inference with more language support](src/f5_tts/infer/SHARED.md)
 
 The cli command `f5-tts_infer-gradio` equals to `python src/f5_tts/infer/infer_gradio.py`, which launches a Gradio APP (web interface) for inference.
 
 The script will load model checkpoints from Huggingface. You can also manually download files and update the path to `load_model()` in `infer_gradio.py`. Currently only load TTS models first, will load ASR model to do transcription if `ref_text` not provided, will load LLM model if use Voice Chat.
 
-Could also be used as a component for larger application.
+More flags options:
+
+```bash
+# Automatically launch the interface in the default web browser
+f5-tts_infer-gradio --inbrowser
+
+# Set the root path of the application, if it's not served from the root ("/") of the domain
+# For example, if the application is served at "https://example.com/myapp"
+f5-tts_infer-gradio --root_path "/myapp"
+```
+
+Could also be used as a component for larger application:
 ```python
 import gradio as gr
 from f5_tts.infer.infer_gradio import app
