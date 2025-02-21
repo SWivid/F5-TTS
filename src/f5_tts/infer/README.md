@@ -155,7 +155,8 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def listen_to_F5TTS(text, server_ip='localhost', server_port=9998):
+
+async def listen_to_F5TTS(text, server_ip="localhost", server_port=9998):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     await asyncio.get_event_loop().run_in_executor(None, client_socket.connect, (server_ip, int(server_port)))
 
@@ -164,13 +165,9 @@ async def listen_to_F5TTS(text, server_ip='localhost', server_port=9998):
 
     async def play_audio_stream():
         nonlocal first_chunk_time
-        buffer = b''
+        buffer = b""
         p = pyaudio.PyAudio()
-        stream = p.open(format=pyaudio.paFloat32,
-                        channels=1,
-                        rate=24000,
-                        output=True,
-                        frames_per_buffer=2048)
+        stream = p.open(format=pyaudio.paFloat32, channels=1, rate=24000, output=True, frames_per_buffer=2048)
 
         try:
             while True:
@@ -195,7 +192,7 @@ async def listen_to_F5TTS(text, server_ip='localhost', server_port=9998):
         logger.info(f"Total time taken: {time.time() - start_time:.4f} seconds")
 
     try:
-        data_to_send = f"{character_name}|{text}".encode('utf-8')
+        data_to_send = f"{text}".encode("utf-8")
         await asyncio.get_event_loop().run_in_executor(None, client_socket.sendall, data_to_send)
         await play_audio_stream()
 
@@ -205,8 +202,9 @@ async def listen_to_F5TTS(text, server_ip='localhost', server_port=9998):
     finally:
         client_socket.close()
 
+
 if __name__ == "__main__":
-    text_to_send = "As a Reader assistant, I'm familiar with blockchain technology. which are key to its improved performance in terms of both training speed and inference efficiency.Let’s break down the components"
+    text_to_send = "As a Reader assistant, I'm familiar with new technology. which are key to its improved performance in terms of both training speed and inference efficiency.Let's break down the components"
 
     asyncio.run(listen_to_F5TTS(text_to_send))
 ```
