@@ -144,7 +144,14 @@ python src/f5_tts/socket_server.py
 <details>
 <summary>Then create client to communicate</summary>
 
+```bash
+# If PyAudio not installed
+sudo apt-get install portaudio19-dev
+pip install pyaudio
+```
+
 ``` python
+# Create the socket_client.py
 import socket
 import asyncio
 import pyaudio
@@ -165,7 +172,6 @@ async def listen_to_F5TTS(text, server_ip="localhost", server_port=9998):
 
     async def play_audio_stream():
         nonlocal first_chunk_time
-        buffer = b""
         p = pyaudio.PyAudio()
         stream = p.open(format=pyaudio.paFloat32, channels=1, rate=24000, output=True, frames_per_buffer=2048)
 
@@ -204,7 +210,7 @@ async def listen_to_F5TTS(text, server_ip="localhost", server_port=9998):
 
 
 if __name__ == "__main__":
-    text_to_send = "As a Reader assistant, I'm familiar with new technology. which are key to its improved performance in terms of both training speed and inference efficiency.Let's break down the components"
+    text_to_send = "As a Reader assistant, I'm familiar with new technology. which are key to its improved performance in terms of both training speed and inference efficiency. Let's break down the components"
 
     asyncio.run(listen_to_F5TTS(text_to_send))
 ```
