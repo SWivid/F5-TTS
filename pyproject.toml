@@ -40,6 +40,7 @@ dependencies = [
     "vocos",
     "wandb",
     "x_transformers>=1.31.14",
+    "nltk"
 ]
 
 [project.optional-dependencies]
