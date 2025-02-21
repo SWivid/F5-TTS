@@ -529,25 +529,26 @@ def infer_batch_process(
 
     return final_wave, target_sample_rate, combined_spectrogram
 
+
 # infer batch process for stream mode
 def infer_batch_process_stream(
-        ref_audio,
-        ref_text,
-        gen_text_batches,
-        model_obj,
-        vocoder,
-        mel_spec_type="vocos",
-        progress=None,
-        target_rms=0.1,
-        cross_fade_duration=0.15,
-        nfe_step=32,
-        cfg_strength=2.0,
-        sway_sampling_coef=-1,
-        speed=1,
-        fix_duration=None,
-        device=None,
-        streaming=False,
-        chunk_size=2048
+    ref_audio,
+    ref_text,
+    gen_text_batches,
+    model_obj,
+    vocoder,
+    mel_spec_type="vocos",
+    progress=None,
+    target_rms=0.1,
+    cross_fade_duration=0.15,
+    nfe_step=32,
+    cfg_strength=2.0,
+    sway_sampling_coef=-1,
+    speed=1,
+    fix_duration=None,
+    device=None,
+    streaming=False,
+    chunk_size=2048,
 ):
     audio, sr = ref_audio
     if audio.shape[0] > 1:
@@ -585,7 +586,6 @@ def infer_batch_process_stream(
             gen_text_len = len(gen_text.encode("utf-8"))
             duration = ref_audio_len + int(ref_audio_len / ref_text_len * gen_text_len / local_speed)
 
-
         with torch.inference_mode():
             generated, _ = model_obj.sample(
                 cond=audio,
@@ -618,7 +618,7 @@ def infer_batch_process_stream(
 
             if streaming:
                 for j in range(0, len(generated_wave), chunk_size):
-                    yield generated_wave[j:j + chunk_size], target_sample_rate
+                    yield generated_wave[j : j + chunk_size], target_sample_rate
 
             return generated_wave, generated_mel_spec[0].cpu().numpy()
 
@@ -629,7 +629,7 @@ def infer_batch_process_stream(
     else:
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(process_batch, i, gen_text) for i, gen_text in enumerate(gen_text_batches)]
-            for future in (progress.tqdm(futures) if progress else futures):
+            for future in progress.tqdm(futures) if progress else futures:
                 result = future.result()
                 if result:
                     generated_wave, generated_mel_spec = result
@@ -671,6 +671,8 @@ def infer_batch_process_stream(
             yield final_wave, target_sample_rate, combined_spectrogram
         else:
             yield None, target_sample_rate, None
+
+
 # remove silence from generated wav
 
 

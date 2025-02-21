@@ -6,7 +6,6 @@ import logging
 import wave
 import numpy as np
 import argparse
-import time
 import traceback
 import gc
 import threading
@@ -20,8 +19,10 @@ from importlib.resources import files
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class AudioFileWriterThread(threading.Thread):
     """Threaded file writer to avoid blocking the TTS streaming process."""
+
     def __init__(self, output_file, sampling_rate):
         super().__init__()
         self.output_file = output_file
@@ -33,7 +34,7 @@ class AudioFileWriterThread(threading.Thread):
     def run(self):
         """Process queued audio data and write it to a file."""
         logger.info("AudioFileWriterThread started.")
-        with wave.open(self.output_file, 'wb') as wf:
+        with wave.open(self.output_file, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(self.sampling_rate)
@@ -102,12 +103,19 @@ class TTSStreamingProcessor:
     def _warm_up(self):
         logger.info("Warming up the model...")
         gen_text = "Warm-up text for the model."
-        for _ in infer_batch_process_stream((self.audio, self.sr), self.ref_text, [gen_text], self.model, self.vocoder, device=self.device, streaming=True):
+        for _ in infer_batch_process_stream(
+            (self.audio, self.sr),
+            self.ref_text,
+            [gen_text],
+            self.model,
+            self.vocoder,
+            device=self.device,
+            streaming=True,
+        ):
             pass
         logger.info("Warm-up completed.")
 
     def generate_stream(self, text, conn):
-        start_time = time.time()
         text_batches = sent_tokenize(text)
 
         audio_stream = infer_batch_process_stream(
@@ -118,13 +126,13 @@ class TTSStreamingProcessor:
             self.vocoder,
             device=self.device,
             streaming=True,
-            chunk_size=2048
+            chunk_size=2048,
         )
 
         # Reset the file writer thread
         if self.file_writer_thread is not None:
             self.file_writer_thread.stop()
-        self.file_writer_thread = AudioFileWriterThread('output.wav', self.sampling_rate)
+        self.file_writer_thread = AudioFileWriterThread("output.wav", self.sampling_rate)
         self.file_writer_thread.start()
 
         for audio_chunk, _ in audio_stream:
@@ -132,7 +140,7 @@ class TTSStreamingProcessor:
                 logger.info(f"Generated audio chunk of size: {len(audio_chunk)}")
 
                 # Send audio chunk via socket
-                conn.sendall(struct.pack(f'{len(audio_chunk)}f', *audio_chunk))
+                conn.sendall(struct.pack(f"{len(audio_chunk)}f", *audio_chunk))
 
                 # Write to file asynchronously
                 self.file_writer_thread.add_chunk(audio_chunk)
@@ -165,6 +173,7 @@ def handle_client(conn, processor):
         logger.error(f"Error handling client: {e}")
         traceback.print_exc()
 
+
 def start_server(host, port, processor):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, port))
@@ -174,6 +183,7 @@ def start_server(host, port, processor):
             conn, addr = s.accept()
             logger.info(f"Connected by {addr}")
             handle_client(conn, processor)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
