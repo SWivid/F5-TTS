@@ -1,20 +1,31 @@
+import argparse
+import gc
+import logging
+import numpy as np
+import queue
 import socket
 import struct
+import threading
+import traceback
+import wave
+from importlib.resources import files
+
 import torch
 import torchaudio
-import logging
-import wave
-import numpy as np
-import argparse
-import traceback
-import gc
-import threading
-import queue
-from nltk.tokenize import sent_tokenize
-from infer.utils_infer import preprocess_ref_audio_text, load_vocoder, load_model, infer_batch_process_stream
-from model.backbones.dit import DiT
 from huggingface_hub import hf_hub_download
-from importlib.resources import files
+
+import nltk
+from nltk.tokenize import sent_tokenize
+
+from f5_tts.model.backbones.dit import DiT
+from f5_tts.infer.utils_infer import (
+    preprocess_ref_audio_text,
+    load_vocoder,
+    load_model,
+    infer_batch_process,
+)
+
+nltk.download("punkt_tab")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -103,12 +114,13 @@ class TTSStreamingProcessor:
     def _warm_up(self):
         logger.info("Warming up the model...")
         gen_text = "Warm-up text for the model."
-        for _ in infer_batch_process_stream(
+        for _ in infer_batch_process(
             (self.audio, self.sr),
             self.ref_text,
             [gen_text],
             self.model,
             self.vocoder,
+            progress=None,
             device=self.device,
             streaming=True,
         ):
@@ -118,12 +130,13 @@ class TTSStreamingProcessor:
     def generate_stream(self, text, conn):
         text_batches = sent_tokenize(text)
 
-        audio_stream = infer_batch_process_stream(
+        audio_stream = infer_batch_process(
             (self.audio, self.sr),
             self.ref_text,
             text_batches,
             self.model,
             self.vocoder,
+            progress=None,
             device=self.device,
             streaming=True,
             chunk_size=2048,
