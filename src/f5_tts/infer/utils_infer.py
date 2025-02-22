@@ -500,13 +500,13 @@ def infer_batch_process(
                 yield generated_wave, generated_mel_spec[0].cpu().numpy()
 
     if streaming:
-        for gen_text in progress.tqdm(gen_text_batches) if progress else gen_text_batches:
+        for gen_text in progress.tqdm(gen_text_batches) if progress is not None else gen_text_batches:
             for chunk in process_batch(gen_text):
                 yield chunk
     else:
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(process_batch, gen_text) for gen_text in gen_text_batches]
-            for future in progress.tqdm(futures) if progress else futures:
+            for future in progress.tqdm(futures) if progress is not None else futures:
                 result = future.result()
                 if result:
                     generated_wave, generated_mel_spec = next(result)
