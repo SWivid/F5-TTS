@@ -14,18 +14,14 @@ import torch
 import torchaudio
 from huggingface_hub import hf_hub_download
 
-import nltk
-from nltk.tokenize import sent_tokenize
-
 from f5_tts.model.backbones.dit import DiT
 from f5_tts.infer.utils_infer import (
+    chunk_text,
     preprocess_ref_audio_text,
     load_vocoder,
     load_model,
     infer_batch_process,
 )
-
-nltk.download("punkt_tab")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -89,6 +85,7 @@ class TTSStreamingProcessor:
         self.update_reference(ref_audio, ref_text)
         self._warm_up()
         self.file_writer_thread = None
+        self.first_package = True
 
     def load_ema_model(self, ckpt_file, vocab_file, dtype):
         model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
@@ -111,6 +108,12 @@ class TTSStreamingProcessor:
         self.ref_audio, self.ref_text = preprocess_ref_audio_text(ref_audio, ref_text)
         self.audio, self.sr = torchaudio.load(self.ref_audio)
 
+        ref_audio_duration = self.audio.shape[-1] / self.sr
+        ref_text_byte_len = len(self.ref_text.encode("utf-8"))
+        self.max_chars = int(ref_text_byte_len / (ref_audio_duration) * (25 - ref_audio_duration))
+        self.few_chars = int(ref_text_byte_len / (ref_audio_duration) * (25 - ref_audio_duration) / 2)
+        self.min_chars = int(ref_text_byte_len / (ref_audio_duration) * (25 - ref_audio_duration) / 4)
+
     def _warm_up(self):
         logger.info("Warming up the model...")
         gen_text = "Warm-up text for the model."
@@ -128,7 +131,11 @@ class TTSStreamingProcessor:
         logger.info("Warm-up completed.")
 
     def generate_stream(self, text, conn):
-        text_batches = sent_tokenize(text)
+        text_batches = chunk_text(text, max_chars=self.max_chars)
+        if self.first_package:
+            text_batches = chunk_text(text_batches[0], max_chars=self.few_chars) + text_batches[1:]
+            text_batches = chunk_text(text_batches[0], max_chars=self.min_chars) + text_batches[1:]
+            self.first_package = False
 
         audio_stream = infer_batch_process(
             (self.audio, self.sr),
@@ -172,6 +179,7 @@ def handle_client(conn, processor):
             while True:
                 data = conn.recv(1024)
                 if not data:
+                    processor.first_package = True
                     break
                 data_str = data.decode("utf-8").strip()
                 logger.info(f"Received text: {data_str}")
