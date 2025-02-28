@@ -7,8 +7,8 @@ ckpts/
 wandb/
 results/
 
-
-
+i4b_indicConformer_ne.nemo
+*.nemo
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
