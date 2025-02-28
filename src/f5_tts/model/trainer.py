@@ -206,7 +206,8 @@ class Trainer:
                 latest_checkpoint = next(f for f in all_checkpoints if f.startswith("pretrained_"))
 
         # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
-        checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
+        # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
+        checkpoint = torch.load("/home/prasais/projects/xttsv2/F5-TTS/ckpts/indic_r/pretrained_model_2500000.pt", weights_only=True, map_location="cpu")
 
         # patch for backward compatibility, 305e3ea
         for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
@@ -216,32 +217,38 @@ class Trainer:
         if self.is_main:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
-        if "update" in checkpoint or "step" in checkpoint:
-            # patch for backward compatibility, with before f992c4e
-            if "step" in checkpoint:
-                checkpoint["update"] = checkpoint["step"] // self.grad_accumulation_steps
-                if self.grad_accumulation_steps > 1 and self.is_main:
-                    print(
-                        "F5-TTS WARNING: Loading checkpoint saved with per_steps logic (before f992c4e), will convert to per_updates according to grad_accumulation_steps setting, may have unexpected behaviour."
-                    )
-            # patch for backward compatibility, 305e3ea
-            for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
-                if key in checkpoint["model_state_dict"]:
-                    del checkpoint["model_state_dict"][key]
+        # if "update" in checkpoint or "step" in checkpoint:
+        #     # patch for backward compatibility, with before f992c4e
+        #     if "step" in checkpoint:
+        #         checkpoint["update"] = checkpoint["step"] // self.grad_accumulation_steps
+        #         if self.grad_accumulation_steps > 1 and self.is_main:
+        #             print(
+        #                 "F5-TTS WARNING: Loading checkpoint saved with per_steps logic (before f992c4e), will convert to per_updates according to grad_accumulation_steps setting, may have unexpected behaviour."
+        #             )
+        #     # patch for backward compatibility, 305e3ea
+        #     for key in ["mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"]:
+        #         if key in checkpoint["model_state_dict"]:
+        #             del checkpoint["model_state_dict"][key]
 
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
-            self.accelerator.unwrap_model(self.optimizer).load_state_dict(checkpoint["optimizer_state_dict"])
-            if self.scheduler:
-                self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-            update = checkpoint["update"]
-        else:
-            checkpoint["model_state_dict"] = {
-                k.replace("ema_model.", ""): v
-                for k, v in checkpoint["ema_model_state_dict"].items()
-                if k not in ["initted", "update", "step"]
-            }
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
-            update = 0
+        #     # self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+        #     # self.accelerator.unwrap_model(self.optimizer).load_state_dict(checkpoint["optimizer_state_dict"])
+        #     # if self.scheduler:
+        #     #     self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        #     update = checkpoint["update"]
+        # else:
+        # checkpoint["model_state_dict"] = {
+        #     k.replace("ema_model.", ""): v
+        #     for k, v in checkpoint["ema_model_state_dict"].items()
+        #     if k not in ["initted", "update", "step"]
+        # }
+        # self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+        # update = 0
+
+        # if self.is_main:
+        #     self.ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
+            
+        # self.ema_model.copy_params_from_ema_to_model()
+        update = 0
 
         del checkpoint
         gc.collect()

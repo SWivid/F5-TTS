@@ -80,10 +80,11 @@ if __name__ == "__main__":
 
     tokenizer = "char"  # "pinyin" | "char"
 
-    SUB_SET = ["train-clean-100", "train-clean-360", "train-other-500"]
-    dataset_dir = "<SOME_PATH>/LibriTTS"
+    SUB_SET = ["train-clean-100"]
+    dataset_dir = "/home/prasais/projects/xttsv2/libri_r_subset/LibriTTS"
     dataset_name = f"LibriTTS_{'_'.join(SUB_SET)}_{tokenizer}".replace("train-clean-", "").replace("train-other-", "")
-    save_dir = str(files("f5_tts").joinpath("../../")) + f"/data/{dataset_name}"
+    print(dataset_name)
+    save_dir = "/home/prasais/projects/xttsv2/F5-TTS" + f"/data/{dataset_name}"
     print(f"\nPrepare for {dataset_name}, will save to {save_dir}\n")
     main()
 

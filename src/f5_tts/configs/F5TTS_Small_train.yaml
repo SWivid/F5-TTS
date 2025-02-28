@@ -6,7 +6,7 @@ datasets:
   name: Emilia_ZH_EN
   batch_size_per_gpu: 38400  # 8 GPUs, 8 * 38400 = 307200
   batch_size_type: frame  # "frame" or "sample"
-  max_samples: 64  # max sequences per batch if use frame-wise batch_size. we set 32 for small models, 64 for base models
+  max_samples: 32  # max sequences per batch if use frame-wise batch_size. we set 32 for small models, 64 for base models
   num_workers: 16
 
 optim:
