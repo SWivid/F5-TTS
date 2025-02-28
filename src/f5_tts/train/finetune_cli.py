@@ -8,7 +8,16 @@ from f5_tts.model.utils import get_tokenizer
 from f5_tts.model.dataset import load_dataset
 from importlib.resources import files
 
+import torch._dynamo
+torch._dynamo.config.capture_scalar_outputs = True
 
+"""
+accelerate launch --mixed_precision=fp16 /home/prasais/projects/xttsv2/F5-TTS/src/f5_tts/train/finetune_cli.py --exp_name F5
+TTS_Small --learning_rate 1e-07 --batch_size_per_gpu 12000 --batch_size_type frame --max_samples 64 --grad_accumulation_steps 1 --max_grad_norm 1 --epochs 150
+000 --num_warmup_updates 814 --save_per_updates 1628 --keep_last_n_checkpoints 5 --last_per_updates 2000 --dataset_name indic_r --tokenizer char --log_samples
+ --logger tensorboard 
+ 
+"""
 # -------------------------- Dataset Settings --------------------------- #
 target_sample_rate = 24000
 n_mel_channels = 100
@@ -32,7 +41,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train CFM Model")
 
     parser.add_argument(
-        "--exp_name", type=str, default="F5TTS_Base", choices=["F5TTS_Base", "E2TTS_Base"], help="Experiment name"
+        "--exp_name", type=str, default="F5TTS_Base", choices=["F5TTS_Base", "F5TTS_Small", "E2TTS_Base"], help="Experiment name"
     )
     parser.add_argument("--dataset_name", type=str, default="Emilia_ZH_EN", help="Name of the dataset to use")
     parser.add_argument("--learning_rate", type=float, default=1e-5, help="Learning rate for training")
@@ -87,48 +96,23 @@ def main():
 
     checkpoint_path = str(files("f5_tts").joinpath(f"../../ckpts/{args.dataset_name}"))
 
-    # Model parameters based on experiment name
-    if args.exp_name == "F5TTS_Base":
-        wandb_resume_id = None
-        model_cls = DiT
-        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
-        if args.finetune:
-            if args.pretrain is None:
-                ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
-            else:
-                ckpt_path = args.pretrain
-    elif args.exp_name == "E2TTS_Base":
-        wandb_resume_id = None
-        model_cls = UNetT
-        model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
-        if args.finetune:
-            if args.pretrain is None:
-                ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
-            else:
-                ckpt_path = args.pretrain
 
-    if args.finetune:
-        if not os.path.isdir(checkpoint_path):
-            os.makedirs(checkpoint_path, exist_ok=True)
-
-        file_checkpoint = os.path.basename(ckpt_path)
-        if not file_checkpoint.startswith("pretrained_"):  # Change: Add 'pretrained_' prefix to copied model
-            file_checkpoint = "pretrained_" + file_checkpoint
-        file_checkpoint = os.path.join(checkpoint_path, file_checkpoint)
-        if not os.path.isfile(file_checkpoint):
-            shutil.copy2(ckpt_path, file_checkpoint)
-            print("copy checkpoint for finetune")
+    wandb_resume_id = None
+    model_cls = DiT
+    model_cfg = dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)
+        # if args.pretrain is None:
+    ckpt_path = str("/home/prasais/projects/xttsv2/F5-TTS/ckpts/indic_r/pretrained_model_2500000.pt")
+    file_checkpoint = os.path.basename(ckpt_path)
 
     # Use the tokenizer and tokenizer_path provided in the command line arguments
-    tokenizer = args.tokenizer
-    if tokenizer == "custom":
-        if not args.tokenizer_path:
-            raise ValueError("Custom tokenizer selected, but no tokenizer_path provided.")
-        tokenizer_path = args.tokenizer_path
-    else:
-        tokenizer_path = args.dataset_name
+    # tokenizer = args.tokenizer
 
+    tokenizer = "char"
+    tokenizer_path = "indic_r"
+    # tokenizer_path = "/home/prasais/projects/xttsv2/F5-TTS/data/indic_r_char"
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
+    # vocab_char_map, vocab_size = get_tokenizer("indic_r", "char")
+
 
     print("\nvocab : ", vocab_size)
     print("\nvocoder : ", mel_spec_type)

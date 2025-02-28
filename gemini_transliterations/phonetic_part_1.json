@@ -1,0 +1,922 @@
+[
+  {
+    "original_word": "ripple",
+    "phonetic_nepali": "रिप्ल"
+  },
+  {
+    "original_word": "determinedly",
+    "phonetic_nepali": "डिटर्मिन्डली"
+  },
+  {
+    "original_word": "madrigal",
+    "phonetic_nepali": "माद्रिगल"
+  },
+  {
+    "original_word": "gong",
+    "phonetic_nepali": "गोंग"
+  },
+  {
+    "original_word": "epigrams",
+    "phonetic_nepali": "इपिग्राम्स"
+  },
+  {
+    "original_word": "statesman",
+    "phonetic_nepali": "स्टेट्सम्यान"
+  },
+  {
+    "original_word": "skyline",
+    "phonetic_nepali": "स्काइलाइन"
+  },
+  {
+    "original_word": "granting",
+    "phonetic_nepali": "ग्रान्टिङ"
+  },
+  {
+    "original_word": "tawny",
+    "phonetic_nepali": "टॉनी"
+  },
+  {
+    "original_word": "cared",
+    "phonetic_nepali": "केयर्ड"
+  },
+  {
+    "original_word": "chateau",
+    "phonetic_nepali": "शातो"
+  },
+  {
+    "original_word": "surly",
+    "phonetic_nepali": "सर्ली"
+  },
+  {
+    "original_word": "harden",
+    "phonetic_nepali": "हार्डेन"
+  },
+  {
+    "original_word": "inconsistently",
+    "phonetic_nepali": "इन्कन्सिस्टेन्ट्ली"
+  },
+  {
+    "original_word": "safety",
+    "phonetic_nepali": "सेफ्टी"
+  },
+  {
+    "original_word": "ascends",
+    "phonetic_nepali": "एसेन्ड्स"
+  },
+  {
+    "original_word": "hope",
+    "phonetic_nepali": "होप"
+  },
+  {
+    "original_word": "equipments",
+    "phonetic_nepali": "इक्विपमेन्ट्स"
+  },
+  {
+    "original_word": "smarter",
+    "phonetic_nepali": "स्मार्टर"
+  },
+  {
+    "original_word": "air",
+    "phonetic_nepali": "एयर"
+  },
+  {
+    "original_word": "towers",
+    "phonetic_nepali": "टावर्स"
+  },
+  {
+    "original_word": "net",
+    "phonetic_nepali": "नेट"
+  },
+  {
+    "original_word": "poesy",
+    "phonetic_nepali": "पोएसी"
+  },
+  {
+    "original_word": "wrangling",
+    "phonetic_nepali": "रेन्ग्लिङ"
+  },
+  {
+    "original_word": "stares",
+    "phonetic_nepali": "स्टेयर्स"
+  },
+  {
+    "original_word": "lulled",
+    "phonetic_nepali": "लल्ड"
+  },
+  {
+    "original_word": "channing",
+    "phonetic_nepali": "च्यानिङ"
+  },
+  {
+    "original_word": "simourganka",
+    "phonetic_nepali": "सिमोर्गान्का"
+  },
+  {
+    "original_word": "spontaneously",
+    "phonetic_nepali": "स्पोन्टेनियसली"
+  },
+  {
+    "original_word": "marries",
+    "phonetic_nepali": "म्यारीज"
+  },
+  {
+    "original_word": "erythronium",
+    "phonetic_nepali": "इरिथ्रोनियम"
+  },
+  {
+    "original_word": "knuckle",
+    "phonetic_nepali": "नकल"
+  },
+  {
+    "original_word": "cropped",
+    "phonetic_nepali": "क्रप्ड"
+  },
+  {
+    "original_word": "fangs",
+    "phonetic_nepali": "फ्याङ्ग्स्"
+  },
+  {
+    "original_word": "pecuniary",
+    "phonetic_nepali": "पिक्युनरी"
+  },
+  {
+    "original_word": "mendicant",
+    "phonetic_nepali": "मेन्डिकन्ट"
+  },
+  {
+    "original_word": "deportment",
+    "phonetic_nepali": "डिपोर्टमेन्ट"
+  },
+  {
+    "original_word": "comfortably",
+    "phonetic_nepali": "कम्फर्टेबली"
+  },
+  {
+    "original_word": "prevention",
+    "phonetic_nepali": "प्रिभेन्सन"
+  },
+  {
+    "original_word": "abandoned",
+    "phonetic_nepali": "एबन्डन्ड"
+  },
+  {
+    "original_word": "elements",
+    "phonetic_nepali": "एलिमेन्ट्स"
+  },
+  {
+    "original_word": "pricking",
+    "phonetic_nepali": "प्रिकिङ"
+  },
+  {
+    "original_word": "rudely",
+    "phonetic_nepali": "रुडली"
+  },
+  {
+    "original_word": "questionable",
+    "phonetic_nepali": "क्वेस्चनेबल"
+  },
+  {
+    "original_word": "concern",
+    "phonetic_nepali": "कन्सन"
+  },
+  {
+    "original_word": "core",
+    "phonetic_nepali": "कोर"
+  },
+  {
+    "original_word": "selecting",
+    "phonetic_nepali": "सेलेक्टिङ"
+  },
+  {
+    "original_word": "comparing",
+    "phonetic_nepali": "कम्प्यारिङ"
+  },
+  {
+    "original_word": "reuter",
+    "phonetic_nepali": "रिटर"
+  },
+  {
+    "original_word": "track",
+    "phonetic_nepali": "ट्र्याक"
+  },
+  {
+    "original_word": "breaking",
+    "phonetic_nepali": "ब्रेकिङ"
+  },
+  {
+    "original_word": "extend",
+    "phonetic_nepali": "एक्सेन्ड"
+  },
+  {
+    "original_word": "mailed",
+    "phonetic_nepali": "मेल्ड"
+  },
+  {
+    "original_word": "sewn",
+    "phonetic_nepali": "सोउन"
+  },
+  {
+    "original_word": "frolicked",
+    "phonetic_nepali": "फ्रोलिक्ड"
+  },
+  {
+    "original_word": "purely",
+    "phonetic_nepali": "प्युअर्ली"
+  },
+  {
+    "original_word": "owns",
+    "phonetic_nepali": "ओउन्स"
+  },
+  {
+    "original_word": "keyed",
+    "phonetic_nepali": "किड"
+  },
+  {
+    "original_word": "algonquin",
+    "phonetic_nepali": "अल्गोनकिन"
+  },
+  {
+    "original_word": "wise",
+    "phonetic_nepali": "वाइज"
+  },
+  {
+    "original_word": "plundered",
+    "phonetic_nepali": "प्लनडर्ड"
+  },
+  {
+    "original_word": "preferred",
+    "phonetic_nepali": "प्रिफर्ड"
+  },
+  {
+    "original_word": "surnamed",
+    "phonetic_nepali": "सर्नेम्ड"
+  },
+  {
+    "original_word": "aches",
+    "phonetic_nepali": "एचेस"
+  },
+  {
+    "original_word": "promontory",
+    "phonetic_nepali": "प्रोमोन्टोरी"
+  },
+  {
+    "original_word": "brenda",
+    "phonetic_nepali": "ब्रेन्डा"
+  },
+  {
+    "original_word": "irresistibly",
+    "phonetic_nepali": "इरेसिस्टिबली"
+  },
+  {
+    "original_word": "frio",
+    "phonetic_nepali": "फ्रियो"
+  },
+  {
+    "original_word": "northmost",
+    "phonetic_nepali": "नोर्थमोस्ट"
+  },
+  {
+    "original_word": "abhorred",
+    "phonetic_nepali": "एबर्ड"
+  },
+  {
+    "original_word": "enquire",
+    "phonetic_nepali": "इनक्वाइअर"
+  },
+  {
+    "original_word": "moose",
+    "phonetic_nepali": "मुस"
+  },
+  {
+    "original_word": "rigorously",
+    "phonetic_nepali": "रिगोरसली"
+  },
+  {
+    "original_word": "nursed",
+    "phonetic_nepali": "नर्सड"
+  },
+  {
+    "original_word": "levice",
+    "phonetic_nepali": "लेविस"
+  },
+  {
+    "original_word": "underbelly",
+    "phonetic_nepali": "अन्डरबेली"
+  },
+  {
+    "original_word": "morphine",
+    "phonetic_nepali": "मोर्फिन"
+  },
+  {
+    "original_word": "french",
+    "phonetic_nepali": "फ्रेन्च"
+  },
+  {
+    "original_word": "regained",
+    "phonetic_nepali": "रिगेन्ड"
+  },
+  {
+    "original_word": "foote",
+    "phonetic_nepali": "फुट"
+  },
+  {
+    "original_word": "regional",
+    "phonetic_nepali": "रिजनल"
+  },
+  {
+    "original_word": "wait",
+    "phonetic_nepali": "वेट"
+  },
+  {
+    "original_word": "compelling",
+    "phonetic_nepali": "कम्पेलिङ"
+  },
+  {
+    "original_word": "sufferers",
+    "phonetic_nepali": "सफरर्स"
+  },
+  {
+    "original_word": "unbearable",
+    "phonetic_nepali": "अन्बेयरेबल"
+  },
+  {
+    "original_word": "tack",
+    "phonetic_nepali": "ट्याक"
+  },
+  {
+    "original_word": "pipe",
+    "phonetic_nepali": "पाइप"
+  },
+  {
+    "original_word": "grace",
+    "phonetic_nepali": "ग्रेस"
+  },
+  {
+    "original_word": "moses",
+    "phonetic_nepali": "मोसेस"
+  },
+  {
+    "original_word": "brownrigg",
+    "phonetic_nepali": "ब्राउनरिग"
+  },
+  {
+    "original_word": "witchcraft",
+    "phonetic_nepali": "विचक्राफ्ट"
+  },
+  {
+    "original_word": "consisting",
+    "phonetic_nepali": "कन्सिस्टिङ"
+  },
+  {
+    "original_word": "jester",
+    "phonetic_nepali": "जेस्टर"
+  },
+  {
+    "original_word": "austere",
+    "phonetic_nepali": "अस्टियर"
+  },
+  {
+    "original_word": "emissaries",
+    "phonetic_nepali": "एमिसरीज"
+  },
+  {
+    "original_word": "chronic",
+    "phonetic_nepali": "क्रोनिक"
+  },
+  {
+    "original_word": "oldacre",
+    "phonetic_nepali": "ओल्डएकर"
+  },
+  {
+    "original_word": "noonday",
+    "phonetic_nepali": "नुनडे"
+  },
+  {
+    "original_word": "attendant",
+    "phonetic_nepali": "एटेन्डेन्ट"
+  },
+  {
+    "original_word": "traveled",
+    "phonetic_nepali": "ट्रेभल्ड"
+  },
+  {
+    "original_word": "conveniences",
+    "phonetic_nepali": "कन्भिनियन्सेस"
+  },
+  {
+    "original_word": "qualified",
+    "phonetic_nepali": "क्वालिफाइड"
+  },
+  {
+    "original_word": "doctors",
+    "phonetic_nepali": "डक्टर्स"
+  },
+  {
+    "original_word": "cracking",
+    "phonetic_nepali": "क्र्याकिङ"
+  },
+  {
+    "original_word": "notes",
+    "phonetic_nepali": "नोट्स"
+  },
+  {
+    "original_word": "yaller",
+    "phonetic_nepali": "येलर"
+  },
+  {
+    "original_word": "rigour",
+    "phonetic_nepali": "रिगोर"
+  },
+  {
+    "original_word": "heralding",
+    "phonetic_nepali": "हेराल्डिङ"
+  },
+  {
+    "original_word": "whizzing",
+    "phonetic_nepali": "विजिङ"
+  },
+  {
+    "original_word": "fix",
+    "phonetic_nepali": "फिक्स"
+  },
+  {
+    "original_word": "shown",
+    "phonetic_nepali": "सोउन"
+  },
+  {
+    "original_word": "buggy",
+    "phonetic_nepali": "बग्गी"
+  },
+  {
+    "original_word": "recognize",
+    "phonetic_nepali": "रेकग्नाइज"
+  },
+  {
+    "original_word": "strainers",
+    "phonetic_nepali": "स्ट्रेनर्स"
+  },
+  {
+    "original_word": "brings",
+    "phonetic_nepali": "ब्रिङ्स"
+  },
+  {
+    "original_word": "raided",
+    "phonetic_nepali": "रेडेड"
+  },
+  {
+    "original_word": "knotted",
+    "phonetic_nepali": "नोटेड"
+  },
+  {
+    "original_word": "palanquins",
+    "phonetic_nepali": "पालन्क्विन्स"
+  },
+  {
+    "original_word": "modulations",
+    "phonetic_nepali": "मोडुलेसन"
+  },
+  {
+    "original_word": "outcasts",
+    "phonetic_nepali": "आउटकास्ट्स"
+  },
+  {
+    "original_word": "modifying",
+    "phonetic_nepali": "मोडिफाइङ"
+  },
+  {
+    "original_word": "hood",
+    "phonetic_nepali": "हुड"
+  },
+  {
+    "original_word": "thirsty",
+    "phonetic_nepali": "थर्सटी"
+  },
+  {
+    "original_word": "ghastly",
+    "phonetic_nepali": "घास्टली"
+  },
+  {
+    "original_word": "conquest",
+    "phonetic_nepali": "कन्क्वेस्ट"
+  },
+  {
+    "original_word": "roaring",
+    "phonetic_nepali": "रोरिङ"
+  },
+  {
+    "original_word": "vanishing",
+    "phonetic_nepali": "भानिसिङ"
+  },
+  {
+    "original_word": "fainter",
+    "phonetic_nepali": "फेन्टर"
+  },
+  {
+    "original_word": "puppet",
+    "phonetic_nepali": "पपेट"
+  },
+  {
+    "original_word": "behind",
+    "phonetic_nepali": "बिहाइन्ड"
+  },
+  {
+    "original_word": "manitou",
+    "phonetic_nepali": "मानितौ"
+  },
+  {
+    "original_word": "urbain",
+    "phonetic_nepali": "उर्बेन"
+  },
+  {
+    "original_word": "jew",
+    "phonetic_nepali": "जु"
+  },
+  {
+    "original_word": "admiring",
+    "phonetic_nepali": "एडमाइरिङ"
+  },
+  {
+    "original_word": "narrows",
+    "phonetic_nepali": "नारोज"
+  },
+  {
+    "original_word": "rejoicing",
+    "phonetic_nepali": "रिजोइचिङ"
+  },
+  {
+    "original_word": "beseemed",
+    "phonetic_nepali": "बिसीमड"
+  },
+  {
+    "original_word": "mocking",
+    "phonetic_nepali": "मोकिङ"
+  },
+  {
+    "original_word": "fence",
+    "phonetic_nepali": "फेन्स"
+  },
+  {
+    "original_word": "conscientious",
+    "phonetic_nepali": "कन्सिएन्सियस"
+  },
+  {
+    "original_word": "noontime",
+    "phonetic_nepali": "नुनटाइम"
+  },
+  {
+    "original_word": "araby",
+    "phonetic_nepali": "एराबी"
+  },
+  {
+    "original_word": "prod",
+    "phonetic_nepali": "प्रड"
+  },
+  {
+    "original_word": "cloudless",
+    "phonetic_nepali": "क्लाउडलेस"
+  },
+  {
+    "original_word": "satire",
+    "phonetic_nepali": "सटायर"
+  },
+  {
+    "original_word": "easy",
+    "phonetic_nepali": "इजी"
+  },
+  {
+    "original_word": "yep",
+    "phonetic_nepali": "येप"
+  },
+  {
+    "original_word": "evensong",
+    "phonetic_nepali": "इभनसोङ"
+  },
+  {
+    "original_word": "fear",
+    "phonetic_nepali": "फियर"
+  },
+  {
+    "original_word": "gilded",
+    "phonetic_nepali": "गिल्डेड"
+  },
+  {
+    "original_word": "wink",
+    "phonetic_nepali": "विङ्क"
+  },
+  {
+    "original_word": "nineveh",
+    "phonetic_nepali": "नाइनवेह"
+  },
+  {
+    "original_word": "bluff",
+    "phonetic_nepali": "ब्लफ"
+  },
+  {
+    "original_word": "parapet",
+    "phonetic_nepali": "प्यारापेट"
+  },
+  {
+    "original_word": "abash",
+    "phonetic_nepali": "एबास"
+  },
+  {
+    "original_word": "ingratiatingly",
+    "phonetic_nepali": "इन्ग्रासिएटिङली"
+  },
+  {
+    "original_word": "ignore",
+    "phonetic_nepali": "इग्नोर"
+  },
+  {
+    "original_word": "cakes",
+    "phonetic_nepali": "केक्स"
+  },
+  {
+    "original_word": "bank",
+    "phonetic_nepali": "बैंक"
+  },
+  {
+    "original_word": "cashier",
+    "phonetic_nepali": "क्याशियर"
+  },
+  {
+    "original_word": "misadventure",
+    "phonetic_nepali": "मिसएडभेन्चर"
+  },
+  {
+    "original_word": "unjust",
+    "phonetic_nepali": "अन्जस्ट"
+  },
+  {
+    "original_word": "egregious",
+    "phonetic_nepali": "इग्रेजियस"
+  },
+  {
+    "original_word": "pianoforte",
+    "phonetic_nepali": "पियानोफर्टे"
+  },
+  {
+    "original_word": "precinct",
+    "phonetic_nepali": "प्रिसिङक्ट"
+  },
+  {
+    "original_word": "prefer",
+    "phonetic_nepali": "प्रिफर"
+  },
+  {
+    "original_word": "rapturously",
+    "phonetic_nepali": "रैपचुरसली"
+  },
+  {
+    "original_word": "frankness",
+    "phonetic_nepali": "फ्रेङ्कनेस"
+  },
+  {
+    "original_word": "farmhouse",
+    "phonetic_nepali": "फार्महाउस"
+  },
+  {
+    "original_word": "pilots",
+    "phonetic_nepali": "पाइलट्स"
+  },
+  {
+    "original_word": "duller",
+    "phonetic_nepali": "डलर"
+  },
+  {
+    "original_word": "unified",
+    "phonetic_nepali": "युनिफाइड"
+  },
+  {
+    "original_word": "tampered",
+    "phonetic_nepali": "ट्याम्पर्ड"
+  },
+  {
+    "original_word": "budget",
+    "phonetic_nepali": "बजेट"
+  },
+  {
+    "original_word": "copied",
+    "phonetic_nepali": "कपिड"
+  },
+  {
+    "original_word": "mastered",
+    "phonetic_nepali": "मास्टर्ड"
+  },
+  {
+    "original_word": "orphan",
+    "phonetic_nepali": "अर्फन"
+  },
+  {
+    "original_word": "saxony",
+    "phonetic_nepali": "सक्सोनी"
+  },
+  {
+    "original_word": "pebble",
+    "phonetic_nepali": "पेबल"
+  },
+  {
+    "original_word": "martians",
+    "phonetic_nepali": "मार्सियन्स"
+  },
+  {
+    "original_word": "insistently",
+    "phonetic_nepali": "इन्सिस्टेन्टली"
+  },
+  {
+    "original_word": "pickets",
+    "phonetic_nepali": "पिकेट्स"
+  },
+  {
+    "original_word": "resuming",
+    "phonetic_nepali": "रिजुमिङ"
+  },
+  {
+    "original_word": "reclined",
+    "phonetic_nepali": "रिक्लाइनड"
+  },
+  {
+    "original_word": "joined",
+    "phonetic_nepali": "जोइनड"
+  },
+  {
+    "original_word": "overturned",
+    "phonetic_nepali": "ओभरटर्ड"
+  },
+  {
+    "original_word": "cumbered",
+    "phonetic_nepali": "कम्बर्ड"
+  },
+  {
+    "original_word": "nib",
+    "phonetic_nepali": "निब"
+  },
+  {
+    "original_word": "mannerisms",
+    "phonetic_nepali": "म्यानरिजम्स्"
+  },
+  {
+    "original_word": "rabelais",
+    "phonetic_nepali": "राबेलाइस"
+  },
+  {
+    "original_word": "satirizes",
+    "phonetic_nepali": "सेटाराइज"
+  },
+  {
+    "original_word": "enna",
+    "phonetic_nepali": "एन्ना"
+  },
+  {
+    "original_word": "blocks",
+    "phonetic_nepali": "ब्लक्स"
+  },
+  {
+    "original_word": "feelings",
+    "phonetic_nepali": "फिलिङ्स"
+  },
+  {
+    "original_word": "ravine",
+    "phonetic_nepali": "रेभाइन"
+  },
+  {
+    "original_word": "moonlight",
+    "phonetic_nepali": "मूनलाइट"
+  },
+  {
+    "original_word": "fatiguing",
+    "phonetic_nepali": "फटिगिङ"
+  },
+  {
+    "original_word": "freezes",
+    "phonetic_nepali": "फ्रिज"
+  },
+  {
+    "original_word": "wavering",
+    "phonetic_nepali": "वेभरिङ"
+  },
+  {
+    "original_word": "heathen",
+    "phonetic_nepali": "हेथेन"
+  },
+  {
+    "original_word": "trackless",
+    "phonetic_nepali": "ट्रयाकलेस"
+  },
+  {
+    "original_word": "peak",
+    "phonetic_nepali": "पिक"
+  },
+  {
+    "original_word": "propagated",
+    "phonetic_nepali": "प्रोपागेटेड"
+  },
+  {
+    "original_word": "madame",
+    "phonetic_nepali": "मदाम"
+  },
+  {
+    "original_word": "procure",
+    "phonetic_nepali": "प्रोक्योर"
+  },
+  {
+    "original_word": "celery",
+    "phonetic_nepali": "सेलेरी"
+  },
+  {
+    "original_word": "rascals",
+    "phonetic_nepali": "रास्कल्स"
+  },
+  {
+    "original_word": "drawers",
+    "phonetic_nepali": "ड्रर्स"
+  },
+  {
+    "original_word": "contracts",
+    "phonetic_nepali": "कन्ट्राक्ट्स"
+  },
+  {
+    "original_word": "gratified",
+    "phonetic_nepali": "ग्रेटिफाइड"
+  },
+  {
+    "original_word": "signore",
+    "phonetic_nepali": "सिग्नोरे"
+  },
+  {
+    "original_word": "amorous",
+    "phonetic_nepali": "एमोरस"
+  },
+  {
+    "original_word": "huckleberry",
+    "phonetic_nepali": "हकलबेरी"
+  },
+  {
+    "original_word": "columbus",
+    "phonetic_nepali": "कोलम्बस"
+  },
+  {
+    "original_word": "forests",
+    "phonetic_nepali": "फरेस्टस्"
+  },
+  {
+    "original_word": "harnesses",
+    "phonetic_nepali": "हार्नेसेस"
+  },
+  {
+    "original_word": "entertainers",
+    "phonetic_nepali": "एन्टरटेनर्स"
+  },
+  {
+    "original_word": "culprits",
+    "phonetic_nepali": "कल्प्रिट्स"
+  },
+  {
+    "original_word": "shalmaneser",
+    "phonetic_nepali": "शालमानेसर"
+  },
+  {
+    "original_word": "hopes",
+    "phonetic_nepali": "होप्स्"
+  },
+  {
+    "original_word": "wizard",
+    "phonetic_nepali": "विजार्ड"
+  },
+  {
+    "original_word": "belief",
+    "phonetic_nepali": "बिलिफ"
+  },
+  {
+    "original_word": "beach",
+    "phonetic_nepali": "बिच"
+  },
+  {
+    "original_word": "bushiest",
+    "phonetic_nepali": "बुशिएस्ट"
+  },
+  {
+    "original_word": "went",
+    "phonetic_nepali": "वेन्ट"
+  },
+  {
+    "original_word": "tirade",
+    "phonetic_nepali": "टिराइड"
+  },
+  {
+    "original_word": "combats",
+    "phonetic_nepali": "कम्बेट्स"
+  },
+  {
+    "original_word": "foully",
+    "phonetic_nepali": "फाउली"
+  },
+  {
+    "original_word": "rattled",
+    "phonetic_nepali": "रटल्ड"
+  },
+  {
+    "original_word": "repugnance",
+    "phonetic_nepali": "रिपग्नान्स"
+  }
+]

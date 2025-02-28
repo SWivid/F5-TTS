@@ -43,6 +43,8 @@ last_ema = None
 
 
 path_data = str(files("f5_tts").joinpath("../../data"))
+path_data = "/home/prasais/projects/xttsv2/F5-TTS" + "/data"
+
 path_project_ckpts = str(files("f5_tts").joinpath("../../ckpts"))
 file_train = str(files("f5_tts").joinpath("train/finetune_cli.py"))
 
@@ -118,7 +120,7 @@ def load_settings(project_name):
 
     # Default settings
     default_settings = {
-        "exp_name": "F5TTS_Base",
+        "exp_name": "F5TTS_Small",
         "learning_rate": 1e-05,
         "batch_size_per_gpu": 1000,
         "batch_size_type": "frame",
@@ -362,7 +364,7 @@ def terminate_process(pid):
 
 def start_training(
     dataset_name="",
-    exp_name="F5TTS_Base",
+    exp_name="F5TTS_Small",
     learning_rate=1e-4,
     batch_size_per_gpu=400,
     batch_size_type="frame",
@@ -1115,7 +1117,7 @@ def vocab_check(project_name):
 
     file_metadata = os.path.join(path_project, "metadata.csv")
 
-    file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+    file_vocab = os.path.join(path_data, "indic_r_char/vocab.txt")
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !", ""
 
@@ -1292,14 +1294,15 @@ def get_audio_project(project_name, is_gradio=True):
     if project_name is None:
         return [], ""
     project_name = project_name.replace("_pinyin", "").replace("_char", "")
+    files_audios = []
 
-    if os.path.isdir(path_project_ckpts):
-        files_audios = glob(os.path.join(path_project_ckpts, project_name, "samples", "*.wav"))
-        files_audios = sorted(files_audios, key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0]))
+    # if os.path.isdir(path_project_ckpts):
+    #     files_audios = glob(os.path.join(path_project_ckpts, project_name, "samples", "*.wav"))
+    #     files_audios = sorted(files_audios, key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0]))
 
-        files_audios = [item.replace("_gen.wav", "") for item in files_audios if item.endswith("_gen.wav")]
-    else:
-        files_audios = []
+    #     files_audios = [item.replace("_gen.wav", "") for item in files_audios if item.endswith("_gen.wav")]
+    # else:
+    #     files_audios = []
 
     selelect_checkpoint = None if not files_audios else files_audios[0]
 
@@ -1573,7 +1576,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint", value="")
 
             with gr.Row():
-                exp_name = gr.Radio(label="Model", choices=["F5TTS_Base", "E2TTS_Base"], value="F5TTS_Base")
+                exp_name = gr.Radio(label="Model", choices=["F5TTS_Base", "E2TTS_Base", "F5TTS_Small"], value="F5TTS_Base")
                 learning_rate = gr.Number(label="Learning Rate", value=1e-5, step=1e-5)
 
             with gr.Row():
