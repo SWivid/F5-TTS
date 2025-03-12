@@ -32,7 +32,7 @@ class Trainer:
         save_per_updates=1000,
         keep_last_n_checkpoints: int = -1,  # -1 to keep all, 0 to not save intermediate, > 0 to keep last N checkpoints
         checkpoint_path=None,
-        batch_size=32,
+        batch_size_per_gpu=32,
         batch_size_type: str = "sample",
         max_samples=32,
         grad_accumulation_steps=1,
@@ -40,7 +40,7 @@ class Trainer:
         noise_scheduler: str | None = None,
         duration_predictor: torch.nn.Module | None = None,
         logger: str | None = "wandb",  # "wandb" | "tensorboard" | None
-        wandb_project="test_e2-tts",
+        wandb_project="test_f5-tts",
         wandb_run_name="test_run",
         wandb_resume_id: str = None,
         log_samples: bool = False,
@@ -51,6 +51,7 @@ class Trainer:
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
+        cfg_dict: dict = dict(),  # training config
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -72,21 +73,23 @@ class Trainer:
             else:
                 init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name}}
 
-            self.accelerator.init_trackers(
-                project_name=wandb_project,
-                init_kwargs=init_kwargs,
-                config={
+            if not cfg_dict:
+                cfg_dict = {
                     "epochs": epochs,
                     "learning_rate": learning_rate,
                     "num_warmup_updates": num_warmup_updates,
-                    "batch_size": batch_size,
+                    "batch_size_per_gpu": batch_size_per_gpu,
                     "batch_size_type": batch_size_type,
                     "max_samples": max_samples,
                     "grad_accumulation_steps": grad_accumulation_steps,
                     "max_grad_norm": max_grad_norm,
-                    "gpus": self.accelerator.num_processes,
                     "noise_scheduler": noise_scheduler,
-                },
+                }
+            cfg_dict["gpus"] = self.accelerator.num_processes
+            self.accelerator.init_trackers(
+                project_name=wandb_project,
+                init_kwargs=init_kwargs,
+                config=cfg_dict,
             )
 
         elif self.logger == "tensorboard":
@@ -111,9 +114,9 @@ class Trainer:
         self.save_per_updates = save_per_updates
         self.keep_last_n_checkpoints = keep_last_n_checkpoints
         self.last_per_updates = default(last_per_updates, save_per_updates)
-        self.checkpoint_path = default(checkpoint_path, "ckpts/test_e2-tts")
+        self.checkpoint_path = default(checkpoint_path, "ckpts/test_f5-tts")
 
-        self.batch_size = batch_size
+        self.batch_size_per_gpu = batch_size_per_gpu
         self.batch_size_type = batch_size_type
         self.max_samples = max_samples
         self.grad_accumulation_steps = grad_accumulation_steps
@@ -179,7 +182,7 @@ class Trainer:
         if (
             not exists(self.checkpoint_path)
             or not os.path.exists(self.checkpoint_path)
-            or not any(filename.endswith(".pt") for filename in os.listdir(self.checkpoint_path))
+            or not any(filename.endswith((".pt", ".safetensors")) for filename in os.listdir(self.checkpoint_path))
         ):
             return 0
 
@@ -191,7 +194,7 @@ class Trainer:
             all_checkpoints = [
                 f
                 for f in os.listdir(self.checkpoint_path)
-                if (f.startswith("model_") or f.startswith("pretrained_")) and f.endswith(".pt")
+                if (f.startswith("model_") or f.startswith("pretrained_")) and f.endswith((".pt", ".safetensors"))
             ]
 
             # First try to find regular training checkpoints
@@ -205,8 +208,16 @@ class Trainer:
                 # If no training checkpoints, use pretrained model
                 latest_checkpoint = next(f for f in all_checkpoints if f.startswith("pretrained_"))
 
-        # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
-        checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
+        if latest_checkpoint.endswith(".safetensors"):  # always a pretrained checkpoint
+            from safetensors.torch import load_file
+
+            checkpoint = load_file(f"{self.checkpoint_path}/{latest_checkpoint}", device="cpu")
+            checkpoint = {"ema_model_state_dict": checkpoint}
+        elif latest_checkpoint.endswith(".pt"):
+            # checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location=self.accelerator.device)  # rather use accelerator.load_state ಥ_ಥ
+            checkpoint = torch.load(
+                f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu"
+            )
 
         # patch for backward compatibility, 305e3ea
         for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
@@ -271,7 +282,7 @@ class Trainer:
                 num_workers=num_workers,
                 pin_memory=True,
                 persistent_workers=True,
-                batch_size=self.batch_size,
+                batch_size=self.batch_size_per_gpu,
                 shuffle=True,
                 generator=generator,
             )
@@ -280,10 +291,10 @@ class Trainer:
             sampler = SequentialSampler(train_dataset)
             batch_sampler = DynamicBatchSampler(
                 sampler,
-                self.batch_size,
+                self.batch_size_per_gpu,
                 max_samples=self.max_samples,
                 random_seed=resumable_with_seed,  # This enables reproducible shuffling
-                drop_last=False,
+                drop_residual=False,
             )
             train_dataloader = DataLoader(
                 train_dataset,

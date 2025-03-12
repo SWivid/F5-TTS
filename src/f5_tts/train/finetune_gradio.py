@@ -1,36 +1,36 @@
-import threading
-import queue
-import re
-
 import gc
 import json
+import numpy as np
 import os
 import platform
 import psutil
+import queue
 import random
+import re
 import signal
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from glob import glob
+from importlib.resources import files
+from scipy.io import wavfile
 
 import click
 import gradio as gr
 import librosa
-import numpy as np
 import torch
 import torchaudio
+from cached_path import cached_path
 from datasets import Dataset as Dataset_
 from datasets.arrow_writer import ArrowWriter
-from safetensors.torch import save_file
-from scipy.io import wavfile
-from cached_path import cached_path
+from safetensors.torch import load_file, save_file
+
 from f5_tts.api import F5TTS
 from f5_tts.model.utils import convert_char_to_pinyin
 from f5_tts.infer.utils_infer import transcribe
-from importlib.resources import files
 
 
 training_process = None
@@ -118,16 +118,16 @@ def load_settings(project_name):
 
     # Default settings
     default_settings = {
-        "exp_name": "F5TTS_Base",
-        "learning_rate": 1e-05,
-        "batch_size_per_gpu": 1000,
-        "batch_size_type": "frame",
+        "exp_name": "F5TTS_v1_Base",
+        "learning_rate": 1e-5,
+        "batch_size_per_gpu": 1,
+        "batch_size_type": "sample",
         "max_samples": 64,
-        "grad_accumulation_steps": 1,
+        "grad_accumulation_steps": 4,
         "max_grad_norm": 1,
         "epochs": 100,
-        "num_warmup_updates": 2,
-        "save_per_updates": 300,
+        "num_warmup_updates": 100,
+        "save_per_updates": 500,
         "keep_last_n_checkpoints": -1,
         "last_per_updates": 100,
         "finetune": True,
@@ -362,18 +362,18 @@ def terminate_process(pid):
 
 def start_training(
     dataset_name="",
-    exp_name="F5TTS_Base",
-    learning_rate=1e-4,
-    batch_size_per_gpu=400,
-    batch_size_type="frame",
+    exp_name="F5TTS_v1_Base",
+    learning_rate=1e-5,
+    batch_size_per_gpu=1,
+    batch_size_type="sample",
     max_samples=64,
-    grad_accumulation_steps=1,
+    grad_accumulation_steps=4,
     max_grad_norm=1.0,
-    epochs=11,
-    num_warmup_updates=200,
-    save_per_updates=400,
+    epochs=100,
+    num_warmup_updates=100,
+    save_per_updates=500,
     keep_last_n_checkpoints=-1,
-    last_per_updates=800,
+    last_per_updates=100,
     finetune=True,
     file_checkpoint_train="",
     tokenizer_type="pinyin",
@@ -797,14 +797,14 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
             print(f"Error processing {file_audio}: {e}")
             continue
 
-        if duration < 1 or duration > 25:
-            if duration > 25:
-                error_files.append([file_audio, "duration > 25 sec"])
+        if duration < 1 or duration > 30:
+            if duration > 30:
+                error_files.append([file_audio, "duration > 30 sec"])
             if duration < 1:
                 error_files.append([file_audio, "duration < 1 sec "])
             continue
         if len(text) < 3:
-            error_files.append([file_audio, "very small text len 3"])
+            error_files.append([file_audio, "very short text length 3"])
             continue
 
         text = clear_text(text)
@@ -871,40 +871,37 @@ def check_user(value):
 
 def calculate_train(
     name_project,
+    epochs,
+    learning_rate,
+    batch_size_per_gpu,
     batch_size_type,
     max_samples,
-    learning_rate,
     num_warmup_updates,
-    save_per_updates,
-    last_per_updates,
     finetune,
 ):
     path_project = os.path.join(path_data, name_project)
-    file_duraction = os.path.join(path_project, "duration.json")
+    file_duration = os.path.join(path_project, "duration.json")
 
-    if not os.path.isfile(file_duraction):
+    hop_length = 256
+    sampling_rate = 24000
+
+    if not os.path.isfile(file_duration):
         return (
-            1000,
+            epochs,
+            learning_rate,
+            batch_size_per_gpu,
             max_samples,
             num_warmup_updates,
-            save_per_updates,
-            last_per_updates,
             "project not found !",
-            learning_rate,
         )
 
-    with open(file_duraction, "r") as file:
+    with open(file_duration, "r") as file:
         data = json.load(file)
 
     duration_list = data["duration"]
-    samples = len(duration_list)
-    hours = sum(duration_list) / 3600
-
-    # if torch.cuda.is_available():
-    # gpu_properties = torch.cuda.get_device_properties(0)
-    # total_memory = gpu_properties.total_memory / (1024**3)
-    # elif torch.backends.mps.is_available():
-    # total_memory = psutil.virtual_memory().available / (1024**3)
+    max_sample_length = max(duration_list) * sampling_rate / hop_length
+    total_samples = len(duration_list)
+    total_duration = sum(duration_list)
 
     if torch.cuda.is_available():
         gpu_count = torch.cuda.device_count()
@@ -912,64 +909,39 @@ def calculate_train(
         for i in range(gpu_count):
             gpu_properties = torch.cuda.get_device_properties(i)
             total_memory += gpu_properties.total_memory / (1024**3)  # in GB
-
     elif torch.xpu.is_available():
         gpu_count = torch.xpu.device_count()
         total_memory = 0
         for i in range(gpu_count):
             gpu_properties = torch.xpu.get_device_properties(i)
             total_memory += gpu_properties.total_memory / (1024**3)
-
     elif torch.backends.mps.is_available():
         gpu_count = 1
         total_memory = psutil.virtual_memory().available / (1024**3)
 
+    avg_gpu_memory = total_memory / gpu_count
+
+    # rough estimate of batch size
     if batch_size_type == "frame":
-        batch = int(total_memory * 0.5)
-        batch = (lambda num: num + 1 if num % 2 != 0 else num)(batch)
-        batch_size_per_gpu = int(38400 / batch)
-    else:
-        batch_size_per_gpu = int(total_memory / 8)
-        batch_size_per_gpu = (lambda num: num + 1 if num % 2 != 0 else num)(batch_size_per_gpu)
-        batch = batch_size_per_gpu
+        batch_size_per_gpu = max(int(38400 * (avg_gpu_memory - 5) / 75), int(max_sample_length))
+    elif batch_size_type == "sample":
+        batch_size_per_gpu = int(200 / (total_duration / total_samples))
 
-    if batch_size_per_gpu <= 0:
-        batch_size_per_gpu = 1
+    if total_samples < 64:
+        max_samples = int(total_samples * 0.25)
 
-    if samples < 64:
-        max_samples = int(samples * 0.25)
-    else:
-        max_samples = 64
+    num_warmup_updates = max(num_warmup_updates, int(total_samples * 0.05))
 
-    num_warmup_updates = int(samples * 0.05)
-    save_per_updates = int(samples * 0.10)
-    last_per_updates = int(save_per_updates * 0.25)
+    # take 1.2M updates as the maximum
+    max_updates = 1200000
 
-    max_samples = (lambda num: num + 1 if num % 2 != 0 else num)(max_samples)
-    num_warmup_updates = (lambda num: num + 1 if num % 2 != 0 else num)(num_warmup_updates)
-    save_per_updates = (lambda num: num + 1 if num % 2 != 0 else num)(save_per_updates)
-    last_per_updates = (lambda num: num + 1 if num % 2 != 0 else num)(last_per_updates)
-    if last_per_updates <= 0:
-        last_per_updates = 2
+    if batch_size_type == "frame":
+        mini_batch_duration = batch_size_per_gpu * gpu_count * hop_length / sampling_rate
+        updates_per_epoch = total_duration / mini_batch_duration
+    elif batch_size_type == "sample":
+        updates_per_epoch = total_samples / batch_size_per_gpu / gpu_count
 
-    total_hours = hours
-    mel_hop_length = 256
-    mel_sampling_rate = 24000
-
-    # target
-    wanted_max_updates = 1000000
-
-    # train params
-    gpus = gpu_count
-    frames_per_gpu = batch_size_per_gpu  # 8 * 38400 = 307200
-    grad_accum = 1
-
-    # intermediate
-    mini_batch_frames = frames_per_gpu * grad_accum * gpus
-    mini_batch_hours = mini_batch_frames * mel_hop_length / mel_sampling_rate / 3600
-    updates_per_epoch = total_hours / mini_batch_hours
-    # steps_per_epoch = updates_per_epoch * grad_accum
-    epochs = wanted_max_updates / updates_per_epoch
+    epochs = int(max_updates / updates_per_epoch)
 
     if finetune:
         learning_rate = 1e-5
@@ -977,14 +949,12 @@ def calculate_train(
         learning_rate = 7.5e-5
 
     return (
+        epochs,
+        learning_rate,
         batch_size_per_gpu,
         max_samples,
         num_warmup_updates,
-        save_per_updates,
-        last_per_updates,
-        samples,
-        learning_rate,
-        int(epochs),
+        total_samples,
     )
 
 
@@ -1021,7 +991,11 @@ def expand_model_embeddings(ckpt_path, new_ckpt_path, num_new_tokens=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    ckpt = torch.load(ckpt_path, map_location="cpu")
+    if ckpt_path.endswith(".safetensors"):
+        ckpt = load_file(ckpt_path, device="cpu")
+        ckpt = {"ema_model_state_dict": ckpt}
+    elif ckpt_path.endswith(".pt"):
+        ckpt = torch.load(ckpt_path, map_location="cpu")
 
     ema_sd = ckpt.get("ema_model_state_dict", {})
     embed_key_ema = "ema_model.transformer.text_embed.text_embed.weight"
@@ -1089,9 +1063,11 @@ def vocab_extend(project_name, symbols, model_type):
     with open(file_vocab_project, "w", encoding="utf-8") as f:
         f.write("\n".join(vocab))
 
-    if model_type == "F5-TTS":
+    if model_type == "F5TTS_v1_Base":
+        ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
+    elif model_type == "F5TTS_Base":
         ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
-    else:
+    elif model_type == "E2TTS_Base":
         ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
 
     vocab_size_new = len(miss_symbols)
@@ -1101,7 +1077,7 @@ def vocab_extend(project_name, symbols, model_type):
     os.makedirs(new_ckpt_path, exist_ok=True)
 
     # Add pretrained_ prefix to model when copying for consistency with finetune_cli.py
-    new_ckpt_file = os.path.join(new_ckpt_path, "pretrained_model_1200000.pt")
+    new_ckpt_file = os.path.join(new_ckpt_path, "pretrained_" + os.path.basename(ckpt_path))
 
     size = expand_model_embeddings(ckpt_path, new_ckpt_file, num_new_tokens=vocab_size_new)
 
@@ -1231,21 +1207,21 @@ def infer(
         vocab_file = os.path.join(path_data, project, "vocab.txt")
 
         tts_api = F5TTS(
-            model_type=exp_name, ckpt_file=file_checkpoint, vocab_file=vocab_file, device=device_test, use_ema=use_ema
+            model=exp_name, ckpt_file=file_checkpoint, vocab_file=vocab_file, device=device_test, use_ema=use_ema
         )
 
         print("update >> ", device_test, file_checkpoint, use_ema)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         tts_api.infer(
-            gen_text=gen_text.lower().strip(),
-            ref_text=ref_text.lower().strip(),
             ref_file=ref_audio,
+            ref_text=ref_text.lower().strip(),
+            gen_text=gen_text.lower().strip(),
             nfe_step=nfe_step,
-            file_wave=f.name,
             speed=speed,
-            seed=seed,
             remove_silence=remove_silence,
+            file_wave=f.name,
+            seed=seed,
         )
         return f.name, tts_api.device, str(tts_api.seed)
 
@@ -1404,14 +1380,14 @@ def get_audio_select(file_sample):
 with gr.Blocks() as app:
     gr.Markdown(
         """
-# E2/F5 TTS Automatic Finetune
+# F5 TTS Automatic Finetune
 
-This is a local web UI for F5 TTS with advanced batch processing support. This app supports the following TTS models:
+This is a local web UI for F5 TTS finetuning support. This app supports the following TTS models:
 
 * [F5-TTS](https://arxiv.org/abs/2410.06885) (A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching)
 * [E2 TTS](https://arxiv.org/abs/2406.18009) (Embarrassingly Easy Fully Non-Autoregressive Zero-Shot TTS)
 
-The checkpoints support English and Chinese.
+The pretrained checkpoints support English and Chinese.
 
 For tutorial and updates check here (https://github.com/SWivid/F5-TTS/discussions/143)
 """
@@ -1488,7 +1464,9 @@ Check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are incl
 Using the extended model, you can finetune to a new language that is missing symbols in the vocab. This creates a new model with a new vocabulary size and saves it in your ckpts/project folder.
 ```""")
 
-            exp_name_extend = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
+            exp_name_extend = gr.Radio(
+                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "E2TTS_Base"], value="F5TTS_v1_Base"
+            )
 
             with gr.Row():
                 txt_extend = gr.Textbox(
@@ -1557,9 +1535,9 @@ Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
                 fn=get_random_sample_prepare, inputs=[cm_project], outputs=[random_text_prepare, random_audio_prepare]
             )
 
-        with gr.TabItem("Train Data"):
+        with gr.TabItem("Train Model"):
             gr.Markdown("""```plaintext 
-The auto-setting is still experimental. Please make sure that the epochs, save per updates, and last per updates are set correctly, or change them manually as needed.
+The auto-setting is still experimental. Set a large value of epoch if not sure; and keep last N checkpoints if limited disk space.
 If you encounter a memory error, try reducing the batch size per GPU to a smaller number.
 ```""")
             with gr.Row():
@@ -1573,11 +1551,13 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint", value="")
 
             with gr.Row():
-                exp_name = gr.Radio(label="Model", choices=["F5TTS_Base", "E2TTS_Base"], value="F5TTS_Base")
+                exp_name = gr.Radio(
+                    label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "E2TTS_Base"], value="F5TTS_v1_Base"
+                )
                 learning_rate = gr.Number(label="Learning Rate", value=1e-5, step=1e-5)
 
             with gr.Row():
-                batch_size_per_gpu = gr.Number(label="Batch Size per GPU", value=1000)
+                batch_size_per_gpu = gr.Number(label="Batch Size per GPU", value=3200)
                 max_samples = gr.Number(label="Max Samples", value=64)
 
             with gr.Row():
@@ -1585,23 +1565,23 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 max_grad_norm = gr.Number(label="Max Gradient Norm", value=1.0)
 
             with gr.Row():
-                epochs = gr.Number(label="Epochs", value=10)
-                num_warmup_updates = gr.Number(label="Warmup Updates", value=2)
+                epochs = gr.Number(label="Epochs", value=100)
+                num_warmup_updates = gr.Number(label="Warmup Updates", value=100)
 
             with gr.Row():
-                save_per_updates = gr.Number(label="Save per Updates", value=300)
+                save_per_updates = gr.Number(label="Save per Updates", value=500)
                 keep_last_n_checkpoints = gr.Number(
                     label="Keep Last N Checkpoints",
                     value=-1,
                     step=1,
                     precision=0,
-                    info="-1: Keep all checkpoints, 0: Only save final model_last.pt, N>0: Keep last N checkpoints",
+                    info="-1 to keep all, 0 to not save intermediate, > 0 to keep last N checkpoints",
                 )
                 last_per_updates = gr.Number(label="Last per Updates", value=100)
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
-                mixed_precision = gr.Radio(label="mixed_precision", choices=["none", "fp16", "bf16"], value="none")
+                mixed_precision = gr.Radio(label="mixed_precision", choices=["none", "fp16", "bf16"], value="fp16")
                 cd_logger = gr.Radio(label="logger", choices=["wandb", "tensorboard"], value="wandb")
                 start_button = gr.Button("Start Training")
                 stop_button = gr.Button("Stop Training", interactive=False)
@@ -1718,23 +1698,21 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 fn=calculate_train,
                 inputs=[
                     cm_project,
+                    epochs,
+                    learning_rate,
+                    batch_size_per_gpu,
                     batch_size_type,
                     max_samples,
-                    learning_rate,
                     num_warmup_updates,
-                    save_per_updates,
-                    last_per_updates,
                     ch_finetune,
                 ],
                 outputs=[
+                    epochs,
+                    learning_rate,
                     batch_size_per_gpu,
                     max_samples,
                     num_warmup_updates,
-                    save_per_updates,
-                    last_per_updates,
                     lb_samples,
-                    learning_rate,
-                    epochs,
                 ],
             )
 
@@ -1744,25 +1722,25 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             def setup_load_settings():
                 output_components = [
-                    exp_name,  # 1
-                    learning_rate,  # 2
-                    batch_size_per_gpu,  # 3
-                    batch_size_type,  # 4
-                    max_samples,  # 5
-                    grad_accumulation_steps,  # 6
-                    max_grad_norm,  # 7
-                    epochs,  # 8
-                    num_warmup_updates,  # 9
-                    save_per_updates,  # 10
-                    keep_last_n_checkpoints,  # 11
-                    last_per_updates,  # 12
-                    ch_finetune,  # 13
-                    file_checkpoint_train,  # 14
-                    tokenizer_type,  # 15
-                    tokenizer_file,  # 16
-                    mixed_precision,  # 17
-                    cd_logger,  # 18
-                    ch_8bit_adam,  # 19
+                    exp_name,
+                    learning_rate,
+                    batch_size_per_gpu,
+                    batch_size_type,
+                    max_samples,
+                    grad_accumulation_steps,
+                    max_grad_norm,
+                    epochs,
+                    num_warmup_updates,
+                    save_per_updates,
+                    keep_last_n_checkpoints,
+                    last_per_updates,
+                    ch_finetune,
+                    file_checkpoint_train,
+                    tokenizer_type,
+                    tokenizer_file,
+                    mixed_precision,
+                    cd_logger,
+                    ch_8bit_adam,
                 ]
                 return output_components
 
@@ -1784,7 +1762,9 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             gr.Markdown("""```plaintext 
 SOS: Check the use_ema setting (True or False) for your model to see what works best for you. use seed -1 from random
 ```""")
-            exp_name = gr.Radio(label="Model", choices=["F5-TTS", "E2-TTS"], value="F5-TTS")
+            exp_name = gr.Radio(
+                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "E2TTS_Base"], value="F5TTS_v1_Base"
+            )
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
 
             with gr.Row():
@@ -1838,9 +1818,9 @@ SOS: Check the use_ema setting (True or False) for your model to see what works 
             bt_checkpoint_refresh.click(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])
             cm_project.change(fn=get_checkpoints_project, inputs=[cm_project], outputs=[cm_checkpoint])
 
-        with gr.TabItem("Reduce Checkpoint"):
+        with gr.TabItem("Prune Checkpoint"):
             gr.Markdown("""```plaintext 
-Reduce the model size from 5GB to 1.3GB. The new checkpoint can be used for inference or fine-tuning afterward, but it cannot be used to continue training.
+Reduce the Base model size from 5GB to 1.3GB. The new checkpoint file prunes out optimizer and etc., can be used for inference or finetuning afterward, but not able to resume pretraining.
 ```""")
             txt_path_checkpoint = gr.Text(label="Path to Checkpoint:")
             txt_path_checkpoint_small = gr.Text(label="Path to Output:")

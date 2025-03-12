@@ -9,7 +9,7 @@ mel_hop_length = 256
 mel_sampling_rate = 24000
 
 # target
-wanted_max_updates = 1000000
+wanted_max_updates = 1200000
 
 # train params
 gpus = 8

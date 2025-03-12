@@ -33,9 +33,11 @@ from f5_tts.model.modules import (
 
 
 class TextEmbedding(nn.Module):
-    def __init__(self, text_num_embeds, text_dim, conv_layers=0, conv_mult=2):
+    def __init__(self, text_num_embeds, text_dim, mask_padding=True, conv_layers=0, conv_mult=2):
         super().__init__()
         self.text_embed = nn.Embedding(text_num_embeds + 1, text_dim)  # use 0 as filler token
+
+        self.mask_padding = mask_padding  # mask filler and batch padding tokens or not
 
         if conv_layers > 0:
             self.extra_modeling = True
@@ -52,6 +54,8 @@ class TextEmbedding(nn.Module):
         text = text[:, :seq_len]  # curtail if character tokens are more than the mel spec tokens
         batch, text_len = text.shape[0], text.shape[1]
         text = F.pad(text, (0, seq_len - text_len), value=0)
+        if self.mask_padding:
+            text_mask = text == 0
 
         if drop_text:  # cfg for text
             text = torch.zeros_like(text)
@@ -67,7 +71,13 @@ class TextEmbedding(nn.Module):
             text = text + text_pos_embed
 
             # convnextv2 blocks
-            text = self.text_blocks(text)
+            if self.mask_padding:
+                text = text.masked_fill(text_mask.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
+                for block in self.text_blocks:
+                    text = block(text)
+                    text = text.masked_fill(text_mask.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
+            else:
+                text = self.text_blocks(text)
 
         return text
 
@@ -106,7 +116,10 @@ class UNetT(nn.Module):
         mel_dim=100,
         text_num_embeds=256,
         text_dim=None,
+        text_mask_padding=True,
+        qk_norm=None,
         conv_layers=0,
+        pe_attn_head=None,
         skip_connect_type: Literal["add", "concat", "none"] = "concat",
     ):
         super().__init__()
@@ -115,7 +128,10 @@ class UNetT(nn.Module):
         self.time_embed = TimestepEmbedding(dim)
         if text_dim is None:
             text_dim = mel_dim
-        self.text_embed = TextEmbedding(text_num_embeds, text_dim, conv_layers=conv_layers)
+        self.text_embed = TextEmbedding(
+            text_num_embeds, text_dim, mask_padding=text_mask_padding, conv_layers=conv_layers
+        )
+        self.text_cond, self.text_uncond = None, None  # text cache
         self.input_embed = InputEmbedding(mel_dim, text_dim, dim)
 
         self.rotary_embed = RotaryEmbedding(dim_head)
@@ -134,11 +150,12 @@ class UNetT(nn.Module):
 
             attn_norm = RMSNorm(dim)
             attn = Attention(
-                processor=AttnProcessor(),
+                processor=AttnProcessor(pe_attn_head=pe_attn_head),
                 dim=dim,
                 heads=heads,
                 dim_head=dim_head,
                 dropout=dropout,
+                qk_norm=qk_norm,
             )
 
             ff_norm = RMSNorm(dim)
@@ -161,6 +178,9 @@ class UNetT(nn.Module):
         self.norm_out = RMSNorm(dim)
         self.proj_out = nn.Linear(dim, mel_dim)
 
+    def clear_cache(self):
+        self.text_cond, self.text_uncond = None, None
+
     def forward(
         self,
         x: float["b n d"],  # nosied input audio  # noqa: F722
@@ -170,6 +190,7 @@ class UNetT(nn.Module):
         drop_audio_cond,  # cfg for cond audio
         drop_text,  # cfg for text
         mask: bool["b n"] | None = None,  # noqa: F722
+        cache=False,
     ):
         batch, seq_len = x.shape[0], x.shape[1]
         if time.ndim == 0:
@@ -177,7 +198,17 @@ class UNetT(nn.Module):
 
         # t: conditioning time, c: context (text + masked cond audio), x: noised input audio
         t = self.time_embed(time)
-        text_embed = self.text_embed(text, seq_len, drop_text=drop_text)
+        if cache:
+            if drop_text:
+                if self.text_uncond is None:
+                    self.text_uncond = self.text_embed(text, seq_len, drop_text=True)
+                text_embed = self.text_uncond
+            else:
+                if self.text_cond is None:
+                    self.text_cond = self.text_embed(text, seq_len, drop_text=False)
+                text_embed = self.text_cond
+        else:
+            text_embed = self.text_embed(text, seq_len, drop_text=drop_text)
         x = self.input_embed(x, cond, text_embed, drop_audio_cond=drop_audio_cond)
 
         # postfix time t to input x, [b n d] -> [b n+1 d]

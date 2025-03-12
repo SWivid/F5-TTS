@@ -19,25 +19,23 @@ def main():
     predictor = predictor.to(device)
 
     audio_paths = list(Path(args.audio_dir).rglob(f"*.{args.ext}"))
-    utmos_results = {}
     utmos_score = 0
 
-    for audio_path in tqdm(audio_paths, desc="Processing"):
-        wav_name = audio_path.stem
-        wav, sr = librosa.load(audio_path, sr=None, mono=True)
-        wav_tensor = torch.from_numpy(wav).to(device).unsqueeze(0)
-        score = predictor(wav_tensor, sr)
-        utmos_results[str(wav_name)] = score.item()
-        utmos_score += score.item()
-
-    avg_score = utmos_score / len(audio_paths) if len(audio_paths) > 0 else 0
-    print(f"UTMOS: {avg_score}")
-
-    utmos_result_path = Path(args.audio_dir) / "utmos_results.json"
+    utmos_result_path = Path(args.audio_dir) / "_utmos_results.jsonl"
     with open(utmos_result_path, "w", encoding="utf-8") as f:
-        json.dump(utmos_results, f, ensure_ascii=False, indent=4)
+        for audio_path in tqdm(audio_paths, desc="Processing"):
+            wav, sr = librosa.load(audio_path, sr=None, mono=True)
+            wav_tensor = torch.from_numpy(wav).to(device).unsqueeze(0)
+            score = predictor(wav_tensor, sr)
+            line = {}
+            line["wav"], line["utmos"] = str(audio_path.stem), score.item()
+            utmos_score += score.item()
+            f.write(json.dumps(line, ensure_ascii=False) + "\n")
+        avg_score = utmos_score / len(audio_paths) if len(audio_paths) > 0 else 0
+        f.write(f"\nUTMOS: {avg_score:.4f}\n")
 
-    print(f"Results have been saved to {utmos_result_path}")
+    print(f"UTMOS: {avg_score:.4f}")
+    print(f"UTMOS results saved to {utmos_result_path}")
 
 
 if __name__ == "__main__":

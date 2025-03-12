@@ -40,10 +40,10 @@ Once your datasets are prepared, you can start the training process.
 accelerate config
 
 # .yaml files are under src/f5_tts/configs directory
-accelerate launch src/f5_tts/train/train.py --config-name F5TTS_Base_train.yaml
+accelerate launch src/f5_tts/train/train.py --config-name F5TTS_v1_Base_train.yaml
 
 # possible to overwrite accelerate and hydra config
-accelerate launch --mixed_precision=fp16 src/f5_tts/train/train.py --config-name F5TTS_Small_train.yaml ++datasets.batch_size_per_gpu=19200
+accelerate launch --mixed_precision=fp16 src/f5_tts/train/train.py --config-name F5TTS_v1_Base_train.yaml ++datasets.batch_size_per_gpu=19200
 ```
 
 ### 2. Finetuning practice
@@ -53,7 +53,7 @@ Gradio UI training/finetuning with `src/f5_tts/train/finetune_gradio.py` see [#1
 
 The `use_ema = True` is harmful for early-stage finetuned checkpoints (which goes just few updates, thus ema weights still dominated by pretrained ones), try turn it off and see if provide better results.
 
-### 3. Wandb Logging
+### 3. W&B Logging
 
 The `wandb/` dir will be created under path you run training/finetuning scripts.
 
@@ -62,7 +62,7 @@ By default, the training script does NOT use logging (assuming you didn't manual
 To turn on wandb logging, you can either:
 
 1. Manually login with `wandb login`: Learn more [here](https://docs.wandb.ai/ref/cli/wandb-login)
-2. Automatically login programmatically by setting an environment variable: Get an API KEY at https://wandb.ai/site/ and set the environment variable as follows:
+2. Automatically login programmatically by setting an environment variable: Get an API KEY at https://wandb.ai/authorize and set the environment variable as follows:
 
 On Mac & Linux:
 
@@ -75,7 +75,7 @@ On Windows:
 ```
 set WANDB_API_KEY=<YOUR WANDB API KEY>
 ```
-Moreover, if you couldn't access Wandb and want to log metrics offline, you can the environment variable as follows:
+Moreover, if you couldn't access W&B and want to log metrics offline, you can set the environment variable as follows:
 
 ```
 export WANDB_MODE=offline

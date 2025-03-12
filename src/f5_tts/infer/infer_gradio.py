@@ -41,12 +41,12 @@ from f5_tts.infer.utils_infer import (
 )
 
 
-DEFAULT_TTS_MODEL = "F5-TTS"
+DEFAULT_TTS_MODEL = "F5-TTS_v1"
 tts_model_choice = DEFAULT_TTS_MODEL
 
 DEFAULT_TTS_MODEL_CFG = [
-    "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
-    "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
+    "hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors",
+    "hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt",
     json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
 ]
 
@@ -56,13 +56,15 @@ DEFAULT_TTS_MODEL_CFG = [
 vocoder = load_vocoder()
 
 
-def load_f5tts(ckpt_path=str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors"))):
-    F5TTS_model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+def load_f5tts():
+    ckpt_path = str(cached_path(DEFAULT_TTS_MODEL_CFG[0]))
+    F5TTS_model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
     return load_model(DiT, F5TTS_model_cfg, ckpt_path)
 
 
-def load_e2tts(ckpt_path=str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))):
-    E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
+def load_e2tts():
+    ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.safetensors"))
+    E2TTS_model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4, text_mask_padding=False, pe_attn_head=1)
     return load_model(UNetT, E2TTS_model_cfg, ckpt_path)
 
 
@@ -73,7 +75,7 @@ def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
     if vocab_path.startswith("hf://"):
         vocab_path = str(cached_path(vocab_path))
     if model_cfg is None:
-        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+        model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
     return load_model(DiT, model_cfg, ckpt_path, vocab_file=vocab_path)
 
 
@@ -130,7 +132,7 @@ def infer(
 
     ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=show_info)
 
-    if model == "F5-TTS":
+    if model == DEFAULT_TTS_MODEL:
         ema_model = F5TTS_ema_model
     elif model == "E2-TTS":
         global E2TTS_ema_model
@@ -762,7 +764,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 """
     )
 
-    last_used_custom = files("f5_tts").joinpath("infer/.cache/last_used_custom_model_info.txt")
+    last_used_custom = files("f5_tts").joinpath("infer/.cache/last_used_custom_model_info_v1.txt")
 
     def load_last_used_custom():
         try:
@@ -821,7 +823,30 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
         custom_model_cfg = gr.Dropdown(
             choices=[
                 DEFAULT_TTS_MODEL_CFG[2],
-                json.dumps(dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)),
+                json.dumps(
+                    dict(
+                        dim=1024,
+                        depth=22,
+                        heads=16,
+                        ff_mult=2,
+                        text_dim=512,
+                        text_mask_padding=False,
+                        conv_layers=4,
+                        pe_attn_head=1,
+                    )
+                ),
+                json.dumps(
+                    dict(
+                        dim=768,
+                        depth=18,
+                        heads=12,
+                        ff_mult=2,
+                        text_dim=512,
+                        text_mask_padding=False,
+                        conv_layers=4,
+                        pe_attn_head=1,
+                    )
+                ),
             ],
             value=load_last_used_custom()[2],
             allow_custom_value=True,

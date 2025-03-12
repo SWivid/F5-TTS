@@ -1,5 +1,5 @@
-# F5-TTS | E2-TTS
-model = "F5-TTS"
+# F5TTS_v1_Base | E2TTS_Base
+model = "F5TTS_v1_Base"
 ref_audio = "infer/examples/multi/main.flac"
 # If an empty "", transcribes the reference audio automatically.
 ref_text = ""

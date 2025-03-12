@@ -18,6 +18,7 @@
 ### Thanks to all the contributors !
 
 ## News
+- **2025/03/12**: F5-TTS v1 base model with better training and inference performance.
 - **2024/10/08**: F5-TTS & E2 TTS base models on [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS), [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), [🟣 Wisemodel](https://wisemodel.cn/models/SJTU_X-LANCE/F5-TTS_Emilia-ZH-EN).
 
 ## Installation
@@ -37,7 +38,7 @@ conda activate f5-tts
 
 > ```bash
 > # Install pytorch with your CUDA version, e.g.
-> pip install torch==2.3.0+cu118 torchaudio==2.3.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+> pip install torch==2.4.0+cu124 torchaudio==2.4.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
 > ```
 
 </details>
@@ -159,7 +160,7 @@ volumes:
 # Run with flags
 # Leave --ref_text "" will have ASR model transcribe (extra GPU memory usage)
 f5-tts_infer-cli \
---model "F5-TTS" \
+--model "F5-TTS_v1" \
 --ref_audio "ref_audio.wav" \
 --ref_text "The content, subtitle or transcription of reference audio." \
 --gen_text "Some text you want TTS model generate for you."

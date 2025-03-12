@@ -27,7 +27,7 @@ from f5_tts.infer.utils_infer import (
     preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
 )
-from f5_tts.model import DiT, UNetT
+from f5_tts.model import DiT, UNetT  # noqa: F401. used for config
 
 
 parser = argparse.ArgumentParser(
@@ -50,7 +50,7 @@ parser.add_argument(
     "-m",
     "--model",
     type=str,
-    help="The model name: F5-TTS | E2-TTS",
+    help="The model name: F5TTS_v1_Base | F5TTS_Base | E2TTS_Base | etc.",
 )
 parser.add_argument(
     "-mc",
@@ -172,8 +172,7 @@ config = tomli.load(open(args.config, "rb"))
 
 # command-line interface parameters
 
-model = args.model or config.get("model", "F5-TTS")
-model_cfg = args.model_cfg or config.get("model_cfg", str(files("f5_tts").joinpath("configs/F5TTS_Base_train.yaml")))
+model = args.model or config.get("model", "F5TTS_v1_Base")
 ckpt_file = args.ckpt_file or config.get("ckpt_file", "")
 vocab_file = args.vocab_file or config.get("vocab_file", "")
 
@@ -245,36 +244,32 @@ vocoder = load_vocoder(vocoder_name=vocoder_name, is_local=load_vocoder_from_loc
 
 # load TTS model
 
-if model == "F5-TTS":
-    model_cls = DiT
-    model_cfg = OmegaConf.load(model_cfg).model.arch
-    if not ckpt_file:  # path not specified, download from repo
-        if vocoder_name == "vocos":
-            repo_name = "F5-TTS"
-            exp_name = "F5TTS_Base"
-            ckpt_step = 1200000
-            ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
-            # ckpt_file = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
-        elif vocoder_name == "bigvgan":
-            repo_name = "F5-TTS"
-            exp_name = "F5TTS_Base_bigvgan"
-            ckpt_step = 1250000
-            ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.pt"))
+model_cfg = OmegaConf.load(
+    args.model_cfg or config.get("model_cfg", str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
+).model
+model_cls = globals()[model_cfg.backbone]
 
-elif model == "E2-TTS":
-    assert args.model_cfg is None, "E2-TTS does not support custom model_cfg yet"
-    assert vocoder_name == "vocos", "E2-TTS only supports vocoder vocos yet"
-    model_cls = UNetT
-    model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
-    if not ckpt_file:  # path not specified, download from repo
-        repo_name = "E2-TTS"
-        exp_name = "E2TTS_Base"
+repo_name, ckpt_step, ckpt_type = "F5-TTS", 1250000, "safetensors"
+
+if model != "F5TTS_Base":
+    assert vocoder_name == model_cfg.mel_spec.mel_spec_type
+
+# override for previous models
+if model == "F5TTS_Base":
+    if vocoder_name == "vocos":
         ckpt_step = 1200000
-        ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{exp_name}/model_{ckpt_step}.safetensors"))
-        # ckpt_file = f"ckpts/{exp_name}/model_{ckpt_step}.pt"  # .pt | .safetensors; local path
+    elif vocoder_name == "bigvgan":
+        model = "F5TTS_Base_bigvgan"
+        ckpt_type = "pt"
+elif model == "E2TTS_Base":
+    repo_name = "E2-TTS"
+    ckpt_step = 1200000
+
+if not ckpt_file:
+    ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{model}/model_{ckpt_step}.{ckpt_type}"))
 
 print(f"Using {model}...")
-ema_model = load_model(model_cls, model_cfg, ckpt_file, mel_spec_type=vocoder_name, vocab_file=vocab_file)
+ema_model = load_model(model_cls, model_cfg.arch, ckpt_file, mel_spec_type=vocoder_name, vocab_file=vocab_file)
 
 
 # inference process

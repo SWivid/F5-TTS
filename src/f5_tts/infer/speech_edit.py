@@ -2,12 +2,15 @@ import os
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 
+from importlib.resources import files
+
 import torch
 import torch.nn.functional as F
 import torchaudio
+from omegaconf import OmegaConf
 
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder, save_spectrogram
-from f5_tts.model import CFM, DiT, UNetT
+from f5_tts.model import CFM, DiT, UNetT  # noqa: F401. used for config
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
 device = (
@@ -21,43 +24,39 @@ device = (
 )
 
 
-# --------------------- Dataset Settings -------------------- #
-
-target_sample_rate = 24000
-n_mel_channels = 100
-hop_length = 256
-win_length = 1024
-n_fft = 1024
-mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
-target_rms = 0.1
-
-tokenizer = "pinyin"
-dataset_name = "Emilia_ZH_EN"
-
-
 # ---------------------- infer setting ---------------------- #
 
 seed = None  # int | None
 
-exp_name = "F5TTS_Base"  # F5TTS_Base | E2TTS_Base
-ckpt_step = 1200000
+exp_name = "F5TTS_v1_Base"  # F5TTS_v1_Base | E2TTS_Base
+ckpt_step = 1250000
 
 nfe_step = 32  # 16, 32
 cfg_strength = 2.0
 ode_method = "euler"  # euler | midpoint
 sway_sampling_coef = -1.0
 speed = 1.0
+target_rms = 0.1
 
-if exp_name == "F5TTS_Base":
-    model_cls = DiT
-    model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
 
-elif exp_name == "E2TTS_Base":
-    model_cls = UNetT
-    model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
+model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{exp_name}.yaml")))
+model_cls = globals()[model_cfg.model.backbone]
+model_arc = model_cfg.model.arch
 
-ckpt_path = f"ckpts/{exp_name}/model_{ckpt_step}.safetensors"
+dataset_name = model_cfg.datasets.name
+tokenizer = model_cfg.model.tokenizer
+
+mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
+target_sample_rate = model_cfg.model.mel_spec.target_sample_rate
+n_mel_channels = model_cfg.model.mel_spec.n_mel_channels
+hop_length = model_cfg.model.mel_spec.hop_length
+win_length = model_cfg.model.mel_spec.win_length
+n_fft = model_cfg.model.mel_spec.n_fft
+
+
+ckpt_path = str(files("f5_tts").joinpath("../../")) + f"ckpts/{exp_name}/model_{ckpt_step}.safetensors"
 output_dir = "tests"
+
 
 # [leverage https://github.com/MahmoudAshraf97/ctc-forced-aligner to get char level alignment]
 # pip install git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
@@ -67,7 +66,7 @@ output_dir = "tests"
 # [--language "zho" for Chinese, "eng" for English]
 # [if local ckpt, set --alignment_model "../checkpoints/mms-300m-1130-forced-aligner"]
 
-audio_to_edit = "src/f5_tts/infer/examples/basic/basic_ref_en.wav"
+audio_to_edit = str(files("f5_tts").joinpath("infer/examples/basic/basic_ref_en.wav"))
 origin_text = "Some call me nature, others call me mother nature."
 target_text = "Some call me optimist, others call me realist."
 parts_to_edit = [
@@ -106,7 +105,7 @@ vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
 
 # Model
 model = CFM(
-    transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+    transformer=model_cls(**model_arc, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
     mel_spec_kwargs=dict(
         n_fft=n_fft,
         hop_length=hop_length,

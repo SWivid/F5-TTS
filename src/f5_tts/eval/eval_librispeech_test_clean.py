@@ -53,43 +53,37 @@ def main():
         asr_ckpt_dir = ""  # auto download to cache dir
     wavlm_ckpt_dir = "../checkpoints/UniSpeech/wavlm_large_finetune.pth"
 
-    # --------------------------- WER ---------------------------
+    # --------------------------------------------------------------------------
+
+    full_results = []
+    metrics = []
 
     if eval_task == "wer":
-        wer_results = []
-        wers = []
-
         with mp.Pool(processes=len(gpus)) as pool:
             args = [(rank, lang, sub_test_set, asr_ckpt_dir) for (rank, sub_test_set) in test_set]
             results = pool.map(run_asr_wer, args)
             for r in results:
-                wer_results.extend(r)
-
-        wer_result_path = f"{gen_wav_dir}/{lang}_wer_results.jsonl"
-        with open(wer_result_path, "w") as f:
-            for line in wer_results:
-                wers.append(line["wer"])
-                json_line = json.dumps(line, ensure_ascii=False)
-                f.write(json_line + "\n")
-
-        wer = round(np.mean(wers) * 100, 3)
-        print(f"\nTotal {len(wers)} samples")
-        print(f"WER      : {wer}%")
-        print(f"Results have been saved to {wer_result_path}")
-
-    # --------------------------- SIM ---------------------------
-
-    if eval_task == "sim":
-        sims = []
+                full_results.extend(r)
+    elif eval_task == "sim":
         with mp.Pool(processes=len(gpus)) as pool:
             args = [(rank, sub_test_set, wavlm_ckpt_dir) for (rank, sub_test_set) in test_set]
             results = pool.map(run_sim, args)
             for r in results:
-                sims.extend(r)
+                full_results.extend(r)
+    else:
+        raise ValueError(f"Unknown metric type: {eval_task}")
 
-        sim = round(sum(sims) / len(sims), 3)
-        print(f"\nTotal {len(sims)} samples")
-        print(f"SIM      : {sim}")
+    result_path = f"{gen_wav_dir}/_{eval_task}_results.jsonl"
+    with open(result_path, "w") as f:
+        for line in full_results:
+            metrics.append(line[eval_task])
+            f.write(json.dumps(line, ensure_ascii=False) + "\n")
+        metric = round(np.mean(metrics), 5)
+        f.write(f"\n{eval_task.upper()}: {metric}\n")
+
+    print(f"\nTotal {len(metrics)} samples")
+    print(f"{eval_task.upper()}: {metric}")
+    print(f"{eval_task.upper()} results saved to {result_path}")
 
 
 if __name__ == "__main__":

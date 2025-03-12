@@ -68,14 +68,16 @@ Basically you can inference with flags:
 ```bash
 # Leave --ref_text "" will have ASR model transcribe (extra GPU memory usage)
 f5-tts_infer-cli \
---model "F5-TTS" \
+--model F5TTS_v1_Base \
 --ref_audio "ref_audio.wav" \
 --ref_text "The content, subtitle or transcription of reference audio." \
 --gen_text "Some text you want TTS model generate for you."
 
-# Choose Vocoder
-f5-tts_infer-cli --vocoder_name bigvgan --load_vocoder_from_local --ckpt_file <YOUR_CKPT_PATH, eg:ckpts/F5TTS_Base_bigvgan/model_1250000.pt>
-f5-tts_infer-cli --vocoder_name vocos --load_vocoder_from_local --ckpt_file <YOUR_CKPT_PATH, eg:ckpts/F5TTS_Base/model_1200000.safetensors>
+# Use BigVGAN as vocoder. Currently only support F5TTS_Base. 
+f5-tts_infer-cli --model F5TTS_Base --vocoder_name bigvgan --load_vocoder_from_local
+
+# Use custom path checkpoint, e.g.
+f5-tts_infer-cli --ckpt_file ckpts/F5TTS_Base/model_1200000.safetensors
 
 # More instructions
 f5-tts_infer-cli --help
@@ -90,8 +92,8 @@ f5-tts_infer-cli -c custom.toml
 For example, you can use `.toml` to pass in variables, refer to `src/f5_tts/infer/examples/basic/basic.toml`:
 
 ```toml
-# F5-TTS | E2-TTS
-model = "F5-TTS"
+# F5TTS_v1_Base | E2TTS_Base
+model = "F5TTS_v1_Base"
 ref_audio = "infer/examples/basic/basic_ref_en.wav"
 # If an empty "", transcribes the reference audio automatically.
 ref_text = "Some call me nature, others call me mother nature."
@@ -105,8 +107,8 @@ output_dir = "tests"
 You can also leverage `.toml` file to do multi-style generation, refer to `src/f5_tts/infer/examples/multi/story.toml`.
 
 ```toml
-# F5-TTS | E2-TTS
-model = "F5-TTS"
+# F5TTS_v1_Base | E2TTS_Base
+model = "F5TTS_v1_Base"
 ref_audio = "infer/examples/multi/main.flac"
 # If an empty "", transcribes the reference audio automatically.
 ref_text = ""
@@ -126,6 +128,22 @@ ref_text = ""
 ```
 You should mark the voice with `[main]` `[town]` `[country]` whenever you want to change voice, refer to `src/f5_tts/infer/examples/multi/story.txt`.
 
+## Socket Real-time Service
+
+Real-time voice output with chunk stream:
+
+```bash
+# Start socket server
+python src/f5_tts/socket_server.py
+
+# If PyAudio not installed
+sudo apt-get install portaudio19-dev
+pip install pyaudio
+
+# Communicate with socket client
+python src/f5_tts/socket_client.py
+```
+
 ## Speech Editing
 
 To test speech editing capabilities, use the following command:
@@ -133,87 +151,4 @@ To test speech editing capabilities, use the following command:
 ```bash
 python src/f5_tts/infer/speech_edit.py
 ```
-
-## Socket Realtime Client
-
-To communicate with socket server you need to run 
-```bash
-python src/f5_tts/socket_server.py
-```
-
-<details>
-<summary>Then create client to communicate</summary>
-
-```bash
-# If PyAudio not installed
-sudo apt-get install portaudio19-dev
-pip install pyaudio
-```
-
-``` python
-# Create the socket_client.py
-import socket
-import asyncio
-import pyaudio
-import numpy as np
-import logging
-import time
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-async def listen_to_F5TTS(text, server_ip="localhost", server_port=9998):
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    await asyncio.get_event_loop().run_in_executor(None, client_socket.connect, (server_ip, int(server_port)))
-
-    start_time = time.time()
-    first_chunk_time = None
-
-    async def play_audio_stream():
-        nonlocal first_chunk_time
-        p = pyaudio.PyAudio()
-        stream = p.open(format=pyaudio.paFloat32, channels=1, rate=24000, output=True, frames_per_buffer=2048)
-
-        try:
-            while True:
-                data = await asyncio.get_event_loop().run_in_executor(None, client_socket.recv, 8192)
-                if not data:
-                    break
-                if data == b"END":
-                    logger.info("End of audio received.")
-                    break
-
-                audio_array = np.frombuffer(data, dtype=np.float32)
-                stream.write(audio_array.tobytes())
-
-                if first_chunk_time is None:
-                    first_chunk_time = time.time()
-
-        finally:
-            stream.stop_stream()
-            stream.close()
-            p.terminate()
-
-        logger.info(f"Total time taken: {time.time() - start_time:.4f} seconds")
-
-    try:
-        data_to_send = f"{text}".encode("utf-8")
-        await asyncio.get_event_loop().run_in_executor(None, client_socket.sendall, data_to_send)
-        await play_audio_stream()
-
-    except Exception as e:
-        logger.error(f"Error in listen_to_F5TTS: {e}")
-
-    finally:
-        client_socket.close()
-
-
-if __name__ == "__main__":
-    text_to_send = "As a Reader assistant, I'm familiar with new technology. which are key to its improved performance in terms of both training speed and inference efficiency. Let's break down the components"
-
-    asyncio.run(listen_to_F5TTS(text_to_send))
-```
-
-</details>
 

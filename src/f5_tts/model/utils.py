@@ -133,11 +133,12 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
 
 # convert char to pinyin
 
-jieba.initialize()
-print("Word segmentation module jieba initialized.\n")
-
 
 def convert_char_to_pinyin(text_list, polyphone=True):
+    if jieba.dt.initialized is False:
+        jieba.default_logger.setLevel(50)  # CRITICAL
+        jieba.initialize()
+
     final_text_list = []
     custom_trans = str.maketrans(
         {";": ",", "“": '"', "”": '"', "‘": "'", "’": "'"}

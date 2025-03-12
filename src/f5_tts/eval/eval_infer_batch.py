@@ -10,6 +10,7 @@ from importlib.resources import files
 import torch
 import torchaudio
 from accelerate import Accelerator
+from omegaconf import OmegaConf
 from tqdm import tqdm
 
 from f5_tts.eval.utils_eval import (
@@ -18,36 +19,26 @@ from f5_tts.eval.utils_eval import (
     get_seedtts_testset_metainfo,
 )
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder
-from f5_tts.model import CFM, DiT, UNetT
+from f5_tts.model import CFM, DiT, UNetT  # noqa: F401. used for config
 from f5_tts.model.utils import get_tokenizer
 
 accelerator = Accelerator()
 device = f"cuda:{accelerator.process_index}"
 
 
-# --------------------- Dataset Settings -------------------- #
-
-target_sample_rate = 24000
-n_mel_channels = 100
-hop_length = 256
-win_length = 1024
-n_fft = 1024
+use_ema = True
 target_rms = 0.1
+
 
 rel_path = str(files("f5_tts").joinpath("../../"))
 
 
 def main():
-    # ---------------------- infer setting ---------------------- #
-
     parser = argparse.ArgumentParser(description="batch inference")
 
     parser.add_argument("-s", "--seed", default=None, type=int)
-    parser.add_argument("-d", "--dataset", default="Emilia_ZH_EN")
     parser.add_argument("-n", "--expname", required=True)
-    parser.add_argument("-c", "--ckptstep", default=1200000, type=int)
-    parser.add_argument("-m", "--mel_spec_type", default="vocos", type=str, choices=["bigvgan", "vocos"])
-    parser.add_argument("-to", "--tokenizer", default="pinyin", type=str, choices=["pinyin", "char"])
+    parser.add_argument("-c", "--ckptstep", default=1250000, type=int)
 
     parser.add_argument("-nfe", "--nfestep", default=32, type=int)
     parser.add_argument("-o", "--odemethod", default="euler")
@@ -58,12 +49,8 @@ def main():
     args = parser.parse_args()
 
     seed = args.seed
-    dataset_name = args.dataset
     exp_name = args.expname
     ckpt_step = args.ckptstep
-    ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
-    mel_spec_type = args.mel_spec_type
-    tokenizer = args.tokenizer
 
     nfe_step = args.nfestep
     ode_method = args.odemethod
@@ -77,13 +64,19 @@ def main():
     use_truth_duration = False
     no_ref_audio = False
 
-    if exp_name == "F5TTS_Base":
-        model_cls = DiT
-        model_cfg = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
+    model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{exp_name}.yaml")))
+    model_cls = globals()[model_cfg.model.backbone]
+    model_arc = model_cfg.model.arch
 
-    elif exp_name == "E2TTS_Base":
-        model_cls = UNetT
-        model_cfg = dict(dim=1024, depth=24, heads=16, ff_mult=4)
+    dataset_name = model_cfg.datasets.name
+    tokenizer = model_cfg.model.tokenizer
+
+    mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
+    target_sample_rate = model_cfg.model.mel_spec.target_sample_rate
+    n_mel_channels = model_cfg.model.mel_spec.n_mel_channels
+    hop_length = model_cfg.model.mel_spec.hop_length
+    win_length = model_cfg.model.mel_spec.win_length
+    n_fft = model_cfg.model.mel_spec.n_fft
 
     if testset == "ls_pc_test_clean":
         metalst = rel_path + "/data/librispeech_pc_test_clean_cross_sentence.lst"
@@ -111,8 +104,6 @@ def main():
 
     # -------------------------------------------------#
 
-    use_ema = True
-
     prompts_all = get_inference_prompt(
         metainfo,
         speed=speed,
@@ -139,7 +130,7 @@ def main():
 
     # Model
     model = CFM(
-        transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+        transformer=model_cls(**model_arc, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=dict(
             n_fft=n_fft,
             hop_length=hop_length,
@@ -154,6 +145,10 @@ def main():
         vocab_char_map=vocab_char_map,
     ).to(device)
 
+    ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
+    if not os.path.exists(ckpt_path):
+        print("Loading from self-organized training checkpoints rather than released pretrained.")
+        ckpt_path = rel_path + f"/{model_cfg.ckpts.save_dir}/model_{ckpt_step}.pt"
     dtype = torch.float32 if mel_spec_type == "bigvgan" else None
     model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 

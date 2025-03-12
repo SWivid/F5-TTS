@@ -269,11 +269,36 @@ class ConvNeXtV2Block(nn.Module):
         return residual + x
 
 
-# AdaLayerNormZero
+# RMSNorm
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim: int, eps: float):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.native_rms_norm = float(torch.__version__[:3]) >= 2.4
+
+    def forward(self, x):
+        if self.native_rms_norm:
+            if self.weight.dtype in [torch.float16, torch.bfloat16]:
+                x = x.to(self.weight.dtype)
+            x = F.rms_norm(x, normalized_shape=(x.shape[-1],), weight=self.weight, eps=self.eps)
+        else:
+            variance = x.to(torch.float32).pow(2).mean(-1, keepdim=True)
+            x = x * torch.rsqrt(variance + self.eps)
+            if self.weight.dtype in [torch.float16, torch.bfloat16]:
+                x = x.to(self.weight.dtype)
+            x = x * self.weight
+
+        return x
+
+
+# AdaLayerNorm
 # return with modulated x for attn input, and params for later mlp modulation
 
 
-class AdaLayerNormZero(nn.Module):
+class AdaLayerNorm(nn.Module):
     def __init__(self, dim):
         super().__init__()
 
@@ -290,11 +315,11 @@ class AdaLayerNormZero(nn.Module):
         return x, gate_msa, shift_mlp, scale_mlp, gate_mlp
 
 
-# AdaLayerNormZero for final layer
+# AdaLayerNorm for final layer
 # return only with modulated x for attn input, cuz no more mlp modulation
 
 
-class AdaLayerNormZero_Final(nn.Module):
+class AdaLayerNorm_Final(nn.Module):
     def __init__(self, dim):
         super().__init__()
 
@@ -341,7 +366,8 @@ class Attention(nn.Module):
         dim_head: int = 64,
         dropout: float = 0.0,
         context_dim: Optional[int] = None,  # if not None -> joint attention
-        context_pre_only=None,
+        context_pre_only: bool = False,
+        qk_norm: Optional[str] = None,
     ):
         super().__init__()
 
@@ -362,18 +388,32 @@ class Attention(nn.Module):
         self.to_k = nn.Linear(dim, self.inner_dim)
         self.to_v = nn.Linear(dim, self.inner_dim)
 
+        if qk_norm is None:
+            self.q_norm = None
+            self.k_norm = None
+        elif qk_norm == "rms_norm":
+            self.q_norm = RMSNorm(dim_head, eps=1e-6)
+            self.k_norm = RMSNorm(dim_head, eps=1e-6)
+        else:
+            raise ValueError(f"Unimplemented qk_norm: {qk_norm}")
+
         if self.context_dim is not None:
+            self.to_q_c = nn.Linear(context_dim, self.inner_dim)
             self.to_k_c = nn.Linear(context_dim, self.inner_dim)
             self.to_v_c = nn.Linear(context_dim, self.inner_dim)
-            if self.context_pre_only is not None:
-                self.to_q_c = nn.Linear(context_dim, self.inner_dim)
+            if qk_norm is None:
+                self.c_q_norm = None
+                self.c_k_norm = None
+            elif qk_norm == "rms_norm":
+                self.c_q_norm = RMSNorm(dim_head, eps=1e-6)
+                self.c_k_norm = RMSNorm(dim_head, eps=1e-6)
 
         self.to_out = nn.ModuleList([])
         self.to_out.append(nn.Linear(self.inner_dim, dim))
         self.to_out.append(nn.Dropout(dropout))
 
-        if self.context_pre_only is not None and not self.context_pre_only:
-            self.to_out_c = nn.Linear(self.inner_dim, dim)
+        if self.context_dim is not None and not self.context_pre_only:
+            self.to_out_c = nn.Linear(self.inner_dim, context_dim)
 
     def forward(
         self,
@@ -393,8 +433,11 @@ class Attention(nn.Module):
 
 
 class AttnProcessor:
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        pe_attn_head: int | None = None,  # number of attention head to apply rope, None for all
+    ):
+        self.pe_attn_head = pe_attn_head
 
     def __call__(
         self,
@@ -405,18 +448,10 @@ class AttnProcessor:
     ) -> torch.FloatTensor:
         batch_size = x.shape[0]
 
-        # `sample` projections.
+        # `sample` projections
         query = attn.to_q(x)
         key = attn.to_k(x)
         value = attn.to_v(x)
-
-        # apply rotary position embedding
-        if rope is not None:
-            freqs, xpos_scale = rope
-            q_xpos_scale, k_xpos_scale = (xpos_scale, xpos_scale**-1.0) if xpos_scale is not None else (1.0, 1.0)
-
-            query = apply_rotary_pos_emb(query, freqs, q_xpos_scale)
-            key = apply_rotary_pos_emb(key, freqs, k_xpos_scale)
 
         # attention
         inner_dim = key.shape[-1]
@@ -424,6 +459,25 @@ class AttnProcessor:
         query = query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
         key = key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
         value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+
+        # qk norm
+        if attn.q_norm is not None:
+            query = attn.q_norm(query)
+        if attn.k_norm is not None:
+            key = attn.k_norm(key)
+
+        # apply rotary position embedding
+        if rope is not None:
+            freqs, xpos_scale = rope
+            q_xpos_scale, k_xpos_scale = (xpos_scale, xpos_scale**-1.0) if xpos_scale is not None else (1.0, 1.0)
+
+            if self.pe_attn_head is not None:
+                pn = self.pe_attn_head
+                query[:, :pn, :, :] = apply_rotary_pos_emb(query[:, :pn, :, :], freqs, q_xpos_scale)
+                key[:, :pn, :, :] = apply_rotary_pos_emb(key[:, :pn, :, :], freqs, k_xpos_scale)
+            else:
+                query = apply_rotary_pos_emb(query, freqs, q_xpos_scale)
+                key = apply_rotary_pos_emb(key, freqs, k_xpos_scale)
 
         # mask. e.g. inference got a batch with different target durations, mask out the padding
         if mask is not None:
@@ -470,15 +524,35 @@ class JointAttnProcessor:
 
         batch_size = c.shape[0]
 
-        # `sample` projections.
+        # `sample` projections
         query = attn.to_q(x)
         key = attn.to_k(x)
         value = attn.to_v(x)
 
-        # `context` projections.
+        # `context` projections
         c_query = attn.to_q_c(c)
         c_key = attn.to_k_c(c)
         c_value = attn.to_v_c(c)
+
+        # attention
+        inner_dim = key.shape[-1]
+        head_dim = inner_dim // attn.heads
+        query = query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        key = key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        c_query = c_query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        c_key = c_key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        c_value = c_value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+
+        # qk norm
+        if attn.q_norm is not None:
+            query = attn.q_norm(query)
+        if attn.k_norm is not None:
+            key = attn.k_norm(key)
+        if attn.c_q_norm is not None:
+            c_query = attn.c_q_norm(c_query)
+        if attn.c_k_norm is not None:
+            c_key = attn.c_k_norm(c_key)
 
         # apply rope for context and noised input independently
         if rope is not None:
@@ -492,16 +566,10 @@ class JointAttnProcessor:
             c_query = apply_rotary_pos_emb(c_query, freqs, q_xpos_scale)
             c_key = apply_rotary_pos_emb(c_key, freqs, k_xpos_scale)
 
-        # attention
-        query = torch.cat([query, c_query], dim=1)
-        key = torch.cat([key, c_key], dim=1)
-        value = torch.cat([value, c_value], dim=1)
-
-        inner_dim = key.shape[-1]
-        head_dim = inner_dim // attn.heads
-        query = query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
-        key = key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
-        value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        # joint attention
+        query = torch.cat([query, c_query], dim=2)
+        key = torch.cat([key, c_key], dim=2)
+        value = torch.cat([value, c_value], dim=2)
 
         # mask. e.g. inference got a batch with different target durations, mask out the padding
         if mask is not None:
@@ -540,16 +608,17 @@ class JointAttnProcessor:
 
 
 class DiTBlock(nn.Module):
-    def __init__(self, dim, heads, dim_head, ff_mult=4, dropout=0.1):
+    def __init__(self, dim, heads, dim_head, ff_mult=4, dropout=0.1, qk_norm=None, pe_attn_head=None):
         super().__init__()
 
-        self.attn_norm = AdaLayerNormZero(dim)
+        self.attn_norm = AdaLayerNorm(dim)
         self.attn = Attention(
-            processor=AttnProcessor(),
+            processor=AttnProcessor(pe_attn_head=pe_attn_head),
             dim=dim,
             heads=heads,
             dim_head=dim_head,
             dropout=dropout,
+            qk_norm=qk_norm,
         )
 
         self.ff_norm = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
@@ -585,26 +654,30 @@ class MMDiTBlock(nn.Module):
     context_pre_only: last layer only do prenorm + modulation cuz no more ffn
     """
 
-    def __init__(self, dim, heads, dim_head, ff_mult=4, dropout=0.1, context_pre_only=False):
+    def __init__(
+        self, dim, heads, dim_head, ff_mult=4, dropout=0.1, context_dim=None, context_pre_only=False, qk_norm=None
+    ):
         super().__init__()
-
+        if context_dim is None:
+            context_dim = dim
         self.context_pre_only = context_pre_only
 
-        self.attn_norm_c = AdaLayerNormZero_Final(dim) if context_pre_only else AdaLayerNormZero(dim)
-        self.attn_norm_x = AdaLayerNormZero(dim)
+        self.attn_norm_c = AdaLayerNorm_Final(context_dim) if context_pre_only else AdaLayerNorm(context_dim)
+        self.attn_norm_x = AdaLayerNorm(dim)
         self.attn = Attention(
             processor=JointAttnProcessor(),
             dim=dim,
             heads=heads,
             dim_head=dim_head,
             dropout=dropout,
-            context_dim=dim,
+            context_dim=context_dim,
             context_pre_only=context_pre_only,
+            qk_norm=qk_norm,
         )
 
         if not context_pre_only:
-            self.ff_norm_c = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
-            self.ff_c = FeedForward(dim=dim, mult=ff_mult, dropout=dropout, approximate="tanh")
+            self.ff_norm_c = nn.LayerNorm(context_dim, elementwise_affine=False, eps=1e-6)
+            self.ff_c = FeedForward(dim=context_dim, mult=ff_mult, dropout=dropout, approximate="tanh")
         else:
             self.ff_norm_c = None
             self.ff_c = None
