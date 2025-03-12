@@ -83,7 +83,7 @@ conda activate f5-tts
 > ### 1. As a pip package (if just for inference)
 > 
 > ```bash
-> pip install git+https://github.com/SWivid/F5-TTS.git
+> pip install f5-tts
 > ```
 > 
 > ### 2. Local editable (if also do training, finetuning)
