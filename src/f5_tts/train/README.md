@@ -40,10 +40,10 @@ Once your datasets are prepared, you can start the training process.
 accelerate config
 
 # .yaml files are under src/f5_tts/configs directory
-accelerate launch src/f5_tts/train/train.py --config-name F5TTS_v1_Base_train.yaml
+accelerate launch src/f5_tts/train/train.py --config-name F5TTS_v1_Base.yaml
 
 # possible to overwrite accelerate and hydra config
-accelerate launch --mixed_precision=fp16 src/f5_tts/train/train.py --config-name F5TTS_v1_Base_train.yaml ++datasets.batch_size_per_gpu=19200
+accelerate launch --mixed_precision=fp16 src/f5_tts/train/train.py --config-name F5TTS_v1_Base.yaml ++datasets.batch_size_per_gpu=19200
 ```
 
 ### 2. Finetuning practice

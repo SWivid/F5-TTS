@@ -159,9 +159,8 @@ volumes:
 ```bash
 # Run with flags
 # Leave --ref_text "" will have ASR model transcribe (extra GPU memory usage)
-f5-tts_infer-cli \
---model "F5-TTS_v1" \
---ref_audio "ref_audio.wav" \
+f5-tts_infer-cli --model F5TTS_v1_Base \
+--ref_audio "provide_prompt_wav_path_here.wav" \
 --ref_text "The content, subtitle or transcription of reference audio." \
 --gen_text "Some text you want TTS model generate for you."
 
@@ -182,14 +181,18 @@ f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 
 ## Training
 
-### 1. Gradio App
+### 1. With Hugging Face Accelerate
 
-Read [training & finetuning guidance](src/f5_tts/train) for more instructions.
+Refer to [training & finetuning guidance](src/f5_tts/train) for best practice.
+
+### 2. With Gradio App
 
 ```bash
 # Quick start with Gradio web interface
 f5-tts_finetune-gradio
 ```
+
+Read [training & finetuning guidance](src/f5_tts/train) for more instructions.
 
 
 ## [Evaluation](src/f5_tts/eval)

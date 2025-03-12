@@ -77,7 +77,7 @@ f5-tts_infer-cli \
 f5-tts_infer-cli --model F5TTS_Base --vocoder_name bigvgan --load_vocoder_from_local
 
 # Use custom path checkpoint, e.g.
-f5-tts_infer-cli --ckpt_file ckpts/F5TTS_Base/model_1200000.safetensors
+f5-tts_infer-cli --ckpt_file ckpts/F5TTS_v1_Base/model_1250000.safetensors
 
 # More instructions
 f5-tts_infer-cli --help
