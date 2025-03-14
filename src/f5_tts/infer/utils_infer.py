@@ -479,6 +479,7 @@ def infer_batch_process(
                 cfg_strength=cfg_strength,
                 sway_sampling_coef=sway_sampling_coef,
             )
+            del _
 
             generated = generated.to(torch.float32)
             generated = generated[:, ref_audio_len:, :]
@@ -490,6 +491,8 @@ def infer_batch_process(
             if rms < target_rms:
                 generated_wave = generated_wave * rms / target_rms
 
+            del generated
+
             # wav -> numpy
             generated_wave = generated_wave.squeeze().cpu().numpy()
 
@@ -497,7 +500,9 @@ def infer_batch_process(
                 for j in range(0, len(generated_wave), chunk_size):
                     yield generated_wave[j : j + chunk_size], target_sample_rate
             else:
-                yield generated_wave, generated_mel_spec[0].cpu().numpy()
+                generated_cpu = generated_mel_spec[0].cpu().numpy()
+                del generated_mel_spec
+                yield generated_wave, generated_cpu
 
     if streaming:
         for gen_text in progress.tqdm(gen_text_batches) if progress is not None else gen_text_batches:
