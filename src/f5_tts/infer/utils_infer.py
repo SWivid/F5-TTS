@@ -479,14 +479,15 @@ def infer_batch_process(
                 cfg_strength=cfg_strength,
                 sway_sampling_coef=sway_sampling_coef,
             )
+            del _
 
-            generated = generated.to(torch.float32)
+            generated = generated.to(torch.float32)  # generated mel spectrogram
             generated = generated[:, ref_audio_len:, :]
-            generated_mel_spec = generated.permute(0, 2, 1)
+            generated = generated.permute(0, 2, 1)
             if mel_spec_type == "vocos":
-                generated_wave = vocoder.decode(generated_mel_spec)
+                generated_wave = vocoder.decode(generated)
             elif mel_spec_type == "bigvgan":
-                generated_wave = vocoder(generated_mel_spec)
+                generated_wave = vocoder(generated)
             if rms < target_rms:
                 generated_wave = generated_wave * rms / target_rms
 
@@ -497,7 +498,9 @@ def infer_batch_process(
                 for j in range(0, len(generated_wave), chunk_size):
                     yield generated_wave[j : j + chunk_size], target_sample_rate
             else:
-                yield generated_wave, generated_mel_spec[0].cpu().numpy()
+                generated_cpu = generated[0].cpu().numpy()
+                del generated
+                yield generated_wave, generated_cpu
 
     if streaming:
         for gen_text in progress.tqdm(gen_text_batches) if progress is not None else gen_text_batches:
