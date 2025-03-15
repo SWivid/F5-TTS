@@ -219,7 +219,9 @@ class DiT(nn.Module):
 
         for block in self.transformer_blocks:
             if self.checkpoint_activations:
-                x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, t, mask, rope)
+                # if you have question, please check: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+                # After PyTorch 2.4, we must pass the use_reentrant explicitly
+                x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, t, mask, rope, use_reentrant=False)
             else:
                 x = block(x, t, mask=mask, rope=rope)
 
