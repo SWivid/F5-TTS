@@ -74,8 +74,6 @@ class F5TTS:
         elif model == "E2TTS_Base":
             repo_name = "E2-TTS"
             ckpt_step = 1200000
-        else:
-            raise ValueError(f"Unknown model type: {model}")
 
         if not ckpt_file:
             ckpt_file = str(
@@ -117,8 +115,9 @@ class F5TTS:
         seed=None,
     ):
         if seed is None:
-            self.seed = random.randint(0, sys.maxsize)
-        seed_everything(self.seed)
+            seed = random.randint(0, sys.maxsize)
+        seed_everything(seed)
+        self.seed = seed
 
         ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text, device=self.device)
 
