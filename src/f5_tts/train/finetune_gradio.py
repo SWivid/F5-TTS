@@ -1013,7 +1013,10 @@ def expand_model_embeddings(ckpt_path, new_ckpt_path, num_new_tokens=42):
 
     ema_sd[embed_key_ema] = expand_embeddings(ema_sd[embed_key_ema])
 
-    torch.save(ckpt, new_ckpt_path)
+    if new_ckpt_path.endswith(".safetensors"):
+        save_file(ema_sd, new_ckpt_path)
+    elif new_ckpt_path.endswith(".pt"):
+        torch.save(ckpt, new_ckpt_path)
 
     return vocab_new
 
