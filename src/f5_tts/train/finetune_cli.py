@@ -40,15 +40,15 @@ def parse_args():
     parser.add_argument("--grad_accumulation_steps", type=int, default=1, help="Gradient accumulation steps")
     parser.add_argument("--max_grad_norm", type=float, default=1.0, help="Max gradient norm for clipping")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
-    parser.add_argument("--num_warmup_updates", type=int, default=300, help="Warmup updates")
-    parser.add_argument("--save_per_updates", type=int, default=10000, help="Save checkpoint every X updates")
+    parser.add_argument("--num_warmup_updates", type=int, default=20000, help="Warmup updates")
+    parser.add_argument("--save_per_updates", type=int, default=50000, help="Save checkpoint every N updates")
     parser.add_argument(
         "--keep_last_n_checkpoints",
         type=int,
         default=-1,
         help="-1 to keep all, 0 to not save intermediate, > 0 to keep last N checkpoints",
     )
-    parser.add_argument("--last_per_updates", type=int, default=50000, help="Save last checkpoint every X updates")
+    parser.add_argument("--last_per_updates", type=int, default=5000, help="Save last checkpoint every N updates")
     parser.add_argument("--finetune", action="store_true", help="Use Finetune")
     parser.add_argument("--pretrain", type=str, default=None, help="the path to the checkpoint")
     parser.add_argument(
@@ -65,7 +65,7 @@ def parse_args():
         action="store_true",
         help="Log inferenced samples per ckpt save updates",
     )
-    parser.add_argument("--logger", type=str, default=None, choices=["wandb", "tensorboard"], help="logger")
+    parser.add_argument("--logger", type=str, default=None, choices=[None, "wandb", "tensorboard"], help="logger")
     parser.add_argument(
         "--bnb_optimizer",
         action="store_true",
