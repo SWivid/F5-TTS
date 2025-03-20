@@ -51,7 +51,9 @@ Discussion board for Finetuning [#57](https://github.com/SWivid/F5-TTS/discussio
 
 Gradio UI training/finetuning with `src/f5_tts/train/finetune_gradio.py` see [#143](https://github.com/SWivid/F5-TTS/discussions/143).
 
-The `use_ema = True` is harmful for early-stage finetuned checkpoints (which goes just few updates, thus ema weights still dominated by pretrained ones), try turn it off and see if provide better results.
+The **`use_ema = True` might be harmful for early-stage finetuned checkpoints** (which goes just few updates, thus ema weights still dominated by pretrained ones), try turn it off (`load_model(..., use_ema=False)`) and see if offer better results.
+
+If use tensorboard as logger, install it first with `pip install tensorboard`.
 
 ### 3. W&B Logging
 
