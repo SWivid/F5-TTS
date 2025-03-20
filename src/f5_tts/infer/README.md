@@ -9,12 +9,12 @@ Currently support **30s for a single** generation, which is the **total length**
 To avoid possible inference failures, make sure you have seen through the following instructions.
 
 - Use reference audio <12s and leave proper silence space (e.g. 1s) at the end. Otherwise there is a risk of truncating in the middle of word, leading to suboptimal generation.
-- **Uppercased** letters (best with form like K.F.C.) will be uttered letter by letter, and lowercased letters used for common words. 
-- Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some **pauses**.
+- <ins>Uppercased letters</ins> (best with form like K.F.C.) will be uttered letter by letter, and lowercased letters used for common words. 
+- Add some spaces (blank: " ") or punctuations (e.g. "," ".") <ins>to explicitly introduce some pauses</ins>.
 - If English punctuation marks the end of a sentence, make sure there is a space " " after it. Otherwise not regarded as when chunk.
-- Preprocess **numbers** to Chinese letters if you want to have them read in Chinese, otherwise in English.
-- If the generation output is blank (pure silence), check for **ffmpeg** installation.
-- Try turn off **use_ema** if using an early-stage finetuned checkpoint (which goes just few updates).
+- <ins>Preprocess numbers</ins> to Chinese letters if you want to have them read in Chinese, otherwise in English.
+- If the generation output is blank (pure silence), <ins>check for ffmpeg installation</ins>.
+- Try <ins>turn off `use_ema` if using an early-stage</ins> finetuned checkpoint (which goes just few updates).
 
 
 ## Gradio App
