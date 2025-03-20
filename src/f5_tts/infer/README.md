@@ -4,7 +4,7 @@ The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://h
 
 **More checkpoints with whole community efforts can be found in [SHARED.md](SHARED.md), supporting more languages.**
 
-Currently support **30s for a single** generation, which is the **total length** (same logic if `fix_duration`) including both prompt and output audio. However, `infer_cli` and `infer_gradio` will automatically do chunk generation for longer text input. Long reference audio will be **clip short to ~12s**.
+Currently support **30s for a single** generation, which is the **total length** (same logic if `fix_duration`) including both prompt and output audio. However, `infer_cli` and `infer_gradio` will automatically do chunk generation for longer text. Long reference audio will be **clip short to ~12s**.
 
 To avoid possible inference failures, make sure you have seen through the following instructions.
 
