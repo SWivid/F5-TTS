@@ -462,7 +462,8 @@ def infer_batch_process(
 
         ref_audio_len = audio.shape[-1] // hop_length
         if fix_duration is not None:
-            duration = int(fix_duration * target_sample_rate / hop_length)
+            generated_duration = int(fix_duration * target_sample_rate / hop_length)
+            duration = ref_audio_len + generated_duration
         else:
             # Calculate duration
             ref_text_len = len(ref_text.encode("utf-8"))
