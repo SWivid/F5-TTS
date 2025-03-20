@@ -100,8 +100,11 @@ conda activate f5-tts
 # Build from Dockerfile
 docker build -t f5tts:v1 .
 
-# Or pull from GitHub Container Registry
-docker pull ghcr.io/swivid/f5-tts:main
+# Run from GitHub Container Registry
+docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,target=/root/.cache/huggingface/hub/' -p 7860:7860 ghcr.io/swivid/f5-tts:main
+
+# Quickstart if you want to just run the web interface (not CLI)
+docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,target=/root/.cache/huggingface/hub/' -p 7860:7860 ghcr.io/swivid/f5-tts:main f5-tts_infer-gradio --host 0.0.0.0
 ```
 
 
