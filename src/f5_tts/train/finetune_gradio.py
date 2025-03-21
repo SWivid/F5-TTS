@@ -965,21 +965,23 @@ def calculate_train(
     )
 
 
-def extract_and_save_ema_model(checkpoint_path: str, new_checkpoint_path: str, safetensors: bool) -> str:
+def prune_checkpoint(checkpoint_path: str, new_checkpoint_path: str, save_ema: bool, safetensors: bool) -> str:
     try:
         checkpoint = torch.load(checkpoint_path, weights_only=True)
         print("Original Checkpoint Keys:", checkpoint.keys())
 
-        ema_model_state_dict = checkpoint.get("ema_model_state_dict", None)
-        if ema_model_state_dict is None:
-            return "No 'ema_model_state_dict' found in the checkpoint."
+        to_retain = "ema_model_state_dict" if save_ema else "model_state_dict"
+        try:
+            model_state_dict_to_retain = checkpoint[to_retain]
+        except KeyError:
+            return f"{to_retain} not found in the checkpoint."
 
         if safetensors:
             new_checkpoint_path = new_checkpoint_path.replace(".pt", ".safetensors")
-            save_file(ema_model_state_dict, new_checkpoint_path)
+            save_file(model_state_dict_to_retain, new_checkpoint_path)
         else:
             new_checkpoint_path = new_checkpoint_path.replace(".safetensors", ".pt")
-            new_checkpoint = {"ema_model_state_dict": ema_model_state_dict}
+            new_checkpoint = {"ema_model_state_dict": model_state_dict_to_retain}
             torch.save(new_checkpoint, new_checkpoint_path)
 
         return f"New checkpoint saved at: {new_checkpoint_path}"
@@ -1849,12 +1851,14 @@ Reduce the Base model size from 5GB to 1.3GB. The new checkpoint file prunes out
 ```""")
             txt_path_checkpoint = gr.Textbox(label="Path to Checkpoint:")
             txt_path_checkpoint_small = gr.Textbox(label="Path to Output:")
-            ch_safetensors = gr.Checkbox(label="Safetensors", value="")
+            with gr.Row():
+                ch_save_ema = gr.Checkbox(label="Save EMA checkpoint", value=True)
+                ch_safetensors = gr.Checkbox(label="Save with safetensors format", value=True)
             txt_info_reduse = gr.Textbox(label="Info", value="")
-            reduse_button = gr.Button("Reduce")
+            reduse_button = gr.Button("Prune")
             reduse_button.click(
-                fn=extract_and_save_ema_model,
-                inputs=[txt_path_checkpoint, txt_path_checkpoint_small, ch_safetensors],
+                fn=prune_checkpoint,
+                inputs=[txt_path_checkpoint, txt_path_checkpoint_small, ch_save_ema, ch_safetensors],
                 outputs=[txt_info_reduse],
             )
 
