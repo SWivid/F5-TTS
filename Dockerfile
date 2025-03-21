@@ -23,9 +23,8 @@ RUN git clone https://github.com/SWivid/F5-TTS.git \
 
 ENV SHELL=/bin/bash
 
-# models are downloaded into this folder, so user should mount it
 VOLUME /root/.cache/huggingface/hub/
-# port the GUI is exposed on by default, if it is run
+
 EXPOSE 7860
 
 WORKDIR /workspace/F5-TTS

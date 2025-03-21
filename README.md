@@ -203,7 +203,7 @@ Read [training & finetuning guidance](src/f5_tts/train) for more instructions.
 
 ## Development
 
-Use pre-commit to ensure code quality (will run linters and formatters automatically)
+Use pre-commit to ensure code quality (will run linters and formatters automatically):
 
 ```bash
 pip install pre-commit
@@ -216,7 +216,7 @@ When making a pull request, before each commit, run:
 pre-commit run --all-files
 ```
 
-Note: Some model components have linting exceptions for E722 to accommodate tensor notation
+Note: Some model components have linting exceptions for E722 to accommodate tensor notation.
 
 
 ## Acknowledgements

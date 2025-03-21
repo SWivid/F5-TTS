@@ -10,6 +10,7 @@ import numpy as np
 import soundfile as sf
 import tomli
 from cached_path import cached_path
+from hydra.utils import get_class
 from omegaconf import OmegaConf
 
 from f5_tts.infer.utils_infer import (
@@ -27,7 +28,6 @@ from f5_tts.infer.utils_infer import (
     preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
 )
-from f5_tts.model import DiT, UNetT  # noqa: F401. used for config
 
 
 parser = argparse.ArgumentParser(
@@ -246,13 +246,14 @@ vocoder = load_vocoder(vocoder_name=vocoder_name, is_local=load_vocoder_from_loc
 
 model_cfg = OmegaConf.load(
     args.model_cfg or config.get("model_cfg", str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
-).model
-model_cls = globals()[model_cfg.backbone]
+)
+model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
+model_arc = model_cfg.model.arch
 
 repo_name, ckpt_step, ckpt_type = "F5-TTS", 1250000, "safetensors"
 
 if model != "F5TTS_Base":
-    assert vocoder_name == model_cfg.mel_spec.mel_spec_type
+    assert vocoder_name == model_cfg.model.mel_spec.mel_spec_type
 
 # override for previous models
 if model == "F5TTS_Base":
@@ -269,7 +270,7 @@ if not ckpt_file:
     ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{model}/model_{ckpt_step}.{ckpt_type}"))
 
 print(f"Using {model}...")
-ema_model = load_model(model_cls, model_cfg.arch, ckpt_file, mel_spec_type=vocoder_name, vocab_file=vocab_file)
+ema_model = load_model(model_cls, model_arc, ckpt_file, mel_spec_type=vocoder_name, vocab_file=vocab_file)
 
 
 # inference process
@@ -332,7 +333,7 @@ def main():
             if len(gen_text_) > 200:
                 gen_text_ = gen_text_[:200] + " ... "
             sf.write(
-                os.path.join(output_chunk_dir, f"{len(generated_audio_segments)-1}_{gen_text_}.wav"),
+                os.path.join(output_chunk_dir, f"{len(generated_audio_segments) - 1}_{gen_text_}.wav"),
                 audio_segment,
                 final_sample_rate,
             )
