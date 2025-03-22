@@ -22,6 +22,7 @@ from f5_tts.infer.utils_infer import (
     sway_sampling_coef,
     speed,
     fix_duration,
+    device,
     infer_process,
     load_model,
     load_vocoder,
@@ -207,7 +208,7 @@ cfg_strength = args.cfg_strength or config.get("cfg_strength", cfg_strength)
 sway_sampling_coef = args.sway_sampling_coef or config.get("sway_sampling_coef", sway_sampling_coef)
 speed = args.speed or config.get("speed", speed)
 fix_duration = args.fix_duration or config.get("fix_duration", fix_duration)
-device = args.device
+device = args.device or config.get("device", device)
 
 
 # patches for pip pkg user
