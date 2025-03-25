@@ -100,8 +100,11 @@ conda activate f5-tts
 # Build from Dockerfile
 docker build -t f5tts:v1 .
 
-# Or pull from GitHub Container Registry
-docker pull ghcr.io/swivid/f5-tts:main
+# Run from GitHub Container Registry
+docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,target=/root/.cache/huggingface/hub/' -p 7860:7860 ghcr.io/swivid/f5-tts:main
+
+# Quickstart if you want to just run the web interface (not CLI)
+docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,target=/root/.cache/huggingface/hub/' -p 7860:7860 ghcr.io/swivid/f5-tts:main f5-tts_infer-gradio --host 0.0.0.0
 ```
 
 
@@ -200,7 +203,7 @@ Read [training & finetuning guidance](src/f5_tts/train) for more instructions.
 
 ## Development
 
-Use pre-commit to ensure code quality (will run linters and formatters automatically)
+Use pre-commit to ensure code quality (will run linters and formatters automatically):
 
 ```bash
 pip install pre-commit
@@ -213,7 +216,7 @@ When making a pull request, before each commit, run:
 pre-commit run --all-files
 ```
 
-Note: Some model components have linting exceptions for E722 to accommodate tensor notation
+Note: Some model components have linting exceptions for E722 to accommodate tensor notation.
 
 
 ## Acknowledgements

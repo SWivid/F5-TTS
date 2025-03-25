@@ -5,6 +5,7 @@ from importlib.resources import files
 import soundfile as sf
 import tqdm
 from cached_path import cached_path
+from hydra.utils import get_class
 from omegaconf import OmegaConf
 
 from f5_tts.infer.utils_infer import (
@@ -16,7 +17,6 @@ from f5_tts.infer.utils_infer import (
     remove_silence_for_generated_wav,
     save_spectrogram,
 )
-from f5_tts.model import DiT, UNetT  # noqa: F401. used for config
 from f5_tts.model.utils import seed_everything
 
 
@@ -33,7 +33,7 @@ class F5TTS:
         hf_cache_dir=None,
     ):
         model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
-        model_cls = globals()[model_cfg.model.backbone]
+        model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
         model_arc = model_cfg.model.arch
 
         self.mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
@@ -119,7 +119,7 @@ class F5TTS:
         seed_everything(seed)
         self.seed = seed
 
-        ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text, device=self.device)
+        ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text)
 
         wav, sr, spec = infer_process(
             ref_file,

@@ -23,4 +23,8 @@ RUN git clone https://github.com/SWivid/F5-TTS.git \
 
 ENV SHELL=/bin/bash
 
+VOLUME /root/.cache/huggingface/hub/
+
+EXPOSE 7860
+
 WORKDIR /workspace/F5-TTS

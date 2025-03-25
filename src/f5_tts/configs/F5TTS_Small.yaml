@@ -10,7 +10,7 @@ datasets:
   num_workers: 16
 
 optim:
-  epochs: 11
+  epochs: 11  # only suitable for Emilia, if you want to train it on LibriTTS, set epoch 686
   learning_rate: 7.5e-5
   num_warmup_updates: 20000  # warmup updates
   grad_accumulation_steps: 1  # note: updates = steps / grad_accumulation_steps

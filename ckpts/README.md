@@ -1,12 +1,3 @@
+The pretrained model checkpoints can be reached at https://huggingface.co/SWivid/F5-TTS.
 
-Pretrained model ckpts. https://huggingface.co/SWivid/F5-TTS
-
-```
-ckpts/
-    F5TTS_v1_Base/
-        model_1250000.safetensors
-    F5TTS_Base/
-        model_1200000.safetensors
-    E2TTS_Base/
-        model_1200000.safetensors
-```
+Scripts will automatically pull model checkpoints from Huggingface, by default to `~/.cache/huggingface/hub/`.

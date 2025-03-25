@@ -122,7 +122,7 @@ def prepare_csv_wavs_dir(input_dir, num_workers=None):
                 for future in tqdm(
                     chunk_futures,
                     total=len(chunk),
-                    desc=f"Processing chunk {i//CHUNK_SIZE + 1}/{(total_files + CHUNK_SIZE - 1)//CHUNK_SIZE}",
+                    desc=f"Processing chunk {i // CHUNK_SIZE + 1}/{(total_files + CHUNK_SIZE - 1) // CHUNK_SIZE}",
                 ):
                     try:
                         result = future.result()
@@ -233,7 +233,7 @@ def save_prepped_dataset(out_dir, result, duration_list, text_vocab_set, is_fine
     dataset_name = out_dir.stem
     print(f"\nFor {dataset_name}, sample count: {len(result)}")
     print(f"For {dataset_name}, vocab size is: {len(text_vocab_set)}")
-    print(f"For {dataset_name}, total {sum(duration_list)/3600:.2f} hours")
+    print(f"For {dataset_name}, total {sum(duration_list) / 3600:.2f} hours")
 
 
 def prepare_and_save_set(inp_dir, out_dir, is_finetune: bool = True, num_workers: int = None):

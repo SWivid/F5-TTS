@@ -1,6 +1,6 @@
 name: "Bug Report"
 description: |
-  Please provide as much details to help address the issue, including logs and screenshots.
+  Please provide as much details to help address the issue more efficiently, including input, output, logs and screenshots.
 labels:
   - bug
 body:
@@ -15,13 +15,13 @@ body:
           required: true
         - label: I have searched for existing issues, including closed ones, and couldn't find a solution.
           required: true
-        - label: I confirm that I am using English to submit this report in order to facilitate communication.
+        - label: I am using English to submit this issue to facilitate community communication.
           required: true
   - type: textarea
     attributes:
       label: Environment Details
-      description: "Provide details such as OS, Python version, and any relevant software or dependencies."
-      placeholder: e.g., CentOS Linux 7, RTX 3090, Python 3.10, torch==2.3.0, cuda 11.8
+      description: "Provide details including OS, GPU info, Python version, any relevant software or dependencies, and trainer setting."
+      placeholder: e.g., CentOS Linux 7, 4 * RTX 3090, Python 3.10, torch==2.3.0+cu118, cuda 11.8, config yaml is ...
     validations:
       required: true
   - type: textarea
@@ -39,12 +39,12 @@ body:
   - type: textarea
     attributes:
       label: ✔️ Expected Behavior
-      placeholder: Describe what you expected to happen.
+      placeholder: Describe in detail what you expected to happen.
     validations:
       required: false
   - type: textarea
     attributes:
       label: ❌ Actual Behavior
-      placeholder: Describe what actually happened.
+      placeholder: Describe in detail what actually happened.
     validations:
       required: false

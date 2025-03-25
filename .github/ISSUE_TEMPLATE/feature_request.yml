@@ -15,7 +15,7 @@ body:
           required: true
         - label: I have searched for existing issues, including closed ones, and found not discussion yet.
           required: true
-        - label: I confirm that I am using English to submit this report in order to facilitate communication.
+        - label: I am using English to submit this issue to facilitate community communication.
           required: true
   - type: textarea
     attributes:

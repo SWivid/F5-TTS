@@ -148,9 +148,9 @@ def get_inference_prompt(
 
         # deal with batch
         assert infer_batch_size > 0, "infer_batch_size should be greater than 0."
-        assert (
-            min_tokens <= total_mel_len <= max_tokens
-        ), f"Audio {utt} has duration {total_mel_len*hop_length//target_sample_rate}s out of range [{min_secs}, {max_secs}]."
+        assert min_tokens <= total_mel_len <= max_tokens, (
+            f"Audio {utt} has duration {total_mel_len * hop_length // target_sample_rate}s out of range [{min_secs}, {max_secs}]."
+        )
         bucket_i = math.floor((total_mel_len - min_tokens) / (max_tokens - min_tokens + 1) * num_buckets)
 
         utts[bucket_i].append(utt)

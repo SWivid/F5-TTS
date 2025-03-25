@@ -7,10 +7,11 @@ from importlib.resources import files
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hydra.utils import get_class
 from omegaconf import OmegaConf
 
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder, save_spectrogram
-from f5_tts.model import CFM, DiT, UNetT  # noqa: F401. used for config
+from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
 device = (
@@ -40,7 +41,7 @@ target_rms = 0.1
 
 
 model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{exp_name}.yaml")))
-model_cls = globals()[model_cfg.model.backbone]
+model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
 model_arc = model_cfg.model.arch
 
 dataset_name = model_cfg.datasets.name

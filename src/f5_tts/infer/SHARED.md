@@ -44,6 +44,7 @@
 
 ```bash
 Model: hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors
+# A Variant Model: hf://SWivid/F5-TTS/F5TTS_v1_Base_no_zero_init/model_1250000.safetensors
 Vocab: hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt
 Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "conv_layers": 4}
 ```

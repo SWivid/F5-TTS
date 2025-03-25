@@ -10,6 +10,7 @@ from importlib.resources import files
 import torch
 import torchaudio
 from accelerate import Accelerator
+from hydra.utils import get_class
 from omegaconf import OmegaConf
 from tqdm import tqdm
 
@@ -19,7 +20,7 @@ from f5_tts.eval.utils_eval import (
     get_seedtts_testset_metainfo,
 )
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder
-from f5_tts.model import CFM, DiT, UNetT  # noqa: F401. used for config
+from f5_tts.model import CFM
 from f5_tts.model.utils import get_tokenizer
 
 accelerator = Accelerator()
@@ -65,7 +66,7 @@ def main():
     no_ref_audio = False
 
     model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{exp_name}.yaml")))
-    model_cls = globals()[model_cfg.model.backbone]
+    model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
     model_arc = model_cfg.model.arch
 
     dataset_name = model_cfg.datasets.name
@@ -195,7 +196,7 @@ def main():
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
         timediff = time.time() - start
-        print(f"Done batch inference in {timediff / 60 :.2f} minutes.")
+        print(f"Done batch inference in {timediff / 60:.2f} minutes.")
 
 
 if __name__ == "__main__":

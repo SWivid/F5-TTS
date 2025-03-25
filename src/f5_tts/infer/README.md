@@ -4,16 +4,17 @@ The pretrained model checkpoints can be reached at [🤗 Hugging Face](https://h
 
 **More checkpoints with whole community efforts can be found in [SHARED.md](SHARED.md), supporting more languages.**
 
-Currently support **30s for a single** generation, which is the **total length** including both prompt and output audio. However, you can provide `infer_cli` and `infer_gradio` with longer text, will automatically do chunk generation. Long reference audio will be **clip short to ~15s**.
+Currently support **30s for a single** generation, which is the **total length** (same logic if `fix_duration`) including both prompt and output audio. However, `infer_cli` and `infer_gradio` will automatically do chunk generation for longer text. Long reference audio will be **clip short to ~12s**.
 
 To avoid possible inference failures, make sure you have seen through the following instructions.
 
-- Use reference audio <15s and leave some silence (e.g. 1s) at the end. Otherwise there is a risk of truncating in the middle of word, leading to suboptimal generation.
-- Uppercased letters will be uttered letter by letter, so use lowercased letters for normal words. 
-- Add some spaces (blank: " ") or punctuations (e.g. "," ".") to explicitly introduce some pauses.
-- Preprocess numbers to Chinese letters if you want to have them read in Chinese, otherwise in English.
-- If the generation output is blank (pure silence), check for ffmpeg installation (various tutorials online, blogs, videos, etc.).
-- Try turn off use_ema if using an early-stage finetuned checkpoint (which goes just few updates).
+- Use reference audio <12s and leave proper silence space (e.g. 1s) at the end. Otherwise there is a risk of truncating in the middle of word, leading to suboptimal generation.
+- <ins>Uppercased letters</ins> (best with form like K.F.C.) will be uttered letter by letter, and lowercased letters used for common words. 
+- Add some spaces (blank: " ") or punctuations (e.g. "," ".") <ins>to explicitly introduce some pauses</ins>.
+- If English punctuation marks the end of a sentence, make sure there is a space " " after it. Otherwise not regarded as when chunk.
+- <ins>Preprocess numbers</ins> to Chinese letters if you want to have them read in Chinese, otherwise in English.
+- If the generation output is blank (pure silence), <ins>check for ffmpeg installation</ins>.
+- Try <ins>turn off `use_ema` if using an early-stage</ins> finetuned checkpoint (which goes just few updates).
 
 
 ## Gradio App

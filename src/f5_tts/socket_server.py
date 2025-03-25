@@ -13,9 +13,9 @@ from importlib.resources import files
 import torch
 import torchaudio
 from huggingface_hub import hf_hub_download
+from hydra.utils import get_class
 from omegaconf import OmegaConf
 
-from f5_tts.model.backbones.dit import DiT  # noqa: F401. used for config
 from f5_tts.infer.utils_infer import (
     chunk_text,
     preprocess_ref_audio_text,
@@ -80,7 +80,7 @@ class TTSStreamingProcessor:
             else "cpu"
         )
         model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
-        self.model_cls = globals()[model_cfg.model.backbone]
+        self.model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
         self.model_arc = model_cfg.model.arch
         self.mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
         self.sampling_rate = model_cfg.model.mel_spec.target_sample_rate
