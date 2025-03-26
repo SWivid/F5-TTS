@@ -86,11 +86,28 @@ def list_str_to_tensor(text: list[str], padding_value=-1) -> int["b nt"]:  # noq
 
 # char tokenizer, based on custom dataset's extracted .txt file
 def list_str_to_idx(
-    text: list[str] | list[list[str]],
+    texts: list[str] | list[list[str]],
     vocab_char_map: dict[str, int],  # {char: idx}
     padding_value=-1,
 ) -> int["b nt"]:  # noqa: F722
-    list_idx_tensors = [torch.tensor([vocab_char_map.get(c, 0) for c in t]) for t in text]  # pinyin or char style
+    list_idx_tensors = []
+    for text in texts:
+        list_idx = []
+        i =0
+        while i < len(text):
+            if text[i] == 'ˈ' or text[i]=='ˌ':
+                full_symbol = text[i] + text[i+1]
+                if full_symbol in vocab_char_map:
+                    list_idx.append(vocab_char_map[full_symbol])
+                    i+=1
+            else:
+                if text[i] in vocab_char_map:
+                    list_idx.append(vocab_char_map[text[i]])
+            i+=1
+        list_idx_tensors.append(torch.tensor(list_idx))
+    #list_idx_tensors = [torch.tensor([vocab_char_map.get(c, 0) for c in t]) for t in text]  # pinyin or char style
+    
+    
     text = pad_sequence(list_idx_tensors, padding_value=padding_value, batch_first=True)
     return text
 
