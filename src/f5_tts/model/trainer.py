@@ -395,11 +395,12 @@ class Trainer:
                         self.writer.add_scalar("loss", loss.item(), global_update)
                         self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_update)
 
+                if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
+                    self.save_checkpoint(global_update, last=True)
+
                 if global_update % self.save_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update)
-                    if global_update % self.last_per_updates == 0:
-                        self.save_checkpoint(global_update, last=True)
-                        
+
                     if self.log_samples and self.accelerator.is_local_main_process:
                         ref_audio_len = mel_lengths[0]
                         infer_text = [
