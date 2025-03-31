@@ -6,8 +6,8 @@ data/
 ckpts/
 wandb/
 results/
-
-i4b_indicConformer_ne.nemo
+gemini_transliterations/
+ai4b_indicConformer_ne.nemo
 *.nemo
 # Byte-compiled / optimized / DLL files
 __pycache__/

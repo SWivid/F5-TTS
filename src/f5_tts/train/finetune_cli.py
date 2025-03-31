@@ -101,14 +101,17 @@ def main():
     model_cls = DiT
     model_cfg = dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)
         # if args.pretrain is None:
-    ckpt_path = str("/home/prasais/projects/xttsv2/F5-TTS/ckpts/indic_r/pretrained_model_2500000.pt")
+    # ckpt_path = str("/home/prasais/projects/xttsv2/F5-TTS/ckpts/indic_r/pretrained_model_2500000.pt")
+    ckpt_path = str("/home/prasais/projects/xttsv2/F5-TTS/ckpts/shuvani/pretrained_model.pt")
     file_checkpoint = os.path.basename(ckpt_path)
 
     # Use the tokenizer and tokenizer_path provided in the command line arguments
     # tokenizer = args.tokenizer
 
     tokenizer = "char"
-    tokenizer_path = "indic_r"
+    # tokenizer_path = "indic_r"
+    tokenizer_path = "shuvani"
+
     # tokenizer_path = "/home/prasais/projects/xttsv2/F5-TTS/data/indic_r_char"
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
     # vocab_char_map, vocab_size = get_tokenizer("indic_r", "char")
