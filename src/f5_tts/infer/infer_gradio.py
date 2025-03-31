@@ -590,10 +590,12 @@ Have a conversation with an AI using your reference voice!
         )
 
     else:
-        model_name_input = gr.Textbox(
+        model_name_input = gr.Dropdown(
             label="Chat Model Name",
+            # TODO: add more models that are good for chat and have good quality and proper memory usage
+            choices=["Qwen/Qwen2.5-3B-Instruct", "microsoft/Phi-4-mini-instruct"],
             value="Qwen/Qwen2.5-3B-Instruct",
-            info="Enter the name of a HuggingFace chat model",
+            info="Select a HuggingFace chat model (curated list to avoid memory issues)",
         )
         chat_interface_container = gr.Column()
 
