@@ -1,6 +1,7 @@
 # ruff: noqa: E402
 # Above allows ruff to ignore E402: module level import not at top of file
 
+import gc
 import json
 import re
 import tempfile
@@ -11,6 +12,7 @@ import click
 import gradio as gr
 import numpy as np
 import soundfile as sf
+import torch
 import torchaudio
 from cached_path import cached_path
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -550,35 +552,47 @@ Have a conversation with an AI using your reference voice!
 """
     )
 
-    if not USING_SPACES:
-        load_chat_model_btn = gr.Button("Load Chat Model", variant="primary")
+    chat_model_name_list = ["Qwen/Qwen2.5-3B-Instruct",]
 
-        chat_interface_container = gr.Column(visible=False)
+    @gpu_decorator
+    def load_chat_model(chat_model_name):
+        show_info = gr.Info
+        global chat_model_state, chat_tokenizer_state
+        if chat_model_state is not None:
+            chat_model_state = None
+            chat_tokenizer_state = None
+            gc.collect()
+            torch.cuda.empty_cache()
 
-        @gpu_decorator
-        def load_chat_model():
-            global chat_model_state, chat_tokenizer_state
-            if chat_model_state is None:
-                show_info = gr.Info
-                show_info("Loading chat model...")
-                model_name = "Qwen/Qwen2.5-3B-Instruct"
-                chat_model_state = AutoModelForCausalLM.from_pretrained(
-                    model_name, torch_dtype="auto", device_map="auto"
-                )
-                chat_tokenizer_state = AutoTokenizer.from_pretrained(model_name)
-                show_info("Chat model loaded.")
+        show_info(f"Loading chat model: {chat_model_name}")
+        chat_model_state = AutoModelForCausalLM.from_pretrained(chat_model_name, torch_dtype="auto", device_map="auto")
+        chat_tokenizer_state = AutoTokenizer.from_pretrained(chat_model_name)
+        show_info(f"Chat model {chat_model_name} loaded successfully!")
 
-            return gr.update(visible=False), gr.update(visible=True)
+        return gr.update(visible=False), gr.update(visible=True)
 
-        load_chat_model_btn.click(load_chat_model, outputs=[load_chat_model_btn, chat_interface_container])
+    if USING_SPACES:
+        load_chat_model(chat_model_name_list[0])
 
-    else:
-        chat_interface_container = gr.Column()
+    chat_model_name_input = gr.Dropdown(
+        choices=chat_model_name_list,
+        value=chat_model_name_list[0],
+        label="Chat Model Name",
+        info="Enter the name of a HuggingFace chat model",
+        allow_custom_value=not USING_SPACES,
+    )
+    load_chat_model_btn = gr.Button("Load Chat Model", variant="primary", visible=not USING_SPACES)
+    chat_interface_container = gr.Column(visible=USING_SPACES)
 
-        if chat_model_state is None:
-            model_name = "Qwen/Qwen2.5-3B-Instruct"
-            chat_model_state = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
-            chat_tokenizer_state = AutoTokenizer.from_pretrained(model_name)
+    chat_model_name_input.change(
+        lambda: gr.update(visible=True),
+        None,
+        load_chat_model_btn,
+        show_progress="hidden",
+    )
+    load_chat_model_btn.click(
+        load_chat_model, inputs=[chat_model_name_input], outputs=[load_chat_model_btn, chat_interface_container]
+    )
 
     with chat_interface_container:
         with gr.Row():
