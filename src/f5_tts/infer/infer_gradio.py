@@ -554,6 +554,7 @@ Have a conversation with an AI using your reference voice!
 
     chat_model_name_list = [
         "Qwen/Qwen2.5-3B-Instruct",
+        "microsoft/Phi-4-mini-instruct",
     ]
 
     @gpu_decorator
