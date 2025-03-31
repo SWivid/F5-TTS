@@ -552,7 +552,9 @@ Have a conversation with an AI using your reference voice!
 """
     )
 
-    chat_model_name_list = ["Qwen/Qwen2.5-3B-Instruct",]
+    chat_model_name_list = [
+        "Qwen/Qwen2.5-3B-Instruct",
+    ]
 
     @gpu_decorator
     def load_chat_model(chat_model_name):
