@@ -59,11 +59,11 @@ benchmark.py --output-dir $log_dir \
 ### Benchmark Results
 Decoding on a single L20 GPU, using 26 different prompt_audio/target_text pairs.
 
-| Model | Concurrency | Avg Latency    | RTF   | Mode |
-|-------|-------------|----------------|-------|------|
-| F5-TTS Base (Vocos) | 2     | 253 ms | 0.0394|Client-Server|
-| F5-TTS Base (Vocos) | 1 (Batch_size)     | - | 0.0402|Offline TRT-LLM|
-| F5-TTS Base (Vocos) | 1 (Batch_size)    | - | 0.1467|Offline Pytorch|
+| Model               | Concurrency    | Avg Latency | RTF    | Mode            |
+|---------------------|----------------|-------------|--------|-----------------|
+| F5-TTS Base (Vocos) | 2              | 253 ms      | 0.0394 | Client-Server   |
+| F5-TTS Base (Vocos) | 1 (Batch_size) | -           | 0.0402 | Offline TRT-LLM |
+| F5-TTS Base (Vocos) | 1 (Batch_size) | -           | 0.1467 | Offline Pytorch |
 
 ### Credits
 1. [F5-TTS-TRTLLM](https://github.com/Bigfishering/f5-tts-trtllm)
