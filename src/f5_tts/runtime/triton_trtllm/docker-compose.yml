@@ -17,4 +17,4 @@ services:
               device_ids: ['0']
               capabilities: [gpu]
     command: >
-      /bin/bash -c "pip install vocos && rm -rf F5-TTS && git clone https://github.com/SWivid/F5-TTS.git && cd src/f5_tts/runtime/triton_trtllm/ && bash run.sh 0 4 $MODEL"
+      /bin/bash -c "pip install vocos && rm -rf F5-TTS && git clone https://github.com/SWivid/F5-TTS.git && cd F5-TTS/src/f5_tts/runtime/triton_trtllm/ && bash run.sh 0 4 $MODEL"
