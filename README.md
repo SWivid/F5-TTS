@@ -107,6 +107,19 @@ docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,targ
 docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,target=/root/.cache/huggingface/hub/' -p 7860:7860 ghcr.io/swivid/f5-tts:main f5-tts_infer-gradio --host 0.0.0.0
 ```
 
+### Runtime
+
+Deployment solution with Triton and TensorRT-LLM.
+
+#### Benchmark Results
+Decoding on a single L20 GPU, using 26 different prompt_audio & target_text pairs.
+
+| Model | Concurrency | Avg Latency    | RTF   | 
+|-------|-------------|----------------|-------|
+| F5-TTS Base (Vocos) | 1     | 253 ms | 0.0394|
+
+See [detailed instructions](src/f5_tts/runtime/triton_trtllm/README.md) for more information.
+
 
 ## Inference
 
@@ -178,19 +191,6 @@ f5-tts_infer-cli -c custom.toml
 # Multi voice. See src/f5_tts/infer/README.md
 f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 ```
-
-### 3. Runtime
-
-Deployment solution with Triton and TensorRT-LLM.
-
-#### Benchmark Results
-Decoding on a single L20 GPU, using 26 different prompt_audio & target_text pairs.
-
-| Model | Concurrency | Avg Latency    | RTF   | 
-|-------|-------------|----------------|-------|
-| F5-TTS Base (Vocos) | 1     | 253 ms | 0.0394|
-
-See [detailed instructions](src/f5_tts/runtime/triton_trtllm/README.md) for more information.
 
 
 ## Training
