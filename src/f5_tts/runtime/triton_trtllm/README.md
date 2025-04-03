@@ -35,9 +35,9 @@ python3 client_grpc.py --num-tasks $num_task --huggingface-dataset yuekai/seed_t
 ### Benchmark Results
 Decoding on a single L20 GPU, using 26 different prompt_audio/target_text pairs.
 
-| Model | Note   | Concurrency | Avg Latency     | RTF | 
-|-------|-----------|-----------------------|---------|--|
-| F5-TTS Base (Vocos) | [Code Commit](https://github.com/yuekaizhang/sherpa/tree/329ab3c573252e835844bea38505c6b43e994cf4/triton/f5_tts) | 1                   | 253 ms | 0.0394|
+| Model | Concurrency | Avg Latency     | RTF | 
+|-------|-------------|-----------------|--|
+| F5-TTS Base (Vocos) | 1     | 253 ms | 0.0394|
 
 ### Credits
 1. [F5-TTS-TRTLLM](https://github.com/Bigfishering/f5-tts-trtllm)

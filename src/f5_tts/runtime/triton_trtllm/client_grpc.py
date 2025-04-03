@@ -245,6 +245,7 @@ async def send(
     model_name: str,
     padding_duration: int = None,
     audio_save_dir: str = "./",
+    save_sample_rate: int = 16000,
 ):
     total_duration = 0.0
     latency_data = []
@@ -267,7 +268,9 @@ async def send(
             samples = np.zeros(
                 (
                     1,
-                    padding_duration * sample_rate * ((int(duration) // padding_duration) + 1),
+                    padding_duration
+                    * sample_rate
+                    * ((int(estimated_target_duration + duration) // padding_duration) + 1),
                 ),
                 dtype=np.float32,
             )
@@ -306,7 +309,7 @@ async def send(
         end = time.time() - start
 
         audio_save_path = os.path.join(audio_save_dir, f"{item['target_audio_path']}.wav")
-        sf.write(audio_save_path, audio, 16000, "PCM_16")
+        sf.write(audio_save_path, audio, save_sample_rate, "PCM_16")
 
         latency_data.append((end, estimated_target_duration))
         total_duration += estimated_target_duration
@@ -413,7 +416,8 @@ async def main():
                 log_interval=args.log_interval,
                 model_name=args.model_name,
                 audio_save_dir=args.log_dir,
-                padding_duration=1.0,
+                padding_duration=1,
+                save_sample_rate=24000 if args.model_name == "f5_tts" else 16000,
             )
         )
         tasks.append(task)

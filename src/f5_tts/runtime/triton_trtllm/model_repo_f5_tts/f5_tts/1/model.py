@@ -158,7 +158,7 @@ class TritonPythonModel:
         return mel.transpose(1, 2)
 
     def forward_vocoder(self, mel):
-        mel = mel.to(torch.float32).contiguous()
+        mel = mel.to(torch.float32).contiguous().cpu()
         input_tensor_0 = pb_utils.Tensor.from_dlpack("mel", to_dlpack(mel))
 
         inference_request = pb_utils.InferenceRequest(

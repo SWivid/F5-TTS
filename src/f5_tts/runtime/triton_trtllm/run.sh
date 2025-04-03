@@ -14,23 +14,22 @@ F5_TTS_HF_DOWNLOAD_PATH=./F5-TTS
 F5_TTS_TRT_LLM_CHECKPOINT_PATH=./trtllm_ckpt
 F5_TTS_TRT_LLM_ENGINE_PATH=./f5_trt_llm_engine
 
-num_task=2
-log_dir=./log_concurrent_tasks_${num_task}
 vocoder_trt_engine_path=vocos_vocoder.plan
 model_repo=./model_repo
 
 if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
-    echo "Copying f5 tts trtllm files"
-    python_package_path=/usr/local/lib/python3.12/dist-packages
-    cp -r patch/* $python_package_path/tensorrt_llm/models
+    echo "Downloading f5 tts from huggingface"
+    huggingface-cli download SWivid/F5-TTS --local-dir $F5_TTS_HF_DOWNLOAD_PATH
+
 fi
 
 if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
-    echo "Downloading f5 tts from huggingface"
-    huggingface-cli download SWivid/F5-TTS --local-dir $F5_TTS_HF_DOWNLOAD_PATH
+    echo "Converting checkpoint"
     python3 ./scripts/convert_checkpoint.py \
         --timm_ckpt "$F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt" \
         --output_dir "$F5_TTS_TRT_LLM_CHECKPOINT_PATH" --model_name $model
+    python_package_path=/usr/local/lib/python3.12/dist-packages
+    cp -r patch/* $python_package_path/tensorrt_llm/models
     trtllm-build --checkpoint_dir $F5_TTS_TRT_LLM_CHECKPOINT_PATH \
       --max_batch_size 8 \
       --output_dir $F5_TTS_TRT_LLM_ENGINE_PATH --remove_input_padding disable
@@ -58,5 +57,8 @@ fi
 
 if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
     echo "Testing triton server"
+    num_task=1
+    log_dir=./log_concurrent_tasks_${num_task}
+    rm -r $log_dir
     python3 client_grpc.py --num-tasks $num_task --huggingface-dataset yuekai/seed_tts --split-name wenetspeech4tts --log-dir $log_dir
 fi

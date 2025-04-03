@@ -30,8 +30,7 @@ class InputEmbedding(Module):
         self.proj = Linear(mel_dim * 2 + text_dim, out_dim)
         self.conv_pos_embed = ConvPositionEmbedding(dim=out_dim)
 
-    def forward(self, x, cond, drop_audio_cond=False):
-        # if drop_audio_cond:  # cfg for cond audio
+    def forward(self, x, cond):
         x = self.proj(concat([x, cond], dim=-1))
         return self.conv_pos_embed(x) + x
 
@@ -41,9 +40,8 @@ class F5TTS(PretrainedModel):
         super().__init__(config)
         self.dtype = str_dtype_to_trt(config.dtype)
 
-        self.time_embed = TimestepEmbedding(config.hidden_size)  # √
-        text_dim = config.mel_dim if config.text_dim is None else config.text_dim
-        self.input_embed = InputEmbedding(config.mel_dim, text_dim, config.hidden_size)
+        self.time_embed = TimestepEmbedding(config.hidden_size)
+        self.input_embed = InputEmbedding(config.mel_dim, config.text_dim, config.hidden_size)
 
         self.dim = config.hidden_size
         self.depth = config.num_hidden_layers

@@ -93,7 +93,7 @@ class ConvPositionEmbedding(Module):
         self.conv1d2 = Conv1d(dim, dim, kernel_size, groups=groups, padding=kernel_size // 2)
         self.mish = Mish()
 
-    def forward(self, x, mask):  # noqa: F722
+    def forward(self, x, mask=None):  # noqa: F722
         if default_net().plugin_config.remove_input_padding:
             x = unsqueeze(x, 0)
         x = permute(x, [0, 2, 1])
