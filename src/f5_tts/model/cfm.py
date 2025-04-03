@@ -270,7 +270,7 @@ class CFM(nn.Module):
         else:
             drop_text = False
 
-        # if want rigourously mask out padding, record in collate_fn in dataset.py, and pass in here
+        # if want rigorously mask out padding, record in collate_fn in dataset.py, and pass in here
         # adding mask will use more memory, thus also need to adjust batchsampler with scaled down threshold for long sequences
         pred = self.transformer(
             x=φ, cond=cond, text=text, time=time, drop_audio_cond=drop_audio_cond, drop_text=drop_text

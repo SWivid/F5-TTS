@@ -110,6 +110,9 @@ docker container run --rm -it --gpus=all --mount 'type=volume,source=f5-tts,targ
 
 ## Inference
 
+- In order to achieve desired performance, take a moment to read [detailed guidance](src/f5_tts/infer).
+- By properly searching the keywords of problem encountered, [issues](https://github.com/SWivid/F5-TTS/issues?q=is%3Aissue) are very helpful.
+
 ### 1. Gradio App
 
 Currently supported features:
@@ -176,10 +179,18 @@ f5-tts_infer-cli -c custom.toml
 f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 ```
 
-### 3. More instructions
+### 3. Runtime
 
-- In order to have better generation results, take a moment to read [detailed guidance](src/f5_tts/infer).
-- The [Issues](https://github.com/SWivid/F5-TTS/issues?q=is%3Aissue) are very useful, please try to find the solution by properly searching the keywords of problem encountered. If no answer found, then feel free to open an issue.
+Deployment solution with Triton and TensorRT-LLM.
+
+#### Benchmark Results
+Decoding on a single L20 GPU, using 26 different prompt_audio & target_text pairs.
+
+| Model | Concurrency | Avg Latency    | RTF   | 
+|-------|-------------|----------------|-------|
+| F5-TTS Base (Vocos) | 1     | 253 ms | 0.0394|
+
+See [detailed instructions](src\f5_tts\runtime\triton_trtllm\README.md) for more information.
 
 
 ## Training
@@ -231,6 +242,7 @@ Note: Some model components have linting exceptions for E722 to accommodate tens
 - [mrfakename](https://x.com/realmrfakename) huggingface space demo ~
 - [f5-tts-mlx](https://github.com/lucasnewman/f5-tts-mlx/tree/main) Implementation with MLX framework by [Lucas Newman](https://github.com/lucasnewman)
 - [F5-TTS-ONNX](https://github.com/DakeQQ/F5-TTS-ONNX) ONNX Runtime version by [DakeQQ](https://github.com/DakeQQ)
+- [Yuekai Zhang](https://github.com/yuekaizhang) Triton and TensorRT-LLM support ~
 
 ## Citation
 If our work and codebase is useful for you, please cite as:
