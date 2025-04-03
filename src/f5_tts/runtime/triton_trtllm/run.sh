@@ -2,8 +2,8 @@ stage=$1
 stop_stage=$2
 model=$3 # F5TTS_Base
 if [ -z "$model" ]; then
-    echo "Model is none"
-    exit 1
+    echo "Model is none, using default model F5TTS_Base"
+    model=F5TTS_Base
 fi
 echo "Start stage: $stage, Stop stage: $stop_stage, Model: $model"
 export CUDA_VISIBLE_DEVICES=0
@@ -67,4 +67,44 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
     reference_text="Some call me nature, others call me mother nature."
     target_text="I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring."
     python3 client_http.py --reference-audio $audio --reference-text "$reference_text" --target-text "$target_text"
+fi
+
+if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
+    echo "TRT-LLM: offline decoding benchmark test"
+    batch_size=1
+    split_name=wenetspeech4tts
+    backend_type=trt
+    log_dir=./log_benchmark_batch_size_${batch_size}_${split_name}_${backend_type}
+    rm -r $log_dir
+    ln -s model_repo_f5_tts/f5_tts/1/f5_tts_trtllm.py ./
+    torchrun --nproc_per_node=1 \
+    benchmark.py --output-dir $log_dir \
+    --batch-size $batch_size \
+    --enable-warmup \
+    --split-name $split_name \
+    --model-path $F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt \
+    --vocab-file $F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt \
+    --vocoder-trt-engine-path $vocoder_trt_engine_path \
+    --backend-type $backend_type \
+    --tllm-model-dir $F5_TTS_TRT_LLM_ENGINE_PATH || exit 1
+fi
+
+if [ $stage -le 8 ] && [ $stop_stage -ge 8 ]; then
+    echo "Native Pytorch: offline decoding benchmark test"
+    pip install -r requirements-pytorch.txt
+    batch_size=1
+    split_name=wenetspeech4tts
+    backend_type=pytorch
+    log_dir=./log_benchmark_batch_size_${batch_size}_${split_name}_${backend_type}
+    rm -r $log_dir
+    ln -s model_repo_f5_tts/f5_tts/1/f5_tts_trtllm.py ./
+    torchrun --nproc_per_node=1 \
+    benchmark.py --output-dir $log_dir \
+    --batch-size $batch_size \
+    --split-name $split_name \
+    --enable-warmup \
+    --model-path $F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt \
+    --vocab-file $F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt \
+    --backend-type $backend_type \
+    --tllm-model-dir $F5_TTS_TRT_LLM_ENGINE_PATH || exit 1
 fi

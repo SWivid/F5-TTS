@@ -1,0 +1,24 @@
+accelerate>=0.33.0
+bitsandbytes>0.37.0
+cached_path
+click
+datasets
+ema_pytorch>=0.5.2
+gradio>=3.45.2
+hydra-core>=1.3.0
+jieba
+librosa
+matplotlib
+numpy<=1.26.4
+pydub
+pypinyin
+safetensors
+soundfile
+tomli
+torch>=2.0.0
+# torchaudio>=2.0.0
+torchdiffeq
+tqdm>=4.65.0
+transformers
+x_transformers>=1.31.14
+packaging>=24.2
