@@ -1,12 +1,3 @@
-"""
-ein notation:
-b - batch
-n - sequence
-nt - text sequence
-nw - raw wave length
-d - dimension
-"""
-
 from __future__ import annotations
 import sys
 import os
