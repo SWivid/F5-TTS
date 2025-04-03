@@ -25,7 +25,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import json
 import torch
-from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 from torch.utils.dlpack import from_dlpack, to_dlpack
@@ -33,10 +32,9 @@ import torchaudio
 import jieba
 import triton_python_backend_utils as pb_utils
 from pypinyin import Style, lazy_pinyin
-import math
 import os
 from f5_tts_trtllm import F5TTS
-torch.manual_seed(0)
+
 
 def get_tokenizer(vocab_file_path: str):
     """
@@ -54,6 +52,7 @@ def get_tokenizer(vocab_file_path: str):
             vocab_char_map[char[:-1]] = i
     vocab_size = len(vocab_char_map)
     return vocab_char_map, vocab_size
+
 
 def convert_char_to_pinyin(reference_target_texts_list, polyphone=True):
     final_reference_target_texts_list = []
@@ -73,9 +72,7 @@ def convert_char_to_pinyin(reference_target_texts_list, polyphone=True):
                 if char_list and seg_byte_len > 1 and char_list[-1] not in " :'\"":
                     char_list.append(" ")
                 char_list.extend(seg)
-            elif polyphone and seg_byte_len == 3 * len(
-                seg
-            ):  # if pure east asian characters
+            elif polyphone and seg_byte_len == 3 * len(seg):  # if pure east asian characters
                 seg_ = lazy_pinyin(seg, style=Style.TONE3, tone_sandhi=True)
                 for i, c in enumerate(seg):
                     if is_chinese(c):
@@ -87,32 +84,29 @@ def convert_char_to_pinyin(reference_target_texts_list, polyphone=True):
                         char_list.extend(c)
                     elif is_chinese(c):
                         char_list.append(" ")
-                        char_list.extend(
-                            lazy_pinyin(c, style=Style.TONE3, tone_sandhi=True)
-                        )
+                        char_list.extend(lazy_pinyin(c, style=Style.TONE3, tone_sandhi=True))
                     else:
                         char_list.append(c)
         final_reference_target_texts_list.append(char_list)
 
     return final_reference_target_texts_list
 
+
 def list_str_to_idx(
     text: list[str] | list[list[str]],
     vocab_char_map: dict[str, int],  # {char: idx}
     padding_value=-1,
 ):  # noqa: F722
-    list_idx_tensors = [
-        torch.tensor([vocab_char_map.get(c, 0) for c in t]) for t in text
-    ]  # pinyin or char style
-    # text = pad_sequence(list_idx_tensors, padding_value=padding_value, batch_first=True)
+    list_idx_tensors = [torch.tensor([vocab_char_map.get(c, 0) for c in t]) for t in text]  # pinyin or char style
     return list_idx_tensors
+
 
 class TritonPythonModel:
     def initialize(self, args):
         self.use_perf = True
         self.device = torch.device("cuda")
         self.target_audio_sample_rate = 24000
-        self.target_rms = 0.15 # target rms for audio
+        self.target_rms = 0.15  # target rms for audio
         self.n_fft = 1024
         self.win_length = 1024
         self.hop_length = 256
@@ -120,8 +114,7 @@ class TritonPythonModel:
         self.max_mel_len = 3000
         self.head_dim = 64
 
-
-        parameters = json.loads(args['model_config'])['parameters']
+        parameters = json.loads(args["model_config"])["parameters"]
         for key, value in parameters.items():
             parameters[key] = value["string_value"]
 
@@ -130,10 +123,16 @@ class TritonPythonModel:
         self.resampler = torchaudio.transforms.Resample(self.reference_sample_rate, self.target_audio_sample_rate)
 
         self.tllm_model_dir = parameters["tllm_model_dir"]
-        config_file = os.path.join(self.tllm_model_dir, 'config.json')
+        config_file = os.path.join(self.tllm_model_dir, "config.json")
         with open(config_file) as f:
             config = json.load(f)
-        self.model = F5TTS(config, debug_mode=False, tllm_model_dir=self.tllm_model_dir, model_path=parameters["model_path"], vocab_size=self.vocab_size)
+        self.model = F5TTS(
+            config,
+            debug_mode=False,
+            tllm_model_dir=self.tllm_model_dir,
+            model_path=parameters["model_path"],
+            vocab_size=self.vocab_size,
+        )
 
         self.vocoder = parameters["vocoder"]
         assert self.vocoder in ["vocos", "bigvgan"]
@@ -161,44 +160,44 @@ class TritonPythonModel:
     def forward_vocoder(self, mel):
         mel = mel.to(torch.float32).contiguous()
         input_tensor_0 = pb_utils.Tensor.from_dlpack("mel", to_dlpack(mel))
-    
+
         inference_request = pb_utils.InferenceRequest(
-            model_name='vocoder',
-            requested_output_names=['waveform'],
-            inputs=[input_tensor_0])
+            model_name="vocoder", requested_output_names=["waveform"], inputs=[input_tensor_0]
+        )
         inference_response = inference_request.exec()
         if inference_response.has_error():
             raise pb_utils.TritonModelException(inference_response.error().message())
         else:
-            waveform = pb_utils.get_output_tensor_by_name(inference_response,
-                                                            'waveform')
+            waveform = pb_utils.get_output_tensor_by_name(inference_response, "waveform")
             waveform = torch.utils.dlpack.from_dlpack(waveform.to_dlpack()).cpu()
 
             return waveform
-        
+
     def execute(self, requests):
-        reference_text_list, target_text_list, reference_target_texts_list, reference_wavs_tensor, estimated_reference_target_mel_len, reference_mel_len = [], [], [], [], [], []
-        max_wav_len = 0
+        (
+            reference_text_list,
+            target_text_list,
+            reference_target_texts_list,
+            estimated_reference_target_mel_len,
+            reference_mel_len,
+        ) = [], [], [], [], []
         mel_features_list = []
         if self.use_perf:
             torch.cuda.nvtx.range_push("preprocess")
         for request in requests:
             wav_tensor = pb_utils.get_input_tensor_by_name(request, "reference_wav")
-            wav_lens = pb_utils.get_input_tensor_by_name(
-                request, "reference_wav_len")
-            
-            reference_text = pb_utils.get_input_tensor_by_name(
-                request, "reference_text").as_numpy()
-            reference_text = reference_text[0][0].decode('utf-8')
+            wav_lens = pb_utils.get_input_tensor_by_name(request, "reference_wav_len")
+
+            reference_text = pb_utils.get_input_tensor_by_name(request, "reference_text").as_numpy()
+            reference_text = reference_text[0][0].decode("utf-8")
             reference_text_list.append(reference_text)
-            target_text = pb_utils.get_input_tensor_by_name(
-                request, "target_text").as_numpy()
-            target_text = target_text[0][0].decode('utf-8')
+            target_text = pb_utils.get_input_tensor_by_name(request, "target_text").as_numpy()
+            target_text = target_text[0][0].decode("utf-8")
             target_text_list.append(target_text)
 
             text = reference_text + target_text
             reference_target_texts_list.append(text)
-         
+
             wav = from_dlpack(wav_tensor.to_dlpack())
             wav_len = from_dlpack(wav_lens.to_dlpack())
             wav_len = wav_len.squeeze()
@@ -217,31 +216,36 @@ class TritonPythonModel:
             if self.use_perf:
                 torch.cuda.nvtx.range_pop()
             mel_features_list.append(mel_features)
-            
+
             reference_mel_len.append(mel_features.shape[1])
-            estimated_reference_target_mel_len.append(int(mel_features.shape[1] * (1 + len(target_text) / len(reference_text))))
-                
+            estimated_reference_target_mel_len.append(
+                int(mel_features.shape[1] * (1 + len(target_text) / len(reference_text)))
+            )
+
         max_seq_len = min(max(estimated_reference_target_mel_len), self.max_mel_len)
 
         batch = len(requests)
-        print(f"The current batch is {batch}")
         mel_features = torch.zeros((batch, max_seq_len, self.n_mel_channels), dtype=torch.float16).to(self.device)
         for i, mel in enumerate(mel_features_list):
-            mel_features[i, :mel.shape[1], :] = mel
+            mel_features[i, : mel.shape[1], :] = mel
 
         reference_mel_len_tensor = torch.LongTensor(reference_mel_len).to(self.device)
-        
+
         pinyin_list = convert_char_to_pinyin(reference_target_texts_list, polyphone=True)
         text_pad_sequence = list_str_to_idx(pinyin_list, self.vocab_char_map)
-        
+
         for i, item in enumerate(text_pad_sequence):
-            text_pad_sequence[i] = F.pad(item, (0, estimated_reference_target_mel_len[i] - len(item)), mode='constant', value=-1)
-            text_pad_sequence[i] += 1 # WAR: 0 is reserved for padding token, hard coding in F5-TTS
+            text_pad_sequence[i] = F.pad(
+                item, (0, estimated_reference_target_mel_len[i] - len(item)), mode="constant", value=-1
+            )
+            text_pad_sequence[i] += 1  # WAR: 0 is reserved for padding token, hard coding in F5-TTS
         text_pad_sequence = pad_sequence(text_pad_sequence, padding_value=-1, batch_first=True).to(self.device)
-        text_pad_sequence = F.pad(text_pad_sequence, (0, max_seq_len - text_pad_sequence.shape[1]), mode='constant', value=-1)
+        text_pad_sequence = F.pad(
+            text_pad_sequence, (0, max_seq_len - text_pad_sequence.shape[1]), mode="constant", value=-1
+        )
         if self.use_perf:
             torch.cuda.nvtx.range_pop()
-        
+
         denoised, cost_time = self.model.sample(
             text_pad_sequence,
             mel_features,
@@ -262,7 +266,7 @@ class TritonPythonModel:
             rms = torch.sqrt(torch.mean(torch.square(audio)))
             if rms < self.target_rms:
                 audio = audio * self.target_rms / rms
-            
+
             audio = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(audio))
             inference_response = pb_utils.InferenceResponse(output_tensors=[audio])
             responses.append(inference_response)

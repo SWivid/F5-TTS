@@ -19,12 +19,12 @@ from huggingface_hub import hf_hub_download
 from conv_stft import STFT
 from vocos import Vocos
 import argparse
+
 opset_version = 17
 
+
 def get_args():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "--vocoder",
         type=str,
@@ -40,8 +40,8 @@ def get_args():
     )
     return parser.parse_args()
 
+
 class ISTFTHead(nn.Module):
-    
     def __init__(self, n_fft: int, hop_length: int):
         super().__init__()
         self.out = None
@@ -54,8 +54,9 @@ class ISTFTHead(nn.Module):
         mag = torch.clip(mag, max=1e2)
         real = mag * torch.cos(p)
         imag = mag * torch.sin(p)
-        audio = self.stft.inverse(input1=real, input2=imag, input_type='realimag')
+        audio = self.stft.inverse(input1=real, input2=imag, input_type="realimag")
         return audio
+
 
 class VocosVocoder(nn.Module):
     def __init__(self, vocos_vocoder):
@@ -67,31 +68,30 @@ class VocosVocoder(nn.Module):
         istft_head_for_export = ISTFTHead(n_fft, hop_length)
         istft_head_for_export.out = istft_head_out
         self.vocos_vocoder.head = istft_head_for_export
-    
+
     def forward(self, mel):
         waveform = self.vocos_vocoder.decode(mel)
         return waveform
 
+
 def export_VocosVocoder(vocos_vocoder, output_path, verbose):
     vocos_vocoder = VocosVocoder(vocos_vocoder).cuda()
     vocos_vocoder.eval()
-    
+
     dummy_batch_size = 8
     dummy_input_length = 500
-    
+
     dummy_mel = torch.randn(dummy_batch_size, 100, dummy_input_length).cuda()
 
     with torch.no_grad():
-        dummy_waveform = vocos_vocoder(
-            mel=dummy_mel
-        )
+        dummy_waveform = vocos_vocoder(mel=dummy_mel)
         print(dummy_waveform.shape)
 
-    dummy_input = (dummy_mel)
+    dummy_input = dummy_mel
 
     torch.onnx.export(
-        vocos_vocoder, 
-        dummy_input, 
+        vocos_vocoder,
+        dummy_input,
         output_path,
         opset_version=opset_version,
         do_constant_folding=True,
@@ -101,9 +101,11 @@ def export_VocosVocoder(vocos_vocoder, output_path, verbose):
             "mel": {0: "batch_size", 2: "input_length"},
             "waveform": {0: "batch_size", 1: "output_length"},
         },
-        verbose=verbose)
-    
+        verbose=verbose,
+    )
+
     print("Exported to {}".format(output_path))
+
 
 def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device="cpu", hf_cache_dir=None):
     if vocoder_name == "vocos":
@@ -122,20 +124,11 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device="cp
         vocoder.load_state_dict(state_dict)
         vocoder = vocoder.eval().to(device)
     elif vocoder_name == "bigvgan":
-        try:
-            from third_party.BigVGAN import bigvgan
-        except ImportError:
-            print("You need to follow the README to init submodule and change the BigVGAN source code.")
-        if is_local:
-            """download from https://huggingface.co/nvidia/bigvgan_v2_24khz_100band_256x/tree/main"""
-            vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
-        else:
-            local_path = snapshot_download(repo_id="nvidia/bigvgan_v2_24khz_100band_256x", cache_dir=hf_cache_dir)
-            vocoder = bigvgan.BigVGAN.from_pretrained(local_path, use_cuda_kernel=False)
-
+        raise NotImplementedError("BigVGAN is not supported yet")
         vocoder.remove_weight_norm()
         vocoder = vocoder.eval().to(device)
     return vocoder
+
 
 if __name__ == "__main__":
     args = get_args()

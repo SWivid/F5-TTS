@@ -57,7 +57,6 @@ import tritonclient.grpc.aio as grpcclient
 from tritonclient.utils import np_to_triton_dtype
 
 
-
 def write_triton_stats(stats, summary_file):
     with open(summary_file, "w") as summary_f:
         model_stats = stats["model_stats"]
@@ -66,12 +65,8 @@ def write_triton_stats(stats, summary_file):
             "The log is parsing from triton_client.get_inference_statistics(), to better human readability. \n"
         )
         summary_f.write("To learn more about the log, please refer to: \n")
-        summary_f.write(
-            "1. https://github.com/triton-inference-server/server/blob/main/docs/user_guide/metrics.md \n"
-        )
-        summary_f.write(
-            "2. https://github.com/triton-inference-server/server/issues/5374 \n\n"
-        )
+        summary_f.write("1. https://github.com/triton-inference-server/server/blob/main/docs/user_guide/metrics.md \n")
+        summary_f.write("2. https://github.com/triton-inference-server/server/issues/5374 \n\n")
         summary_f.write(
             "To better improve throughput, we always would like let requests wait in the queue for a while, and then execute them with a larger batch size. \n"
         )
@@ -92,9 +87,7 @@ def write_triton_stats(stats, summary_file):
             total_queue_time_s = int(model_inference_stats["queue"]["ns"]) / 1e9
             total_infer_time_s = int(model_inference_stats["compute_infer"]["ns"]) / 1e9
             total_input_time_s = int(model_inference_stats["compute_input"]["ns"]) / 1e9
-            total_output_time_s = (
-                int(model_inference_stats["compute_output"]["ns"]) / 1e9
-            )
+            total_output_time_s = int(model_inference_stats["compute_output"]["ns"]) / 1e9
             summary_f.write(
                 f"queue time {total_queue_time_s:<5.2f} s, compute infer time {total_infer_time_s:<5.2f} s, compute input time {total_input_time_s:<5.2f} s, compute output time {total_output_time_s:<5.2f} s \n"  # noqa
             )
@@ -105,30 +98,23 @@ def write_triton_stats(stats, summary_file):
                 compute_output = batch["compute_output"]
                 compute_infer = batch["compute_infer"]
                 batch_count = int(compute_infer["count"])
-                assert (
-                    compute_infer["count"]
-                    == compute_output["count"]
-                    == compute_input["count"]
-                )
+                assert compute_infer["count"] == compute_output["count"] == compute_input["count"]
                 compute_infer_time_ms = int(compute_infer["ns"]) / 1e6
                 compute_input_time_ms = int(compute_input["ns"]) / 1e6
                 compute_output_time_ms = int(compute_output["ns"]) / 1e6
                 summary_f.write(
-                    f"execuate inference with batch_size {batch_size:<2} total {batch_count:<5} times, total_infer_time {compute_infer_time_ms:<9.2f} ms, avg_infer_time {compute_infer_time_ms:<9.2f}/{batch_count:<5}={compute_infer_time_ms/batch_count:.2f} ms, avg_infer_time_per_sample {compute_infer_time_ms:<9.2f}/{batch_count:<5}/{batch_size}={compute_infer_time_ms/batch_count/batch_size:.2f} ms \n"  # noqa
+                    f"execuate inference with batch_size {batch_size:<2} total {batch_count:<5} times, total_infer_time {compute_infer_time_ms:<9.2f} ms, avg_infer_time {compute_infer_time_ms:<9.2f}/{batch_count:<5}={compute_infer_time_ms / batch_count:.2f} ms, avg_infer_time_per_sample {compute_infer_time_ms:<9.2f}/{batch_count:<5}/{batch_size}={compute_infer_time_ms / batch_count / batch_size:.2f} ms \n"  # noqa
                 )
-                # summary_f.write(
-                #     f"input {compute_input_time_ms:<9.2f} ms, avg {compute_input_time_ms/batch_count:.2f} ms, "  # noqa
-                # )
-                # summary_f.write(
-                #     f"output {compute_output_time_ms:<9.2f} ms, avg {compute_output_time_ms/batch_count:.2f} ms \n"  # noqa
-                # )
-
+                summary_f.write(
+                    f"input {compute_input_time_ms:<9.2f} ms, avg {compute_input_time_ms / batch_count:.2f} ms, "  # noqa
+                )
+                summary_f.write(
+                    f"output {compute_output_time_ms:<9.2f} ms, avg {compute_output_time_ms / batch_count:.2f} ms \n"  # noqa
+                )
 
 
 def get_args():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument(
         "--server-addr",
@@ -191,9 +177,7 @@ def get_args():
         "--model-name",
         type=str,
         default="f5_tts",
-        choices=[
-            "f5_tts", "spark_tts"
-        ],
+        choices=["f5_tts", "spark_tts"],
         help="triton model_repo module name to request: transducer for k2, attention_rescoring for wenet offline, streaming_wenet for wenet streaming, infer_pipeline for paraformer large offline",
     )
 
@@ -246,9 +230,11 @@ def load_audio(wav_path, target_sample_rate=16000):
         waveform, sample_rate = sf.read(wav_path)
     if sample_rate != target_sample_rate:
         from scipy.signal import resample
+
         num_samples = int(len(waveform) * (target_sample_rate / sample_rate))
         waveform = resample(waveform, num_samples)
     return waveform, target_sample_rate
+
 
 async def send(
     manifest_item_list: list,
@@ -261,7 +247,6 @@ async def send(
     audio_save_dir: str = "./",
 ):
     total_duration = 0.0
-    results = []
     latency_data = []
     task_id = int(name[5:])
 
@@ -282,9 +267,7 @@ async def send(
             samples = np.zeros(
                 (
                     1,
-                    padding_duration
-                    * sample_rate
-                    * ((int(duration) // padding_duration) + 1),
+                    padding_duration * sample_rate * ((int(duration) // padding_duration) + 1),
                 ),
                 dtype=np.float32,
             )
@@ -292,18 +275,14 @@ async def send(
             samples[0, : len(waveform)] = waveform
         else:
             samples = waveform
-            
+
         samples = samples.reshape(1, -1).astype(np.float32)
 
         inputs = [
-            protocol_client.InferInput(
-                "reference_wav", samples.shape, np_to_triton_dtype(samples.dtype)
-            ),
-            protocol_client.InferInput(
-                "reference_wav_len", lengths.shape, np_to_triton_dtype(lengths.dtype)
-            ),
+            protocol_client.InferInput("reference_wav", samples.shape, np_to_triton_dtype(samples.dtype)),
+            protocol_client.InferInput("reference_wav_len", lengths.shape, np_to_triton_dtype(lengths.dtype)),
             protocol_client.InferInput("reference_text", [1, 1], "BYTES"),
-            protocol_client.InferInput("target_text", [1, 1], "BYTES")
+            protocol_client.InferInput("target_text", [1, 1], "BYTES"),
         ]
         inputs[0].set_data_from_numpy(samples)
         inputs[1].set_data_from_numpy(lengths)
@@ -320,23 +299,20 @@ async def send(
 
         sequence_id = 100000000 + i + task_id * 10
         start = time.time()
-        response = await triton_client.infer(
-            model_name, inputs, request_id=str(sequence_id), outputs=outputs
-        )
+        response = await triton_client.infer(model_name, inputs, request_id=str(sequence_id), outputs=outputs)
 
         audio = response.as_numpy("waveform").reshape(-1)
 
         end = time.time() - start
 
-        audio_save_path = os.path.join(
-            audio_save_dir, f"{item['target_audio_path']}.wav"
-        )
+        audio_save_path = os.path.join(audio_save_dir, f"{item['target_audio_path']}.wav")
         sf.write(audio_save_path, audio, 16000, "PCM_16")
 
         latency_data.append((end, estimated_target_duration))
         total_duration += estimated_target_duration
 
     return total_duration, latency_data
+
 
 def load_manifests(manifest_path):
     with open(manifest_path, "r") as f:
@@ -353,7 +329,7 @@ def load_manifests(manifest_path):
                     "audio_filepath": prompt_wav,
                     "reference_text": prompt_text,
                     "target_text": gt_text,
-                    "target_audio_path": utt
+                    "target_audio_path": utt,
                 }
             )
     return manifest_list
@@ -362,9 +338,7 @@ def load_manifests(manifest_path):
 def split_data(data, k):
     n = len(data)
     if n < k:
-        print(
-            f"Warning: the length of the input list ({n}) is less than k ({k}). Setting k to {n}."
-        )
+        print(f"Warning: the length of the input list ({n}) is less than k ({k}). Setting k to {n}.")
         k = n
 
     quotient = n // k
@@ -395,12 +369,12 @@ async def main():
         args.num_tasks = 1
         args.log_interval = 1
         manifest_item_list = [
-                {
-                    "reference_text": args.reference_text,
-                    "target_text": args.target_text,
-                    "audio_filepath": args.reference_audio,
-                    "target_audio_path": "test",
-                }
+            {
+                "reference_text": args.reference_text,
+                "target_text": args.target_text,
+                "audio_filepath": args.reference_audio,
+                "target_audio_path": "test",
+            }
         ]
     elif args.huggingface_dataset:
         import datasets
@@ -422,7 +396,7 @@ async def main():
             )
     else:
         manifest_item_list = load_manifests(args.manifest_path)
-        
+
     args.num_tasks = min(args.num_tasks, len(manifest_item_list))
     manifest_item_list = split_data(manifest_item_list, args.num_tasks)
 
@@ -449,7 +423,6 @@ async def main():
     end_time = time.time()
     elapsed = end_time - start_time
 
-
     total_duration = 0.0
     latency_data = []
     for ans in ans_list:
@@ -460,8 +433,8 @@ async def main():
 
     s = f"RTF: {rtf:.4f}\n"
     s += f"total_duration: {total_duration:.3f} seconds\n"
-    s += f"({total_duration/3600:.2f} hours)\n"
-    s += f"processing time: {elapsed:.3f} seconds " f"({elapsed/3600:.2f} hours)\n"
+    s += f"({total_duration / 3600:.2f} hours)\n"
+    s += f"processing time: {elapsed:.3f} seconds ({elapsed / 3600:.2f} hours)\n"
 
     latency_list = [chunk_end for (chunk_end, chunk_duration) in latency_data]
     latency_ms = sum(latency_list) / float(len(latency_list)) * 1000.0
@@ -480,12 +453,14 @@ async def main():
         name = args.split_name
     with open(f"{args.log_dir}/rtf-{name}.txt", "w") as f:
         f.write(s)
-    
+
     stats = await triton_client.get_inference_statistics(model_name="", as_json=True)
     write_triton_stats(stats, f"{args.log_dir}/stats_summary-{name}.txt")
 
     metadata = await triton_client.get_model_config(model_name=args.model_name, as_json=True)
     with open(f"{args.log_dir}/model_config-{name}.json", "w") as f:
         json.dump(metadata, f, indent=4)
+
+
 if __name__ == "__main__":
     asyncio.run(main())

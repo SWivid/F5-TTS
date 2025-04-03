@@ -23,13 +23,13 @@ docker run -it --name "f5-server" --gpus all --net host -v $your_mount_dir --shm
 Inside docker container, we would follow the official guide of TensorRT-LLM to build qwen and whisper TensorRT-LLM engines. See [here](https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/whisper).
 
 ```sh
-bash build_server.sh
+bash run.sh 0 4 F5TTS_Base
 ```
 
 ### Benchmark using Dataset
 ```sh
 num_task=2
-python3 client.py --num-tasks $num_task --huggingface-dataset yuekai/seed_tts --split-name wenetspeech4tts
+python3 client_grpc.py --num-tasks $num_task --huggingface-dataset yuekai/seed_tts --split-name wenetspeech4tts
 ```
 
 ### Benchmark Results
@@ -40,5 +40,4 @@ Decoding on a single L20 GPU, using 26 different prompt_audio/target_text pairs.
 | F5-TTS Base (Vocos) | [Code Commit](https://github.com/yuekaizhang/sherpa/tree/329ab3c573252e835844bea38505c6b43e994cf4/triton/f5_tts) | 1                   | 253 ms | 0.0394|
 
 ### Credits
-1. [F5-TTS](https://github.com/SWivid/F5-TTS)
-2. [F5-TTS-TRTLLM](https://github.com/Bigfishering/f5-tts-trtllm)
+1. [F5-TTS-TRTLLM](https://github.com/Bigfishering/f5-tts-trtllm)
