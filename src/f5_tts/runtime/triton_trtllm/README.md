@@ -25,7 +25,10 @@ Inside docker container, we would follow the official guide of TensorRT-LLM to b
 ```sh
 bash run.sh 0 4 F5TTS_Base
 ```
-
+### HTTP Client
+```sh
+python3 client_http.py
+```
 ### Benchmark using Dataset
 ```sh
 num_task=2

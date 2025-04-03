@@ -62,3 +62,11 @@ if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
     rm -r $log_dir
     python3 client_grpc.py --num-tasks $num_task --huggingface-dataset yuekai/seed_tts --split-name wenetspeech4tts --log-dir $log_dir
 fi
+
+if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
+    echo "Testing http client"
+    audio=../../infer/examples/basic/basic_ref_en.wav
+    reference_text="Some call me nature, others call me mother nature."
+    target_text="I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring."
+    python3 client_http.py --reference-audio $audio --reference-text "$reference_text" --target-text "$target_text"
+fi
