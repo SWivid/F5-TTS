@@ -138,6 +138,8 @@ def load_settings(project_name):
         "logger": "none",
         "bnb_optimizer": False,
     }
+    if device == "mps":
+        default_settings["mixed_precision"] = "none"
 
     # Load settings from file if it exists
     if os.path.isfile(file_setting):
