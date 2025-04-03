@@ -14,24 +14,16 @@
 # limitations under the License.
 # Modified from https://github.com/xingchensong/S3Tokenizer/blob/main/s3tokenizer/cli.py
 """ Example Usage
-split=test_zh
-llm_path=f5-tts/exp_zh/checkpoint-805000
-huggingface-cli download --local-dir f5-tts-small-wenetspeech4tts-basic yuekai/f5-tts-semantic-token-small-wenetspeech4tts-basic
-model_path=f5-tts-small-wenetspeech4tts-basic/epoch-10-avg-5.pt
-huggingface-cli download nvidia/bigvgan_v2_24khz_100band_256x --local-dir ./bigvgan_v2_24khz_100band_256x
-vocoder=./bigvgan_v2_24khz_100band_256x
-torchrun --nproc_per_node=2 \
-    f5-tts/infer_dist.py \
-                --output_dir $output_dir \
-                --batch_size 1 \
-                --num_workers 2 \
-                --llm-model-name-or-path $llm_path \
-                --flow-matching-model-path $model_path \
-                --decoder-dim 768 --nhead 12 --num-decoder-layers 18 \
-                --use-cosyvoice-semantic-token True \
-                --vocoder-dir $vocoder \
-                --split-name $split -top-k 50 -top-p 0.95 -temperature 0.8 \
-                --tokenizer-dir Qwen/Qwen2.5-0.5B-Instruct
+torchrun --nproc_per_node=1 \
+benchmark.py --output-dir $log_dir \
+--batch-size $batch_size \
+--enable-warmup \
+--split-name $split_name \
+--model-path $F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt \
+--vocab-file $F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt \
+--vocoder-trt-engine-path $vocoder_trt_engine_path \
+--backend-type $backend_type \
+--tllm-model-dir $F5_TTS_TRT_LLM_ENGINE_PATH || exit 1
 """
 
 import argparse
