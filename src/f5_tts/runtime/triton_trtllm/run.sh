@@ -1,5 +1,3 @@
-
-
 stage=$1
 stop_stage=$2
 model=$3 # F5TTS_Base
