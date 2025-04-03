@@ -190,7 +190,7 @@ Decoding on a single L20 GPU, using 26 different prompt_audio & target_text pair
 |-------|-------------|----------------|-------|
 | F5-TTS Base (Vocos) | 1     | 253 ms | 0.0394|
 
-See [detailed instructions](src\f5_tts\runtime\triton_trtllm\README.md) for more information.
+See [detailed instructions](src/f5_tts/runtime/triton_trtllm/README.md) for more information.
 
 
 ## Training
