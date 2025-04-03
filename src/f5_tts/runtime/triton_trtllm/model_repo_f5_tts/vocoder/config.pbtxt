@@ -1,0 +1,32 @@
+name: "vocoder"
+backend: "tensorrt"
+default_model_filename: "vocoder.plan"
+max_batch_size: 4
+
+input [
+  {
+    name: "mel"
+    data_type: TYPE_FP32
+    dims: [ 100, -1 ]
+  }
+]
+
+output [
+  {
+    name: "waveform"
+    data_type: TYPE_FP32
+    dims: [ -1 ]
+  }
+]
+
+dynamic_batching {
+    preferred_batch_size: [1, 2, 4]
+    max_queue_delay_microseconds: 1
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU 
+  }
+]
