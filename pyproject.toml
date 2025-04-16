@@ -17,7 +17,6 @@ classifiers = [
 dependencies = [
     "accelerate>=0.33.0",
     "bitsandbytes>0.37.0; platform_machine != 'arm64' and platform_system != 'Darwin'",
-    "cached-path>=1.7.1",
     "click",
     "datasets",
     "ema_pytorch>=0.5.2",
@@ -52,6 +51,7 @@ eval = [
     "zhon",
 ]
 gradio-app = [
+    "cached-path>=1.7.1",
     "gradio>=5.14.0",
 ]
 numpy = [

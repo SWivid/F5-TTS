@@ -4,7 +4,7 @@ from importlib.resources import files
 
 import soundfile as sf
 import tqdm
-from cached_path import cached_path
+from huggingface_hub import hf_hub_download
 from hydra.utils import get_class
 from omegaconf import OmegaConf
 
@@ -76,9 +76,12 @@ class F5TTS:
             ckpt_step = 1200000
 
         if not ckpt_file:
-            ckpt_file = str(
-                cached_path(f"hf://SWivid/{repo_name}/{model}/model_{ckpt_step}.{ckpt_type}", cache_dir=hf_cache_dir)
+            ckpt_file = hf_hub_download(
+                repo_id=f"SWivid/{repo_name}",
+                filename=f"{model}/model_{ckpt_step}.{ckpt_type}",
+                cache_dir=hf_cache_dir
             )
+
         self.ema_model = load_model(
             model_cls, model_arc, ckpt_file, self.mel_spec_type, vocab_file, self.ode_method, self.use_ema, self.device
         )

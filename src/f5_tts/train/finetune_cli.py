@@ -3,7 +3,7 @@ import os
 import shutil
 from importlib.resources import files
 
-from cached_path import cached_path
+from huggingface_hub import hf_hub_download
 
 from f5_tts.model import CFM, UNetT, DiT, Trainer
 from f5_tts.model.utils import get_tokenizer
@@ -98,7 +98,11 @@ def main():
         )
         if args.finetune:
             if args.pretrain is None:
-                ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
+                ckpt_path = hf_hub_download(
+                    repo_id="SWivid/F5-TTS",
+                    filename="F5TTS_v1_Base/model_1250000.safetensors",
+                    cache_dir=None
+                )
             else:
                 ckpt_path = args.pretrain
 
@@ -117,7 +121,11 @@ def main():
         )
         if args.finetune:
             if args.pretrain is None:
-                ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
+                ckpt_path = hf_hub_download(
+                    repo_id="SWivid/F5-TTS",
+                    filename="F5TTS_Base/model_1250000.pt",
+                    cache_dir=None
+                )
             else:
                 ckpt_path = args.pretrain
 
