@@ -820,7 +820,7 @@ wheels = [
 
 [[package]]
 name = "f5-tts"
-version = "1.1.2"
+version = "1.1.3"
 source = { editable = "." }
 dependencies = [
     { name = "accelerate" },
