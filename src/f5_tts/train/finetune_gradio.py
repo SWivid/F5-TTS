@@ -434,6 +434,7 @@ def start_training(
         fp16 = ""
 
     cmd = (
+        f"PYTHONHASHSEED=random accelerate launch {fp16} {file_train} --exp_name {exp_name}",
         f"accelerate launch {fp16} {file_train} --exp_name {exp_name}"
         f" --learning_rate {learning_rate}"
         f" --batch_size_per_gpu {batch_size_per_gpu}"
