@@ -154,7 +154,7 @@ for part in parts_to_edit:
         dim=-1,
     )
     offset = end * target_sample_rate
-# audio = torch.cat((audio_, audio[:, round(offset):]), dim = -1)
+audio = torch.cat((audio_, audio[:, round(offset) :]), dim=-1)
 edit_mask = F.pad(edit_mask, (0, audio.shape[-1] // hop_length - edit_mask.shape[-1] + 1), value=True)
 audio = audio.to(device)
 edit_mask = edit_mask.to(device)
