@@ -219,7 +219,9 @@ class TritonPythonModel:
 
             reference_mel_len.append(mel_features.shape[1])
             estimated_reference_target_mel_len.append(
-                int(mel_features.shape[1] * (1 + len(target_text) / len(reference_text)))
+                int(
+                    mel_features.shape[1] * (1 + len(target_text.encode("utf-8")) / len(reference_text.encode("utf-8")))
+                )
             )
 
         max_seq_len = min(max(estimated_reference_target_mel_len), self.max_mel_len)

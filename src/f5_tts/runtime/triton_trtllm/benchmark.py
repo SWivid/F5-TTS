@@ -168,7 +168,9 @@ def data_collator(batch, vocab_char_map, device="cuda", use_perf=False):
         ref_mel_list.append(ref_mel)
         ref_mel_len_list.append(ref_mel_len)
 
-        estimated_reference_target_mel_len.append(int(ref_mel.shape[0] * (1 + len(target_text) / len(prompt_text))))
+        estimated_reference_target_mel_len.append(
+            int(ref_mel.shape[0] * (1 + len(target_text.encode("utf-8")) / len(prompt_text.encode("utf-8"))))
+        )
 
     max_seq_len = max(estimated_reference_target_mel_len)
     ref_mel_batch = padded_mel_batch(ref_mel_list, max_seq_len)

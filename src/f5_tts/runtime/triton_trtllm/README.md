@@ -57,7 +57,7 @@ benchmark.py --output-dir $log_dir \
 ```
 
 ### Benchmark Results
-Decoding on a single L20 GPU, using 26 different prompt_audio/target_text pairs.
+Decoding on a single L20 GPU, using 26 different prompt_audio & target_text pairs, 16 NFE.
 
 | Model               | Concurrency    | Avg Latency | RTF    | Mode            |
 |---------------------|----------------|-------------|--------|-----------------|
