@@ -205,8 +205,8 @@ with gr.Blocks() as app_credits:
 with gr.Blocks() as app_tts:
     gr.Markdown("# Batched TTS")
     ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
-    with gr.Row():
-        gen_text_input = gr.Textbox(label="Text to Generate", lines=10)
+    gen_text_input = gr.Textbox(label="Text to Generate", lines=10)
+    with gr.Column(scale=2):
         gen_text_file = gr.File(label="Upload Text File to Generate (.txt)", file_types=[".txt"])
     generate_btn = gr.Button("Synthesize", variant="primary")
     with gr.Accordion("Advanced Settings", open=False):
@@ -216,7 +216,8 @@ with gr.Blocks() as app_tts:
                 info="Leave blank to automatically transcribe the reference audio. If you enter text or upload a file, it will override automatic transcription.",
                 lines=2,
             )
-            ref_text_file = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
+            with gr.Column(scale=1):
+                ref_text_file = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
         remove_silence = gr.Checkbox(
             label="Remove Silences",
             info="The model tends to produce silences, especially on longer audio. We can manually remove silences if needed. Note that this is an experimental feature and may produce strange results. This will also increase generation time.",
@@ -233,9 +234,9 @@ with gr.Blocks() as app_tts:
         nfe_slider = gr.Slider(
             label="NFE Steps",
             minimum=4,
-            maximum=64,
+            maximum=71,
             value=32,
-            step=2,
+            step=1,
             info="Set the number of denoising steps.",
         )
         cross_fade_duration_slider = gr.Slider(
@@ -249,6 +250,18 @@ with gr.Blocks() as app_tts:
 
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
+
+    @gpu_decorator
+    def update_gen_text_from_file(file):
+        """Update the generate text input when a .txt file is uploaded"""
+        text = read_text_file(file)
+        return gr.update(value=text)
+
+    @gpu_decorator
+    def update_ref_text_from_file(file):
+        """Update the reference text input when a .txt file is uploaded"""
+        text = read_text_file(file)
+        return gr.update(value=text)
 
     @gpu_decorator
     def basic_tts(
@@ -275,6 +288,18 @@ with gr.Blocks() as app_tts:
             speed=speed_slider,
         )
         return audio_out, spectrogram_path, ref_text_out
+
+    gen_text_file.change(
+        update_gen_text_from_file,
+        inputs=[gen_text_file],
+        outputs=[gen_text_input],
+    )
+
+    ref_text_file.change(
+        update_ref_text_from_file,
+        inputs=[ref_text_file],
+        outputs=[ref_text_input],
+    )
 
     generate_btn.click(
         basic_tts,
@@ -331,23 +356,23 @@ with gr.Blocks() as app_multistyle:
     with gr.Row():
         gr.Markdown(
             """
-            **Example Input:**                                                                      
-            {Regular} Hello, I'd like to order a sandwich please.                                                         
-            {Surprised} What do you mean you're out of bread?                                                                      
-            {Sad} I really wanted a sandwich though...                                                              
-            {Angry} You know what, darn you and your little shop!                                                                       
-            {Whisper} I'll just go back home and cry now.                                                                           
-            {Shouting} Why me?!                                                                         
+            **Example Input:**
+            {Regular} Hello, I'd like to order a sandwich please.
+            {Surprised} What do you mean you're out of bread?
+            {Sad} I really wanted a sandwich though...
+            {Angry} You know what, darn you and your little shop!
+            {Whisper} I'll just go back home and cry now.
+            {Shouting} Why me?!
             """
         )
 
         gr.Markdown(
             """
-            **Example Input 2:**                                                                                
-            {Speaker1_Happy} Hello, I'd like to order a sandwich please.                                                            
-            {Speaker2_Regular} Sorry, we're out of bread.                                                                                
-            {Speaker1_Sad} I really wanted a sandwich though...                                                                             
-            {Speaker2_Whisper} I'll give you the last one I was hiding.                                                                     
+            **Example Input 2:**
+            {Speaker1_Happy} Hello, I'd like to order a sandwich please.
+            {Speaker2_Regular} Sorry, we're out of bread.
+            {Speaker1_Sad} I really wanted a sandwich though...
+            {Speaker2_Whisper} I'll give you the last one I was hiding.
             """
         )
 
@@ -363,7 +388,8 @@ with gr.Blocks() as app_multistyle:
         regular_audio = gr.Audio(label="Regular Reference Audio", type="filepath")
         with gr.Row():
             regular_ref_text = gr.Textbox(label="Reference Text (Regular)", lines=2)
-            regular_ref_text_file = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
+            with gr.Column(scale=1):
+                regular_ref_text_file = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
 
     # Regular speech type (max 100)
     max_speech_types = 100
@@ -385,7 +411,8 @@ with gr.Blocks() as app_multistyle:
             audio_input = gr.Audio(label="Reference Audio", type="filepath")
             with gr.Row():
                 ref_text_input = gr.Textbox(label="Reference Text", lines=2)
-                ref_text_file_input = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
+                with gr.Column(scale=1):
+                    ref_text_file_input = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
         speech_type_rows.append(row)
         speech_type_names.append(name_input)
         speech_type_audios.append(audio_input)
@@ -417,20 +444,39 @@ with gr.Blocks() as app_multistyle:
     def delete_speech_type_fn():
         return gr.update(visible=False), None, None, None, None
 
-    # Update delete button clicks
+    # Function to update reference text from file
+    @gpu_decorator
+    def update_ref_text_from_file(file):
+        """Update the reference text input when a .txt file is uploaded"""
+        text = read_text_file(file)
+        return gr.update(value=text)
+
+    # Update delete button clicks and ref text file changes
     for i in range(1, len(speech_type_delete_btns)):
         speech_type_delete_btns[i].click(
             delete_speech_type_fn,
             outputs=[speech_type_rows[i], speech_type_names[i], speech_type_audios[i], speech_type_ref_texts[i], speech_type_ref_text_files[i]],
         )
+        speech_type_ref_text_files[i].change(
+            update_ref_text_from_file,
+            inputs=[speech_type_ref_text_files[i]],
+            outputs=[speech_type_ref_texts[i]],
+        )
+
+    # Update regular speech type ref text file
+    regular_ref_text_file.change(
+        update_ref_text_from_file,
+        inputs=[regular_ref_text_file],
+        outputs=[regular_ref_text],
+    )
 
     # Text input for the prompt
-    with gr.Row():
-        gen_text_input_multistyle = gr.Textbox(
-            label="Text to Generate",
-            lines=10,
-            placeholder="Enter the script with speaker names (or emotion types) at the start of each block, e.g.:\n\n{Regular} Hello, I'd like to order a sandwich please.\n{Surprised} What do you mean you're out of bread?\n{Sad} I really wanted a sandwich though...\n{Angry} You know what, darn you and your little shop!\n{Whisper} I'll just go back home and cry now.\n{Shouting} Why me?!",
-        )
+    gen_text_input_multistyle = gr.Textbox(
+        label="Text to Generate",
+        lines=10,
+        placeholder="Enter the script with speaker names (or emotion types) at the start of each block, e.g.:\n\n{Regular} Hello, I'd like to order a sandwich please.\n{Surprised} What do you mean you're out of bread?\n{Sad} I really wanted a sandwich though...\n{Angry} You know what, darn you and your little shop!\n{Whisper} I'll just go back home and cry now.\n{Shouting} Why me?!",
+    )
+    with gr.Column(scale=1):
         gen_text_file_multistyle = gr.File(label="Upload Text File to Generate (.txt)", file_types=[".txt"])
 
     def make_insert_speech_type_fn(index):
@@ -461,6 +507,18 @@ with gr.Blocks() as app_multistyle:
 
     # Output audio
     audio_output_multistyle = gr.Audio(label="Synthesized Audio")
+
+    @gpu_decorator
+    def update_gen_text_from_file(file):
+        """Update the generate text input when a .txt file is uploaded"""
+        text = read_text_file(file)
+        return gr.update(value=text)
+
+    gen_text_file_multistyle.change(
+        update_gen_text_from_file,
+        inputs=[gen_text_file_multistyle],
+        outputs=[gen_text_input_multistyle],
+    )
 
     @gpu_decorator
     def generate_multistyle_speech(
@@ -576,10 +634,11 @@ with gr.Blocks() as app_multistyle:
         inputs=[gen_text_input_multistyle, gen_text_file_multistyle, regular_name] + speech_type_names,
         outputs=generate_multistyle_btn,
     )
+
     gen_text_file_multistyle.change(
-        validate_speech_types,
-        inputs=[gen_text_input_multistyle, gen_text_file_multistyle, regular_name] + speech_type_names,
-        outputs=generate_multistyle_btn,
+        fn=lambda file, text, regular, *names: (update_gen_text_from_file(file), validate_speech_types(text, file, regular, *names)),
+        inputs=[gen_text_file_multistyle, gen_text_input_multistyle, regular_name] + speech_type_names,
+        outputs=[gen_text_input_multistyle, generate_multistyle_btn],
     )
 
 
@@ -587,7 +646,7 @@ with gr.Blocks() as app_chat:
     gr.Markdown(
         """
 # Voice Chat
-Have a conversation with an AI using your reference voice! 
+Have a conversation with an AI using your reference voice!
 1. Upload a reference audio clip and optionally its transcript (via text or .txt file).
 2. Load the chat model.
 3. Record your message through your microphone or type it.
@@ -656,7 +715,8 @@ Have a conversation with an AI using your reference voice!
                             info="Optional: Leave blank to auto-transcribe",
                             lines=2,
                         )
-                        ref_text_file_chat = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
+                        with gr.Column(scale=1):
+                            ref_text_file_chat = gr.File(label="Upload Reference Text File (.txt)", file_types=[".txt"])
                     system_prompt_chat = gr.Textbox(
                         label="System Prompt",
                         value="You are not an AI assistant, you are whoever the user says you are. You must stay in character. Keep your responses concise since they will be spoken out loud.",
@@ -677,6 +737,8 @@ Have a conversation with an AI using your reference voice!
                     label="Type your message",
                     lines=1,
                 )
+                with gr.Column(scale=1):
+                    text_file_chat = gr.File(label="Upload Text File (.txt)", file_types=[".txt"])
                 send_btn_chat = gr.Button("Send Message")
                 clear_btn_chat = gr.Button("Clear Conversation")
 
@@ -691,18 +753,19 @@ Have a conversation with an AI using your reference voice!
 
         # Modify process_audio_input to use model and tokenizer from state
         @gpu_decorator
-        def process_audio_input(audio_path, text, history, conv_state):
-            """Handle audio or text input from user"""
+        def process_audio_input(audio_path, text, text_file, history, conv_state):
+            """Handle audio, text, or file input from user"""
+            if not audio_path and not text.strip() and not text_file:
+                return history, conv_state, "", None
 
-            if not audio_path and not text.strip():
-                return history, conv_state, ""
-
-            # Use direct text input or audio transcription
-            if audio_path:
+            # Use file input if provided, then direct text input, then audio transcription
+            if text_file:
+                text = read_text_file(text_file)
+            elif audio_path:
                 text = preprocess_ref_audio_text(audio_path, text)[1]
 
             if not text.strip():
-                return history, conv_state, ""
+                return history, conv_state, "", None
 
             conv_state.append({"role": "user", "content": text})
             history.append((text, None))
@@ -712,7 +775,7 @@ Have a conversation with an AI using your reference voice!
             conv_state.append({"role": "assistant", "content": response})
             history[-1] = (text, response)
 
-            return history, conv_state, ""
+            return history, conv_state, "", None
 
         @gpu_decorator
         def generate_audio_response(history, ref_audio, ref_text, ref_text_file, remove_silence):
@@ -755,11 +818,29 @@ Have a conversation with an AI using your reference voice!
             new_conv_state = [{"role": "system", "content": new_prompt}]
             return [], new_conv_state
 
+        @gpu_decorator
+        def update_text_from_file(file):
+            """Update the text input when a .txt file is uploaded"""
+            text = read_text_file(file)
+            return gr.update(value=text), None
+
+        ref_text_file_chat.change(
+            update_ref_text_from_file,
+            inputs=[ref_text_file_chat],
+            outputs=[ref_text_chat],
+        )
+
+        text_file_chat.change(
+            update_text_from_file,
+            inputs=[text_file_chat],
+            outputs=[text_input_chat, text_file_chat],
+        )
+
         # Handle audio input
         audio_input_chat.stop_recording(
             process_audio_input,
-            inputs=[audio_input_chat, text_input_chat, chatbot_interface, conversation_state],
-            outputs=[chatbot_interface, conversation_state, text_input_chat],
+            inputs=[audio_input_chat, text_input_chat, text_file_chat, chatbot_interface, conversation_state],
+            outputs=[chatbot_interface, conversation_state, text_input_chat, text_file_chat],
         ).then(
             generate_audio_response,
             inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, ref_text_file_chat, remove_silence_chat],
@@ -773,8 +854,8 @@ Have a conversation with an AI using your reference voice!
         # Handle text input
         text_input_chat.submit(
             process_audio_input,
-            inputs=[audio_input_chat, text_input_chat, chatbot_interface, conversation_state],
-            outputs=[chatbot_interface, conversation_state, text_input_chat],
+            inputs=[audio_input_chat, text_input_chat, text_file_chat, chatbot_interface, conversation_state],
+            outputs=[chatbot_interface, conversation_state, text_input_chat, text_file_chat],
         ).then(
             generate_audio_response,
             inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, ref_text_file_chat, remove_silence_chat],
@@ -784,8 +865,8 @@ Have a conversation with an AI using your reference voice!
         # Handle send button
         send_btn_chat.click(
             process_audio_input,
-            inputs=[audio_input_chat, text_input_chat, chatbot_interface, conversation_state],
-            outputs=[chatbot_interface, conversation_state, text_input_chat],
+            inputs=[audio_input_chat, text_input_chat, text_file_chat, chatbot_interface, conversation_state],
+            outputs=[chatbot_interface, conversation_state, text_input_chat, text_file_chat],
         ).then(
             generate_audio_response,
             inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, ref_text_file_chat, remove_silence_chat],
