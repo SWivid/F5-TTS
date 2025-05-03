@@ -115,7 +115,7 @@ def generate_response(messages, model, tokenizer):
 def read_text_file(file_path):
     """Read content from a .txt file"""
     if file_path:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read().strip()
     return ""
 
@@ -492,7 +492,13 @@ with gr.Blocks() as app_multistyle:
     for i in range(1, len(speech_type_delete_btns)):
         speech_type_delete_btns[i].click(
             delete_speech_type_fn,
-            outputs=[speech_type_rows[i], speech_type_names[i], speech_type_audios[i], speech_type_ref_texts[i], speech_type_ref_text_files[i]],
+            outputs=[
+                speech_type_rows[i],
+                speech_type_names[i],
+                speech_type_audios[i],
+                speech_type_ref_texts[i],
+                speech_type_ref_text_files[i],
+            ],
         )
         speech_type_ref_text_files[i].change(
             update_ref_text_from_file,
@@ -564,9 +570,12 @@ with gr.Blocks() as app_multistyle:
         return gr.update(value=text)
 
     gen_text_file_multistyle.change(
-        update_gen_text_from_file,
-        inputs=[gen_text_file_multistyle],
-        outputs=[gen_text_input_multistyle],
+        fn=lambda file, text, regular, *names: (
+            update_gen_text_from_file(file),
+            validate_speech_types(text, file, regular, *names),
+        ),
+        inputs=[gen_text_file_multistyle, gen_text_input_multistyle, regular_name] + speech_type_names,
+        outputs=[gen_text_input_multistyle, generate_multistyle_btn],
     )
 
     @gpu_decorator
@@ -700,7 +709,10 @@ with gr.Blocks() as app_multistyle:
     )
 
     gen_text_file_multistyle.change(
-        fn=lambda file, text, regular, *names: (update_gen_text_from_file(file), validate_speech_types(text, file, regular, *names)),
+        fn=lambda file, text, regular, *names: (
+            update_gen_text_from_file(file),
+            validate_speech_types(text, file, regular, *names),
+        ),
         inputs=[gen_text_file_multistyle, gen_text_input_multistyle, regular_name] + speech_type_names,
         outputs=[gen_text_input_multistyle, generate_multistyle_btn],
     )
@@ -854,7 +866,9 @@ Have a conversation with an AI using your reference voice!
             return history, conv_state, "", None
 
         @gpu_decorator
-        def generate_audio_response(history, ref_audio, ref_text, ref_text_file, remove_silence, randomize_seed, seed_input):
+        def generate_audio_response(
+            history, ref_audio, ref_text, ref_text_file, remove_silence, randomize_seed, seed_input
+        ):
             """Generate TTS audio for AI response"""
             if not history or not ref_audio:
                 return None, ref_text, seed_input
@@ -933,7 +947,15 @@ Have a conversation with an AI using your reference voice!
             outputs=[chatbot_interface, conversation_state, text_input_chat, text_file_chat],
         ).then(
             generate_audio_response,
-            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, ref_text_file_chat, remove_silence_chat, randomize_seed_chat, seed_input_chat],
+            inputs=[
+                chatbot_interface,
+                ref_audio_chat,
+                ref_text_chat,
+                ref_text_file_chat,
+                remove_silence_chat,
+                randomize_seed_chat,
+                seed_input_chat,
+            ],
             outputs=[audio_output_chat, ref_text_chat, seed_input_chat],
         ).then(
             lambda: None,
@@ -948,7 +970,15 @@ Have a conversation with an AI using your reference voice!
             outputs=[chatbot_interface, conversation_state, text_input_chat, text_file_chat],
         ).then(
             generate_audio_response,
-            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, ref_text_file_chat, remove_silence_chat, randomize_seed_chat, seed_input_chat],
+            inputs=[
+                chatbot_interface,
+                ref_audio_chat,
+                ref_text_chat,
+                ref_text_file_chat,
+                remove_silence_chat,
+                randomize_seed_chat,
+                seed_input_chat,
+            ],
             outputs=[audio_output_chat, ref_text_chat, seed_input_chat],
         )
 
@@ -959,7 +989,15 @@ Have a conversation with an AI using your reference voice!
             outputs=[chatbot_interface, conversation_state, text_input_chat, text_file_chat],
         ).then(
             generate_audio_response,
-            inputs=[chatbot_interface, ref_audio_chat, ref_text_chat, ref_text_file_chat, remove_silence_chat, randomize_seed_chat, seed_input_chat],
+            inputs=[
+                chatbot_interface,
+                ref_audio_chat,
+                ref_text_chat,
+                ref_text_file_chat,
+                remove_silence_chat,
+                randomize_seed_chat,
+                seed_input_chat,
+            ],
             outputs=[audio_output_chat, ref_text_chat, seed_input_chat],
         )
 
@@ -989,7 +1027,7 @@ This is {"a local web UI for [F5 TTS](https://github.com/SWivid/F5-TTS)" if not 
 
 The checkpoints currently support English and Chinese.
 
-If you're having issues, try converting your reference audio to WAV or MP3, clipping it to 12s with  ✂  in the bottom right corner (otherwise might have non-optimal auto-trimmed result).
+If you're having issues, try converting your заборreference audio to WAV or MP3, clipping it to 12s with  ✂  in the bottom right corner (otherwise might have non-optimal auto-trimmed result).
 
 **NOTE: Reference text will be automatically transcribed with Whisper if not provided via text or .txt file. For best results, keep your reference clips short (<12s). Ensure the audio is fully uploaded before generating.**
 """
@@ -1031,15 +1069,11 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     with gr.Row():
         if not USING_SPACES:
             choose_tts_model = gr.Radio(
-                choices=[DEFAULT_TTS_MODEL, "E2-TTS", "Custom"],
-                label="Choose TTS Model",
-                value=DEFAULT_TTS_MODEL
+                choices=[DEFAULT_TTS_MODEL, "E2-TTS", "Custom"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
             )
         else:
             choose_tts_model = gr.Radio(
-                choices=[DEFAULT_TTS_MODEL, "E2-TTS"],
-                label="Choose TTS Model",
-                value=DEFAULT_TTS_MODEL
+                choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
             )
         custom_ckpt_path = gr.Dropdown(
             choices=[DEFAULT_TTS_MODEL_CFG[0]],
