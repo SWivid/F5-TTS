@@ -80,6 +80,8 @@ def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
         vocab_path = str(cached_path(vocab_path))
     if model_cfg is None:
         model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
+    elif isinstance(model_cfg, str):
+        model_cfg = json.loads(model_cfg)
     return load_model(DiT, model_cfg, ckpt_path, vocab_file=vocab_path)
 
 
@@ -124,7 +126,7 @@ def load_text_from_file(file):
     return gr.update(value=text)
 
 
-@lru_cache(maxsize=100)
+@lru_cache(maxsize=100)  # NOTE. need to ensure params of infer() hashable
 @gpu_decorator
 def infer(
     ref_audio_orig,
@@ -163,7 +165,7 @@ def infer(
             show_info("Loading E2-TTS model...")
             E2TTS_ema_model = load_e2tts()
         ema_model = E2TTS_ema_model
-    elif isinstance(model, list) and model[0] == "Custom":
+    elif isinstance(model, tuple) and model[0] == "Custom":
         assert not USING_SPACES, "Only official checkpoints allowed in Spaces."
         global custom_ema_model, pre_custom_path
         if pre_custom_path != model[1]:
@@ -959,7 +961,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
         global tts_model_choice
         if new_choice == "Custom":  # override in case webpage is refreshed
             custom_ckpt_path, custom_vocab_path, custom_model_cfg = load_last_used_custom()
-            tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, json.loads(custom_model_cfg)]
+            tts_model_choice = ("Custom", custom_ckpt_path, custom_vocab_path, custom_model_cfg)
             return (
                 gr.update(visible=True, value=custom_ckpt_path),
                 gr.update(visible=True, value=custom_vocab_path),
@@ -971,7 +973,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 
     def set_custom_model(custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice
-        tts_model_choice = ["Custom", custom_ckpt_path, custom_vocab_path, json.loads(custom_model_cfg)]
+        tts_model_choice = ("Custom", custom_ckpt_path, custom_vocab_path, custom_model_cfg)
         with open(last_used_custom, "w", encoding="utf-8") as f:
             f.write(custom_ckpt_path + "\n" + custom_vocab_path + "\n" + custom_model_cfg + "\n")
 
