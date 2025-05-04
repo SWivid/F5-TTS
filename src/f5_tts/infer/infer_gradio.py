@@ -357,6 +357,7 @@ def parse_speechtypes_text(gen_text):
             try:  # if type dict
                 current_type_dict = json.loads(type_str)
             except json.decoder.JSONDecodeError:
+                type_str = type_str[1:-1]  # remove brace {}
                 current_type_dict = {"name": type_str, "seed": -1, "speed": 1.0}
 
     return segments
