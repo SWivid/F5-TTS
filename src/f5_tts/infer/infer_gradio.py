@@ -6,6 +6,7 @@ import json
 import re
 import tempfile
 from collections import OrderedDict
+from functools import lru_cache
 from importlib.resources import files
 
 import click
@@ -122,6 +123,7 @@ def load_text_from_file(file):
     return gr.update(value=text)
 
 
+@lru_cache(maxsize=100)
 @gpu_decorator
 def infer(
     ref_audio_orig,
@@ -129,7 +131,7 @@ def infer(
     gen_text,
     model,
     remove_silence,
-    seed=None,
+    seed,
     cross_fade_duration=0.15,
     nfe_step=32,
     speed=1,
@@ -140,9 +142,7 @@ def infer(
         return gr.update(), gr.update(), ref_text
 
     # Set inference seed
-    if seed is None:
-        seed = np.random.randint(0, 2**31 - 1)
-    elif seed < 0 or seed > 2**31 - 1:
+    if seed < 0 or seed > 2**31 - 1:
         gr.Warning("Seed must in range 0 ~ 2147483647. Using random seed instead.")
         seed = np.random.randint(0, 2**31 - 1)
     torch.manual_seed(seed)
@@ -284,7 +284,7 @@ with gr.Blocks() as app_tts:
         speed_slider,
     ):
         if randomize_seed:
-            seed_input = None
+            seed_input = np.random.randint(0, 2**31 - 1)
 
         audio_out, spectrogram_path, ref_text_out, used_seed = infer(
             ref_audio_input,
@@ -620,7 +620,7 @@ with gr.Blocks() as app_multistyle:
 
         for segment in segments:
             name = segment["name"]
-            seed = segment["seed"]
+            seed_input = segment["seed"]
             speed = segment["speed"]
             text = segment["text"]
 
@@ -637,10 +637,10 @@ with gr.Blocks() as app_multistyle:
                 return [None] + [speech_types[name]["ref_text"] for name in speech_types] + [None]
             ref_text = speech_types[current_type_name].get("ref_text", "")
 
-            if seed == -1:
-                seed_input = None
+            if seed_input == -1:
+                seed_input = np.random.randint(0, 2**31 - 1)
 
-            # Generate speech for this segment
+            # Generate or retrieve speech for this segment
             audio_out, _, ref_text_out, used_seed = infer(
                 ref_audio,
                 ref_text,
@@ -650,8 +650,8 @@ with gr.Blocks() as app_multistyle:
                 seed=seed_input,
                 cross_fade_duration=0,
                 speed=speed,
-                show_info=print,
-            )  # show_info=print no pull to top when generating
+                show_info=print,  # no pull to top when generating
+            )
             sr, audio_data = audio_out
 
             generated_audio_segments.append(audio_data)
@@ -863,7 +863,7 @@ Have a conversation with an AI using your reference voice!
                 return None, ref_text, seed_input
 
             if randomize_seed:
-                seed_input = None
+                seed_input = np.random.randint(0, 2**31 - 1)
 
             audio_result, _, ref_text_out, used_seed = infer(
                 ref_audio,
