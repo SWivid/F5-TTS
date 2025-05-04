@@ -1,6 +1,7 @@
 import os
 import sys
 
+
 sys.path.append(os.getcwd())
 
 import argparse
@@ -22,6 +23,7 @@ from f5_tts.eval.utils_eval import (
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder
 from f5_tts.model import CFM
 from f5_tts.model.utils import get_tokenizer
+
 
 accelerator = Accelerator()
 device = f"cuda:{accelerator.process_index}"

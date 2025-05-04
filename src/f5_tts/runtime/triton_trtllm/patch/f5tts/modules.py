@@ -3,33 +3,35 @@ from __future__ import annotations
 import math
 from typing import Optional
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-
-import numpy as np
 from tensorrt_llm._common import default_net
-from ..._utils import trt_dtype_to_np, str_dtype_to_trt
+
+from ..._utils import str_dtype_to_trt, trt_dtype_to_np
 from ...functional import (
     Tensor,
+    bert_attention,
+    cast,
     chunk,
     concat,
     constant,
     expand,
+    expand_dims,
+    expand_dims_like,
+    expand_mask,
+    gelu,
+    matmul,
+    permute,
     shape,
     silu,
     slice,
-    permute,
-    expand_mask,
-    expand_dims_like,
-    unsqueeze,
-    matmul,
     softmax,
     squeeze,
-    cast,
-    gelu,
+    unsqueeze,
+    view,
 )
-from ...functional import expand_dims, view, bert_attention
-from ...layers import LayerNorm, Linear, Conv1d, Mish, RowLinear, ColumnLinear
+from ...layers import ColumnLinear, Conv1d, LayerNorm, Linear, Mish, RowLinear
 from ...module import Module
 
 

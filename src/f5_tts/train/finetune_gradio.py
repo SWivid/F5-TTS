@@ -1,14 +1,12 @@
 import gc
 import json
-import numpy as np
 import os
 import platform
-import psutil
 import queue
 import random
 import re
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -16,21 +14,23 @@ import threading
 import time
 from glob import glob
 from importlib.resources import files
-from scipy.io import wavfile
 
 import click
 import gradio as gr
 import librosa
+import numpy as np
+import psutil
 import torch
 import torchaudio
 from cached_path import cached_path
 from datasets import Dataset as Dataset_
 from datasets.arrow_writer import ArrowWriter
 from safetensors.torch import load_file, save_file
+from scipy.io import wavfile
 
 from f5_tts.api import F5TTS
-from f5_tts.model.utils import convert_char_to_pinyin
 from f5_tts.infer.utils_infer import transcribe
+from f5_tts.model.utils import convert_char_to_pinyin
 
 
 training_process = None

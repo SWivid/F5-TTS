@@ -1,5 +1,6 @@
 import os
 
+
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 
 from importlib.resources import files
@@ -7,13 +8,14 @@ from importlib.resources import files
 import torch
 import torch.nn.functional as F
 import torchaudio
+from cached_path import cached_path
 from hydra.utils import get_class
 from omegaconf import OmegaConf
-from cached_path import cached_path
 
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder, save_spectrogram
 from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
+
 
 device = (
     "cuda"

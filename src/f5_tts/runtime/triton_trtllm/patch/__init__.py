@@ -34,6 +34,7 @@ from .deepseek_v2.model import DeepseekV2ForCausalLM
 from .dit.model import DiT
 from .eagle.model import EagleForCausalLM
 from .enc_dec.model import DecoderModel, EncoderModel, WhisperEncoder
+from .f5tts.model import F5TTS
 from .falcon.config import FalconConfig
 from .falcon.model import FalconForCausalLM, FalconModel
 from .gemma.config import GEMMA2_ARCHITECTURE, GEMMA_ARCHITECTURE, GemmaConfig
@@ -54,12 +55,12 @@ from .modeling_utils import PretrainedConfig, PretrainedModel, SpeculativeDecodi
 from .mpt.model import MPTForCausalLM, MPTModel
 from .nemotron_nas.model import DeciLMForCausalLM
 from .opt.model import OPTForCausalLM, OPTModel
-from .phi3.model import Phi3ForCausalLM, Phi3Model
 from .phi.model import PhiForCausalLM, PhiModel
+from .phi3.model import Phi3ForCausalLM, Phi3Model
 from .qwen.model import QWenForCausalLM
 from .recurrentgemma.model import RecurrentGemmaForCausalLM
 from .redrafter.model import ReDrafterForCausalLM
-from .f5tts.model import F5TTS
+
 
 __all__ = [
     "BertModel",

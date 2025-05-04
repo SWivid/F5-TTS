@@ -24,16 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import json
-import torch
-from torch.nn.utils.rnn import pad_sequence
-import torch.nn.functional as F
-from torch.utils.dlpack import from_dlpack, to_dlpack
-import torchaudio
-import jieba
-import triton_python_backend_utils as pb_utils
-from pypinyin import Style, lazy_pinyin
 import os
+
+import jieba
+import torch
+import torch.nn.functional as F
+import torchaudio
+import triton_python_backend_utils as pb_utils
 from f5_tts_trtllm import F5TTS
+from pypinyin import Style, lazy_pinyin
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.dlpack import from_dlpack, to_dlpack
 
 
 def get_tokenizer(vocab_file_path: str):

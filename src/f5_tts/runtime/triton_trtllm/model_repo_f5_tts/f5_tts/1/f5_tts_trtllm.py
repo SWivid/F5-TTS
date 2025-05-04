@@ -1,18 +1,17 @@
-import tensorrt as trt
-import os
 import math
+import os
 import time
-from typing import List, Optional
 from functools import wraps
+from typing import List, Optional
 
+import tensorrt as trt
 import tensorrt_llm
-from tensorrt_llm._utils import str_dtype_to_torch, trt_dtype_to_torch
-from tensorrt_llm.logger import logger
-from tensorrt_llm.runtime.session import Session
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tensorrt_llm._utils import str_dtype_to_torch, trt_dtype_to_torch
+from tensorrt_llm.logger import logger
+from tensorrt_llm.runtime.session import Session
 
 
 def remove_tensor_padding(input_tensor, input_tensor_lengths=None):

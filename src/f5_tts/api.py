@@ -9,13 +9,13 @@ from hydra.utils import get_class
 from omegaconf import OmegaConf
 
 from f5_tts.infer.utils_infer import (
+    infer_process,
     load_model,
     load_vocoder,
-    transcribe,
     preprocess_ref_audio_text,
-    infer_process,
     remove_silence_for_generated_wav,
     save_spectrogram,
+    transcribe,
 )
 from f5_tts.model.utils import seed_everything
 

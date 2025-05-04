@@ -1,14 +1,16 @@
 import os
 import sys
 
+
 sys.path.append(os.getcwd())
 
 import json
 from importlib.resources import files
 from pathlib import Path
-from tqdm import tqdm
+
 import soundfile as sf
 from datasets.arrow_writer import ArrowWriter
+from tqdm import tqdm
 
 
 def main():

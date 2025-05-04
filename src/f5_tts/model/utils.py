@@ -5,11 +5,10 @@ import random
 from collections import defaultdict
 from importlib.resources import files
 
-import torch
-from torch.nn.utils.rnn import pad_sequence
-
 import jieba
-from pypinyin import lazy_pinyin, Style
+import torch
+from pypinyin import Style, lazy_pinyin
+from torch.nn.utils.rnn import pad_sequence
 
 
 # seed everything

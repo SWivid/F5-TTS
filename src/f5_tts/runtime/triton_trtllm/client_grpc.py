@@ -44,7 +44,6 @@ python3 client_grpc.py \
 import argparse
 import asyncio
 import json
-
 import os
 import time
 import types

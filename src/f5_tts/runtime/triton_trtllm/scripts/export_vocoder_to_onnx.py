@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
+
 import torch
 import torch.nn as nn
-from huggingface_hub import hf_hub_download
-
 from conv_stft import STFT
+from huggingface_hub import hf_hub_download
 from vocos import Vocos
-import argparse
+
 
 opset_version = 17
 

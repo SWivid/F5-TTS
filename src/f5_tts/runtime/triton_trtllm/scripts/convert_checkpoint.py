@@ -8,7 +8,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import safetensors.torch
 import torch
-
 from tensorrt_llm import str_dtype_to_torch
 from tensorrt_llm.mapping import Mapping
 from tensorrt_llm.models.convert_utils import split, split_matrix_tp

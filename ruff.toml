@@ -6,5 +6,5 @@ target-version = "py310"
 dummy-variable-rgx = "^_.*$"
 
 [lint.isort]
-force-single-line = true
+force-single-line = false
 lines-after-imports = 2

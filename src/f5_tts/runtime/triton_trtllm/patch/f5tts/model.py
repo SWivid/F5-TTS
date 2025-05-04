@@ -1,23 +1,20 @@
 from __future__ import annotations
-import sys
+
 import os
+import sys
+from collections import OrderedDict
 
 import tensorrt as trt
-from collections import OrderedDict
+from tensorrt_llm._common import default_net
+
 from ..._utils import str_dtype_to_trt
+from ...functional import Tensor, concat
+from ...layers import Linear
+from ...module import Module, ModuleList
 from ...plugin import current_all_reduce_helper
 from ..modeling_utils import PretrainedConfig, PretrainedModel
-from ...functional import Tensor, concat
-from ...module import Module, ModuleList
-from tensorrt_llm._common import default_net
-from ...layers import Linear
+from .modules import AdaLayerNormZero_Final, ConvPositionEmbedding, DiTBlock, TimestepEmbedding
 
-from .modules import (
-    TimestepEmbedding,
-    ConvPositionEmbedding,
-    DiTBlock,
-    AdaLayerNormZero_Final,
-)
 
 current_file_path = os.path.abspath(__file__)
 parent_dir = os.path.dirname(current_file_path)

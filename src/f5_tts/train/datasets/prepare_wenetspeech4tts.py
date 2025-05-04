@@ -4,15 +4,16 @@
 import os
 import sys
 
+
 sys.path.append(os.getcwd())
 
 import json
 from concurrent.futures import ProcessPoolExecutor
 from importlib.resources import files
-from tqdm import tqdm
 
 import torchaudio
 from datasets import Dataset
+from tqdm import tqdm
 
 from f5_tts.model.utils import convert_char_to_pinyin
 

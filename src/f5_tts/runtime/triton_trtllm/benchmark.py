@@ -30,26 +30,27 @@ import argparse
 import json
 import os
 import time
-from typing import List, Dict, Union
+from typing import Dict, List, Union
 
+import datasets
+import jieba
+import tensorrt as trt
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
 import torchaudio
-import jieba
-from pypinyin import Style, lazy_pinyin
 from datasets import load_dataset
-import datasets
+from f5_tts_trtllm import F5TTS
 from huggingface_hub import hf_hub_download
+from pypinyin import Style, lazy_pinyin
+from tensorrt_llm._utils import trt_dtype_to_torch
+from tensorrt_llm.logger import logger
+from tensorrt_llm.runtime.session import Session, TensorInfo
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 from vocos import Vocos
-from f5_tts_trtllm import F5TTS
-import tensorrt as trt
-from tensorrt_llm.runtime.session import Session, TensorInfo
-from tensorrt_llm.logger import logger
-from tensorrt_llm._utils import trt_dtype_to_torch
+
 
 torch.manual_seed(0)
 
@@ -381,8 +382,8 @@ def main():
         import sys
 
         sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../../../../src/")
-        from f5_tts.model import DiT
         from f5_tts.infer.utils_infer import load_model
+        from f5_tts.model import DiT
 
         F5TTS_model_cfg = dict(
             dim=1024,

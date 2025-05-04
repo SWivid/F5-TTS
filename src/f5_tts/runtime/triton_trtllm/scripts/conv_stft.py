@@ -40,6 +40,7 @@ import torch as th
 import torch.nn.functional as F
 from scipy.signal import check_COLA, get_window
 
+
 support_clp_op = None
 if th.__version__ >= "1.7.0":
     from torch.fft import rfft as fft

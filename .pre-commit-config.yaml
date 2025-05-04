@@ -3,11 +3,14 @@ repos:
     # Ruff version.
     rev: v0.11.2
     hooks:
-      # Run the linter.
       - id: ruff
+        name: ruff linter
         args: [--fix]
-      # Run the formatter.
       - id: ruff-format
+        name: ruff formatter
+      - id: ruff
+        name: ruff sorter
+        args: [--select, I, --fix]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

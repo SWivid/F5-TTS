@@ -1,12 +1,13 @@
-import sys
 import os
+import sys
+
 
 sys.path.append(os.getcwd())
 
-from f5_tts.model import CFM, DiT
-
-import torch
 import thop
+import torch
+
+from f5_tts.model import CFM, DiT
 
 
 """ ~155M """

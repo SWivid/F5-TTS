@@ -1,17 +1,17 @@
 # put in src/f5_tts/train/datasets/prepare_emilia_v2.py
 # prepares Emilia dataset with the new format w/ Emilia-YODAS
 
-import os
 import json
+import os
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
-from tqdm import tqdm
-from datasets.arrow_writer import ArrowWriter
 from importlib.resources import files
+from pathlib import Path
 
-from f5_tts.model.utils import (
-    repetition_found,
-)
+from datasets.arrow_writer import ArrowWriter
+from tqdm import tqdm
+
+from f5_tts.model.utils import repetition_found
+
 
 # Define filters for exclusion
 out_en = set()
