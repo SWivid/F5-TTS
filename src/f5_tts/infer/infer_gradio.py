@@ -422,7 +422,7 @@ with gr.Blocks() as app_multistyle:
                 insert_btn = gr.Button("Insert Label", variant="secondary")
             with gr.Column(scale=3):
                 audio_input = gr.Audio(label="Reference Audio", type="filepath")
-            with gr.Row(scale=4):
+            with gr.Column(scale=4):
                 ref_text_input = gr.Textbox(label="Reference Text", lines=8, scale=3)
                 ref_text_file_input = gr.File(
                     label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1
