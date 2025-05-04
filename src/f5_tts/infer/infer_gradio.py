@@ -222,9 +222,7 @@ with gr.Blocks() as app_tts:
                 lines=2,
                 scale=4,
             )
-            ref_text_file = gr.File(
-                label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1, height=1
-            )
+            ref_text_file = gr.File(label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1)
         with gr.Row():
             randomize_seed = gr.Checkbox(
                 label="Randomize Seed",
@@ -399,8 +397,9 @@ with gr.Blocks() as app_multistyle:
             regular_insert = gr.Button("Insert Label", variant="secondary")
         with gr.Column(scale=3):
             regular_audio = gr.Audio(label="Regular Reference Audio", type="filepath")
-        with gr.Column(scale=4):
+        with gr.Column(scale=3):
             regular_ref_text = gr.Textbox(label="Reference Text (Regular)", lines=8, scale=3)
+        with gr.Column(scale=1):
             regular_ref_text_file = gr.File(label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1)
 
     # Regular speech type (max 100)
@@ -422,8 +421,9 @@ with gr.Blocks() as app_multistyle:
                 insert_btn = gr.Button("Insert Label", variant="secondary")
             with gr.Column(scale=3):
                 audio_input = gr.Audio(label="Reference Audio", type="filepath")
-            with gr.Column(scale=4):
+            with gr.Column(scale=3):
                 ref_text_input = gr.Textbox(label="Reference Text", lines=8, scale=3)
+            with gr.Column(scale=1):
                 ref_text_file_input = gr.File(
                     label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1
                 )
