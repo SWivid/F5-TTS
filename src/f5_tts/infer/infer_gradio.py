@@ -205,7 +205,7 @@ with gr.Blocks() as app_credits:
 with gr.Blocks() as app_tts:
     gr.Markdown("# Batched TTS")
     ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
-    with gr.Row(equal_height=True):
+    with gr.Row():
         gen_text_input = gr.Textbox(
             label="Text to Generate",
             lines=10,
@@ -215,7 +215,7 @@ with gr.Blocks() as app_tts:
         gen_text_file = gr.File(label="Load Text to Generate from File (.txt)", file_types=[".txt"], scale=1)
     generate_btn = gr.Button("Synthesize", variant="primary")
     with gr.Accordion("Advanced Settings", open=False):
-        with gr.Row(equal_height=True):
+        with gr.Row():
             ref_text_input = gr.Textbox(
                 label="Reference Text",
                 info="Leave blank to automatically transcribe the reference audio. If you enter text or upload a file, it will override automatic transcription.",
@@ -399,7 +399,7 @@ with gr.Blocks() as app_multistyle:
             regular_insert = gr.Button("Insert Label", variant="secondary")
         with gr.Column(scale=3):
             regular_audio = gr.Audio(label="Regular Reference Audio", type="filepath")
-        with gr.Row(scale=4, equal_height=True):
+        with gr.Column(scale=4):
             regular_ref_text = gr.Textbox(label="Reference Text (Regular)", lines=8, scale=3)
             regular_ref_text_file = gr.File(label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1)
 
@@ -422,7 +422,7 @@ with gr.Blocks() as app_multistyle:
                 insert_btn = gr.Button("Insert Label", variant="secondary")
             with gr.Column(scale=3):
                 audio_input = gr.Audio(label="Reference Audio", type="filepath")
-            with gr.Row(scale=4, equal_height=True):
+            with gr.Column(scale=4):
                 ref_text_input = gr.Textbox(label="Reference Text", lines=8, scale=3)
                 ref_text_file_input = gr.File(
                     label="Load Reference Text from File (.txt)", file_types=[".txt"], scale=1
@@ -484,7 +484,7 @@ with gr.Blocks() as app_multistyle:
     )
 
     # Text input for the prompt
-    with gr.Row(equal_height=True):
+    with gr.Row():
         gen_text_input_multistyle = gr.Textbox(
             label="Text to Generate",
             lines=10,
@@ -706,7 +706,7 @@ Have a conversation with an AI using your reference voice!
                 ref_audio_chat = gr.Audio(label="Reference Audio", type="filepath")
             with gr.Column():
                 with gr.Accordion("Advanced Settings", open=False):
-                    with gr.Row(equal_height=True):
+                    with gr.Row():
                         ref_text_chat = gr.Textbox(
                             label="Reference Text",
                             info="Optional: Leave blank to auto-transcribe",
