@@ -779,13 +779,13 @@ Have a conversation with an AI using your reference voice!
             return conv_state
 
         @gpu_decorator
-        def generate_audio_response(history, ref_audio, ref_text, remove_silence, randomize_seed, seed_input):
+        def generate_audio_response(conv_state, ref_audio, ref_text, remove_silence, randomize_seed, seed_input):
             """Generate TTS audio for AI response"""
-            if not history or not ref_audio:
+            if not conv_state or not ref_audio:
                 return None, ref_text, seed_input
 
-            last_ai_response = history[-1]["content"]
-            if not last_ai_response or history[-1]["role"] != "assistant":
+            last_ai_response = conv_state[-1]["content"]
+            if not last_ai_response or conv_state[-1]["role"] != "assistant":
                 return None, ref_text, seed_input
 
             # Determine the seed to use
