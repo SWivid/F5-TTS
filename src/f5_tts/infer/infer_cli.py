@@ -323,7 +323,7 @@ def main():
         ref_text_ = voices[voice]["ref_text"]
         gen_text_ = text.strip()
         print(f"Voice: {voice}")
-        audio_segment, final_sample_rate, spectragram = infer_process(
+        audio_segment, final_sample_rate, spectrogram = infer_process(
             ref_audio_,
             ref_text_,
             gen_text_,
