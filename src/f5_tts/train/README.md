@@ -1,5 +1,11 @@
 # Training
 
+Check your FFmpeg installation:
+```bash
+ffmpeg -version
+```
+If not found, install it first (or skip assuming you know of other backends available).
+
 ## Prepare Dataset
 
 Example data processing scripts, and you may tailor your own one along with a Dataset class in `src/f5_tts/model/dataset.py`.

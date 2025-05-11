@@ -13,7 +13,7 @@ To avoid possible inference failures, make sure you have seen through the follow
 - Add some spaces (blank: " ") or punctuations (e.g. "," ".") <ins>to explicitly introduce some pauses</ins>.
 - If English punctuation marks the end of a sentence, make sure there is a space " " after it. Otherwise not regarded as when chunk.
 - <ins>Preprocess numbers</ins> to Chinese letters if you want to have them read in Chinese, otherwise in English.
-- If the generation output is blank (pure silence), <ins>check for ffmpeg installation</ins>.
+- If the generation output is blank (pure silence), <ins>check for FFmpeg installation</ins>.
 - Try <ins>turn off `use_ema` if using an early-stage</ins> finetuned checkpoint (which goes just few updates).
 
 
@@ -128,6 +128,28 @@ ref_audio = "infer/examples/multi/country.flac"
 ref_text = ""
 ```
 You should mark the voice with `[main]` `[town]` `[country]` whenever you want to change voice, refer to `src/f5_tts/infer/examples/multi/story.txt`.
+
+## API Usage
+
+```python
+from importlib.resources import files
+from f5_tts.api import F5TTS
+
+f5tts = F5TTS()
+wav, sr, spec = f5tts.infer(
+    ref_file=str(files("f5_tts").joinpath("infer/examples/basic/basic_ref_en.wav")),
+    ref_text="some call me nature, others call me mother nature.",
+    gen_text="""I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring. Respect me and I'll nurture you; ignore me and you shall face the consequences.""",
+    file_wave=str(files("f5_tts").joinpath("../../tests/api_out.wav")),
+    file_spec=str(files("f5_tts").joinpath("../../tests/api_out.png")),
+    seed=None,
+)
+```
+Check [api.py](../api.py) for more details.
+
+## TensorRT-LLM Deployment
+
+See [detailed instructions](../runtime/triton_trtllm/README.md) for more information.
 
 ## Socket Real-time Service
 
