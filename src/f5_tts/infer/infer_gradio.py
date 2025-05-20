@@ -189,7 +189,7 @@ def infer(
 
     # Remove silence
     if remove_silence:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
             sf.write(f.name, final_wave, final_sample_rate)
             remove_silence_for_generated_wav(f.name)
             final_wave, _ = torchaudio.load(f.name)

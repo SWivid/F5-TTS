@@ -33,6 +33,7 @@ from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
 
 _ref_audio_cache = {}
+_ref_text_cache = {}
 
 device = (
     "cuda"
@@ -290,12 +291,24 @@ def remove_silence_edges(audio, silence_threshold=-42):
 # preprocess reference audio and text
 
 
-def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_info=print):
+def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
     show_info("Converting audio...")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-        aseg = AudioSegment.from_file(ref_audio_orig)
 
-        if clip_short:
+    # Compute a hash of the reference audio file
+    with open(ref_audio_orig, "rb") as audio_file:
+        audio_data = audio_file.read()
+        audio_hash = hashlib.md5(audio_data).hexdigest()
+
+    global _ref_audio_cache
+
+    if audio_hash in _ref_audio_cache:
+        show_info("Using cached preprocessed reference audio...")
+        ref_audio = _ref_audio_cache[audio_hash]
+
+    else:  # first pass, do preprocess
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+            aseg = AudioSegment.from_file(ref_audio_orig)
+
             # 1. try to find long silence for clipping
             non_silent_segs = silence.split_on_silence(
                 aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000, seek_step=10
@@ -326,26 +339,24 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, clip_short=True, show_in
                 aseg = aseg[:12000]
                 show_info("Audio is over 12s, clipping short. (3)")
 
-        aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
-        aseg.export(f.name, format="wav")
-        ref_audio = f.name
+            aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
+            aseg.export(f.name, format="wav")
+            ref_audio = f.name
 
-    # Compute a hash of the reference audio file
-    with open(ref_audio, "rb") as audio_file:
-        audio_data = audio_file.read()
-        audio_hash = hashlib.md5(audio_data).hexdigest()
+        # Cache the processed reference audio
+        _ref_audio_cache[audio_hash] = ref_audio
 
     if not ref_text.strip():
-        global _ref_audio_cache
-        if audio_hash in _ref_audio_cache:
+        global _ref_text_cache
+        if audio_hash in _ref_text_cache:
             # Use cached asr transcription
             show_info("Using cached reference text...")
-            ref_text = _ref_audio_cache[audio_hash]
+            ref_text = _ref_text_cache[audio_hash]
         else:
             show_info("No reference text provided, transcribing reference audio...")
             ref_text = transcribe(ref_audio)
             # Cache the transcribed text (not caching custom ref_text, enabling users to do manual tweak)
-            _ref_audio_cache[audio_hash] = ref_text
+            _ref_text_cache[audio_hash] = ref_text
     else:
         show_info("Using custom reference text...")
 
