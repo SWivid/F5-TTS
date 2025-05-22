@@ -113,6 +113,7 @@ class F5TTS:
         file_wave=None,
         file_spec=None,
         seed=None,
+        save_intermediate_every_n_chunks: int = 0,
     ):
         if seed is None:
             seed = random.randint(0, sys.maxsize)
@@ -138,6 +139,8 @@ class F5TTS:
             speed=speed,
             fix_duration=fix_duration,
             device=self.device,
+            save_intermediate_every_n_chunks=save_intermediate_every_n_chunks,
+            output_file_path=file_wave, # Pass file_wave as the base path for intermediate saves
         )
 
         if file_wave is not None:

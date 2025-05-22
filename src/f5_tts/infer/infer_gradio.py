@@ -3,9 +3,11 @@
 
 import gc
 import json
+import os # Added
 import re
 import tempfile
 from collections import OrderedDict
+from datetime import datetime # Added
 from functools import lru_cache
 from importlib.resources import files
 
@@ -138,6 +140,8 @@ def infer(
     cross_fade_duration=0.15,
     nfe_step=32,
     speed=1,
+    skip_on_error: bool = False,
+    save_intermediate_every_n_chunks: int = 0,
     show_info=gr.Info,
 ):
     if not ref_audio_orig:
@@ -174,6 +178,14 @@ def infer(
             pre_custom_path = model[1]
         ema_model = custom_ema_model
 
+    output_file_path_for_intermediate_saves = None
+    if save_intermediate_every_n_chunks > 0:
+        temp_dir = tempfile.gettempdir()
+        base_name = f"f5tts_gradio_intermediate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+        output_file_path_for_intermediate_saves = os.path.join(temp_dir, base_name)
+        show_info(f"Intermediate audio (if generated) will be based on: {output_file_path_for_intermediate_saves}")
+
+
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
         ref_text,
@@ -183,6 +195,9 @@ def infer(
         cross_fade_duration=cross_fade_duration,
         nfe_step=nfe_step,
         speed=speed,
+        skip_on_error=skip_on_error,
+        save_intermediate_every_n_chunks=save_intermediate_every_n_chunks,
+        output_file_path=output_file_path_for_intermediate_saves,
         show_info=show_info,
         progress=gr.Progress(),
     )
@@ -246,6 +261,11 @@ with gr.Blocks() as app_tts:
                     info="If undesired long silence(s) produced, turn on to automatically detect and crop.",
                     value=False,
                 )
+                skip_on_error_tts = gr.Checkbox(
+                    label="Skip on Error",
+                    info="If checked, problematic text chunks will be skipped, and generation will continue.",
+                    value=False,
+                )
         speed_slider = gr.Slider(
             label="Speed",
             minimum=0.3,
@@ -270,6 +290,12 @@ with gr.Blocks() as app_tts:
             step=0.01,
             info="Set the duration of the cross-fade between audio clips.",
         )
+        save_intermediate_chunks_tts = gr.Number(
+            label="Save Intermediate Audio Every N Chunks",
+            value=0,
+            precision=0,
+            info="If > 0, saves audio after N successful chunks. Files saved to temp dir, paths logged.",
+        )
 
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
@@ -285,6 +311,8 @@ with gr.Blocks() as app_tts:
         cross_fade_duration_slider,
         nfe_slider,
         speed_slider,
+        skip_on_error_tts,
+        save_intermediate_chunks_tts_val,
     ):
         if randomize_seed:
             seed_input = np.random.randint(0, 2**31 - 1)
@@ -299,6 +327,8 @@ with gr.Blocks() as app_tts:
             cross_fade_duration=cross_fade_duration_slider,
             nfe_step=nfe_slider,
             speed=speed_slider,
+            skip_on_error=skip_on_error_tts,
+            save_intermediate_every_n_chunks=int(save_intermediate_chunks_tts_val),
         )
         return audio_out, spectrogram_path, ref_text_out, used_seed
 
@@ -326,6 +356,8 @@ with gr.Blocks() as app_tts:
             cross_fade_duration_slider,
             nfe_slider,
             speed_slider,
+            skip_on_error_tts,
+            save_intermediate_chunks_tts,
         ],
         outputs=[audio_output, spectrogram_output, ref_text_input, seed_input],
     )
@@ -561,6 +593,17 @@ with gr.Blocks() as app_multistyle:
                     info="Turn on to automatically detect and crop long silences.",
                     value=True,
                 )
+                skip_on_error_multistyle = gr.Checkbox(
+                    label="Skip on Error",
+                    info="If checked, problematic text chunks will be skipped, and generation will continue.",
+                    value=False,
+                )
+        save_intermediate_chunks_multistyle = gr.Number(
+            label="Save Intermediate Audio Every N Chunks",
+            value=0,
+            precision=0,
+            info="If > 0, saves audio after N successful chunks. Files saved to temp dir, paths logged.",
+        )
 
     # Generate button
     generate_multistyle_btn = gr.Button("Generate Multi-Style Speech", variant="primary")
@@ -595,12 +638,15 @@ with gr.Blocks() as app_multistyle:
     @gpu_decorator
     def generate_multistyle_speech(
         gen_text,
+        skip_on_error_flag,
+        save_intermediate_chunks_val,
         *args,
     ):
         speech_type_names_list = args[:max_speech_types]
         speech_type_audios_list = args[max_speech_types : 2 * max_speech_types]
         speech_type_ref_texts_list = args[2 * max_speech_types : 3 * max_speech_types]
-        remove_silence = args[3 * max_speech_types]
+        remove_silence = args[3 * max_speech_types] 
+        
         # Collect the speech types and their audios into a dict
         speech_types = OrderedDict()
 
@@ -652,10 +698,17 @@ with gr.Blocks() as app_multistyle:
                 tts_model_choice,
                 remove_silence,
                 seed=seed_input,
-                cross_fade_duration=0,
+                cross_fade_duration=0, # No cross-fade for individual segments here
                 speed=speed,
+                skip_on_error=skip_on_error_flag,
+                save_intermediate_every_n_chunks=int(save_intermediate_chunks_val),
                 show_info=print,  # no pull to top when generating
             )
+            if audio_out is None or audio_out[0] is None: # Check if infer returned None due to skip_on_error
+                gr.Warning(f"Skipped generating segment for: {text[:100]}...")
+                inference_meta_data += json.dumps(dict(name=name, seed=used_seed if 'used_seed' in locals() else seed_input, speed=speed, status="skipped")) + f" {text}\n"
+                continue # Skip appending this segment
+            
             sr, audio_data = audio_out
 
             generated_audio_segments.append(audio_data)
@@ -678,12 +731,14 @@ with gr.Blocks() as app_multistyle:
         generate_multistyle_speech,
         inputs=[
             gen_text_input_multistyle,
+            skip_on_error_multistyle,
+            save_intermediate_chunks_multistyle,
         ]
         + speech_type_names
         + speech_type_audios
         + speech_type_ref_texts
         + [
-            remove_silence_multistyle,
+            remove_silence_multistyle, 
         ],
         outputs=[audio_output_multistyle] + speech_type_ref_texts + [cherrypick_interface_multistyle],
     )
@@ -802,9 +857,21 @@ Have a conversation with an AI using your reference voice!
                             scale=3,
                         )
                         seed_input_chat = gr.Number(show_label=False, value=0, precision=0, scale=1)
-                    remove_silence_chat = gr.Checkbox(
-                        label="Remove Silences",
-                        value=True,
+                    with gr.Row():
+                        remove_silence_chat = gr.Checkbox(
+                            label="Remove Silences",
+                            value=True,
+                        )
+                        skip_on_error_chat = gr.Checkbox(
+                            label="Skip on Error (TTS part)",
+                            info="If TTS for AI response fails, it will be skipped.",
+                            value=False,
+                        )
+                    save_intermediate_chunks_chat = gr.Number(
+                        label="Save Intermediate Audio Every N Chunks (TTS part)",
+                        value=0,
+                        precision=0,
+                        info="If > 0, saves audio after N successful TTS chunks. Files saved to temp dir.",
                     )
                     system_prompt_chat = gr.Textbox(
                         label="System Prompt",
@@ -857,7 +924,7 @@ Have a conversation with an AI using your reference voice!
             return conv_state
 
         @gpu_decorator
-        def generate_audio_response(conv_state, ref_audio, ref_text, remove_silence, randomize_seed, seed_input):
+        def generate_audio_response(conv_state, ref_audio, ref_text, remove_silence, randomize_seed, seed_input, skip_on_error_flag, save_intermediate_chunks_val):
             """Generate TTS audio for AI response"""
             if not conv_state or not ref_audio:
                 return None, ref_text, seed_input
@@ -878,8 +945,13 @@ Have a conversation with an AI using your reference voice!
                 seed=seed_input,
                 cross_fade_duration=0.15,
                 speed=1.0,
+                skip_on_error=skip_on_error_flag,
+                save_intermediate_every_n_chunks=int(save_intermediate_chunks_val),
                 show_info=print,  # show_info=print no pull to top when generating
             )
+            if audio_result is None or audio_result[0] is None : # Check if infer returned None
+                gr.Warning("TTS generation for AI response failed and was skipped.")
+                return None, ref_text_out, used_seed # Return None for audio if skipped
             return audio_result, ref_text_out, used_seed
 
         def clear_conversation():
@@ -910,6 +982,8 @@ Have a conversation with an AI using your reference voice!
                     remove_silence_chat,
                     randomize_seed_chat,
                     seed_input_chat,
+                    skip_on_error_chat,
+                    save_intermediate_chunks_chat,
                 ],
                 outputs=[audio_output_chat, ref_text_chat, seed_input_chat],
             ).then(

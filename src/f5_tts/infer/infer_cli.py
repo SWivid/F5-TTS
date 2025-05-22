@@ -168,6 +168,17 @@ parser.add_argument(
     type=str,
     help="Specify the device to run on",
 )
+parser.add_argument(
+    "--skip_on_error",
+    action="store_true",
+    help="If set, skips problematic text chunks and continues generation.",
+)
+parser.add_argument(
+    "--save_intermediate_every_n_chunks",
+    type=int,
+    default=0,
+    help="If > 0, saves intermediate audio after every N successfully processed chunks. Requires output file path to be set.",
+)
 args = parser.parse_args()
 
 
@@ -209,6 +220,8 @@ sway_sampling_coef = args.sway_sampling_coef or config.get("sway_sampling_coef",
 speed = args.speed or config.get("speed", speed)
 fix_duration = args.fix_duration or config.get("fix_duration", fix_duration)
 device = args.device or config.get("device", device)
+skip_on_error = args.skip_on_error or config.get("skip_on_error", False)
+save_intermediate_every_n_chunks = args.save_intermediate_every_n_chunks or config.get("save_intermediate_every_n_chunks", 0)
 
 
 # patches for pip pkg user
@@ -338,8 +351,14 @@ def main():
             speed=speed,
             fix_duration=fix_duration,
             device=device,
+            skip_on_error=skip_on_error,
+            save_intermediate_every_n_chunks=save_intermediate_every_n_chunks,
+            output_file_path=str(wave_path),
         )
-        generated_audio_segments.append(audio_segment)
+        if audio_segment is not None: # Check if segment is None due to skip_on_error
+            generated_audio_segments.append(audio_segment)
+        else:
+            print(f"Skipped a problematic chunk: {gen_text_[:100]}...")
 
         if save_chunk:
             if len(gen_text_) > 200:
@@ -350,7 +369,7 @@ def main():
                 final_sample_rate,
             )
 
-    if generated_audio_segments:
+    if generated_audio_segments: # Ensure there's something to concatenate
         final_wave = np.concatenate(generated_audio_segments)
 
         if not os.path.exists(output_dir):
