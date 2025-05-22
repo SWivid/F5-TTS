@@ -42,6 +42,7 @@ from f5_tts.infer.utils_infer import (
     preprocess_ref_audio_text,
     remove_silence_for_generated_wav,
     save_spectrogram,
+    tempfile_kwargs,
 )
 from f5_tts.model import DiT, UNetT
 
@@ -190,7 +191,7 @@ def infer(
 
     # Remove silence
     if remove_silence:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".wav", **tempfile_kwargs) as f:
             temp_path = f.name
         try:
             sf.write(temp_path, final_wave, final_sample_rate)
@@ -201,7 +202,7 @@ def infer(
         final_wave = final_wave.squeeze().cpu().numpy()
 
     # Save the spectrogram
-    with tempfile.NamedTemporaryFile(suffix=".png", delete_on_close=False) as tmp_spectrogram:
+    with tempfile.NamedTemporaryFile(suffix=".png", **tempfile_kwargs) as tmp_spectrogram:
         spectrogram_path = tmp_spectrogram.name
     save_spectrogram(combined_spectrogram, spectrogram_path)
 

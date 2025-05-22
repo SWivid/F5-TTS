@@ -45,6 +45,8 @@ device = (
     else "cpu"
 )
 
+tempfile_kwargs = {"delete_on_close": False} if sys.version_info >= (3, 12) else {"delete": False}
+
 # -----------------------------------------
 
 target_sample_rate = 24000
@@ -306,7 +308,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         ref_audio = _ref_audio_cache[audio_hash]
 
     else:  # first pass, do preprocess
-        with tempfile.NamedTemporaryFile(delete_on_close=False, suffix=".wav") as f:
+        with tempfile.NamedTemporaryFile(suffix=".wav", **tempfile_kwargs) as f:
             temp_path = f.name
 
         aseg = AudioSegment.from_file(ref_audio_orig)
