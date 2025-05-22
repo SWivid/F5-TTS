@@ -306,42 +306,44 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         ref_audio = _ref_audio_cache[audio_hash]
 
     else:  # first pass, do preprocess
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-            aseg = AudioSegment.from_file(ref_audio_orig)
+        with tempfile.NamedTemporaryFile(delete_on_close=False, suffix=".wav") as f:
+            temp_path = f.name
 
-            # 1. try to find long silence for clipping
+        aseg = AudioSegment.from_file(ref_audio_orig)
+
+        # 1. try to find long silence for clipping
+        non_silent_segs = silence.split_on_silence(
+            aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000, seek_step=10
+        )
+        non_silent_wave = AudioSegment.silent(duration=0)
+        for non_silent_seg in non_silent_segs:
+            if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 12000:
+                show_info("Audio is over 12s, clipping short. (1)")
+                break
+            non_silent_wave += non_silent_seg
+
+        # 2. try to find short silence for clipping if 1. failed
+        if len(non_silent_wave) > 12000:
             non_silent_segs = silence.split_on_silence(
-                aseg, min_silence_len=1000, silence_thresh=-50, keep_silence=1000, seek_step=10
+                aseg, min_silence_len=100, silence_thresh=-40, keep_silence=1000, seek_step=10
             )
             non_silent_wave = AudioSegment.silent(duration=0)
             for non_silent_seg in non_silent_segs:
                 if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 12000:
-                    show_info("Audio is over 12s, clipping short. (1)")
+                    show_info("Audio is over 12s, clipping short. (2)")
                     break
                 non_silent_wave += non_silent_seg
 
-            # 2. try to find short silence for clipping if 1. failed
-            if len(non_silent_wave) > 12000:
-                non_silent_segs = silence.split_on_silence(
-                    aseg, min_silence_len=100, silence_thresh=-40, keep_silence=1000, seek_step=10
-                )
-                non_silent_wave = AudioSegment.silent(duration=0)
-                for non_silent_seg in non_silent_segs:
-                    if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 12000:
-                        show_info("Audio is over 12s, clipping short. (2)")
-                        break
-                    non_silent_wave += non_silent_seg
+        aseg = non_silent_wave
 
-            aseg = non_silent_wave
+        # 3. if no proper silence found for clipping
+        if len(aseg) > 12000:
+            aseg = aseg[:12000]
+            show_info("Audio is over 12s, clipping short. (3)")
 
-            # 3. if no proper silence found for clipping
-            if len(aseg) > 12000:
-                aseg = aseg[:12000]
-                show_info("Audio is over 12s, clipping short. (3)")
-
-            aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
-            aseg.export(f.name, format="wav")
-            ref_audio = f.name
+        aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
+        aseg.export(temp_path, format="wav")
+        ref_audio = temp_path
 
         # Cache the processed reference audio
         _ref_audio_cache[audio_hash] = ref_audio
