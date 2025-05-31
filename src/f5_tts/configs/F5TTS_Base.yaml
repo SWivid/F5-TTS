@@ -32,7 +32,7 @@ model:
     conv_layers: 4
     pe_attn_head: 1
     checkpoint_activations: False  # recompute activations and save memory for extra compute
-    attn_backend: sdpa  # sdpa | flash
+    attn_backend: sdpa  # sdpa | flash_attn
   mel_spec:
     target_sample_rate: 24000
     n_mel_channels: 100

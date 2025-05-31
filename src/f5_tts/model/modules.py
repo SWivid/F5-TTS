@@ -713,7 +713,7 @@ class DiTBlock(nn.Module):
 
         if attn_backend == "sdpa":
             attn_processor = AttnProcessor(pe_attn_head=pe_attn_head)
-        elif attn_backend == "flash":
+        elif attn_backend == "flash_attn":
             attn_processor = FlashAttnProcessor(pe_attn_head=pe_attn_head)
         else:
             raise ValueError(f"Unsupported attention backend: {attn_backend}")
