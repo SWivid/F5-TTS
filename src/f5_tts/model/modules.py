@@ -19,6 +19,8 @@ from librosa.filters import mel as librosa_mel_fn
 from torch import nn
 from x_transformers.x_transformers import apply_rotary_pos_emb
 
+from f5_tts.model.utils import is_flash_attn_available
+
 
 # raw wav to mel spec
 
@@ -360,7 +362,7 @@ class FeedForward(nn.Module):
 class Attention(nn.Module):
     def __init__(
         self,
-        processor: JointAttnProcessor | AttnProcessor,
+        processor: JointAttnProcessor | AttnProcessor | FlashAttnProcessor,
         dim: int,
         heads: int = 8,
         dim_head: int = 64,
@@ -373,6 +375,9 @@ class Attention(nn.Module):
 
         if not hasattr(F, "scaled_dot_product_attention"):
             raise ImportError("Attention equires PyTorch 2.0, to use it, please upgrade PyTorch to 2.0.")
+        elif isinstance(processor, FlashAttnProcessor):
+            if not is_flash_attn_available():
+                raise ImportError("Flash Attention is not available. Please install flash-attn.")
 
         self.processor = processor
 
@@ -427,6 +432,96 @@ class Attention(nn.Module):
             return self.processor(self, x, c=c, mask=mask, rope=rope, c_rope=c_rope)
         else:
             return self.processor(self, x, mask=mask, rope=rope)
+
+
+# Flash Attention Processor
+
+if is_flash_attn_available():
+    from flash_attn.bert_padding import pad_input, unpad_input  # noqa
+    from flash_attn import flash_attn_varlen_func, flash_attn_func
+else:
+    print("Flash Attention is not available. Please install flash-attn.")
+
+
+class FlashAttnProcessor:
+    def __init__(
+        self,
+        pe_attn_head: int | None = None,  # number of attention head to apply rope, None for all
+    ):
+        self.pe_attn_head = pe_attn_head
+
+    def __call__(
+        self,
+        attn: Attention,
+        x: float["b n d"],  # noised input x  # noqa: F722
+        mask: bool["b n"] | None = None,  # noqa: F722
+        rope=None,  # rotary position embedding
+    ) -> torch.FloatTensor:
+        batch_size = x.shape[0]
+
+        # `sample` projections
+        query = attn.to_q(x)
+        key = attn.to_k(x)
+        value = attn.to_v(x)
+
+        # attention
+        inner_dim = key.shape[-1]
+        head_dim = inner_dim // attn.heads
+        query = query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        key = key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+        value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+
+        # qk norm
+        if attn.q_norm is not None:
+            query = attn.q_norm(query)
+        if attn.k_norm is not None:
+            key = attn.k_norm(key)
+
+        # apply rotary position embedding
+        if rope is not None:
+            freqs, xpos_scale = rope
+            q_xpos_scale, k_xpos_scale = (xpos_scale, xpos_scale**-1.0) if xpos_scale is not None else (1.0, 1.0)
+
+            if self.pe_attn_head is not None:
+                pn = self.pe_attn_head
+                query[:, :pn, :, :] = apply_rotary_pos_emb(query[:, :pn, :, :], freqs, q_xpos_scale)
+                key[:, :pn, :, :] = apply_rotary_pos_emb(key[:, :pn, :, :], freqs, k_xpos_scale)
+            else:
+                query = apply_rotary_pos_emb(query, freqs, q_xpos_scale)
+                key = apply_rotary_pos_emb(key, freqs, k_xpos_scale)
+
+        # mask. e.g. inference got a batch with different target durations, mask out the padding
+        if mask is not None:
+            query, indices, q_cu_seqlens, q_max_seqlen_in_batch, _ = unpad_input(query, mask)
+            key, _, k_cu_seqlens, k_max_seqlen_in_batch, _ = unpad_input(key, mask)
+            value, _, _, _, _ = unpad_input(value, mask)
+            x = flash_attn_varlen_func(
+                query,
+                key,
+                value,
+                q_cu_seqlens,
+                k_cu_seqlens,
+                q_max_seqlen_in_batch,
+                k_max_seqlen_in_batch,
+            )
+            x = pad_input(x, indices, batch_size, q_max_seqlen_in_batch)
+            x = x.view(batch_size, -1, attn.heads * head_dim)
+        else:
+            x = flash_attn_func(query, key, value, dropout_p=0.0, causal=False)
+            x = x.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
+
+        x = x.to(query.dtype)
+
+        # linear proj
+        x = attn.to_out[0](x)
+        # dropout
+        x = attn.to_out[1](x)
+
+        if mask is not None:
+            mask = mask.unsqueeze(-1)
+            x = x.masked_fill(~mask, 0.0)
+
+        return x
 
 
 # Attention processor
@@ -608,12 +703,22 @@ class JointAttnProcessor:
 
 
 class DiTBlock(nn.Module):
-    def __init__(self, dim, heads, dim_head, ff_mult=4, dropout=0.1, qk_norm=None, pe_attn_head=None):
+    def __init__(
+        self, dim, heads, dim_head, ff_mult=4, dropout=0.1, qk_norm=None, pe_attn_head=None, attn_backend="sdpa"
+    ):
         super().__init__()
 
         self.attn_norm = AdaLayerNorm(dim)
+
+        if attn_backend == "sdpa":
+            attn_processor = AttnProcessor(pe_attn_head=pe_attn_head)
+        elif attn_backend == "flash":
+            attn_processor = FlashAttnProcessor(pe_attn_head=pe_attn_head)
+        else:
+            raise ValueError(f"Unsupported attention backend: {attn_backend}")
+
         self.attn = Attention(
-            processor=AttnProcessor(pe_attn_head=pe_attn_head),
+            processor=attn_processor,
             dim=dim,
             heads=heads,
             dim_head=dim_head,

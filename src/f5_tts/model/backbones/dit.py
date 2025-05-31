@@ -118,6 +118,7 @@ class DiT(nn.Module):
         pe_attn_head=None,
         long_skip_connection=False,
         checkpoint_activations=False,
+        attn_backend="sdpa",
     ):
         super().__init__()
 
@@ -145,6 +146,7 @@ class DiT(nn.Module):
                     dropout=dropout,
                     qk_norm=qk_norm,
                     pe_attn_head=pe_attn_head,
+                    attn_backend=attn_backend,
                 )
                 for _ in range(depth)
             ]
@@ -155,6 +157,7 @@ class DiT(nn.Module):
         self.proj_out = nn.Linear(dim, mel_dim)
 
         self.checkpoint_activations = checkpoint_activations
+        self.attn_backend = attn_backend
 
         self.initialize_weights()
 

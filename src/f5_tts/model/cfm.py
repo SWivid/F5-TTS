@@ -63,6 +63,8 @@ class CFM(nn.Module):
         # transformer
         self.transformer = transformer
         dim = transformer.dim
+        self.attn_backend = transformer.attn_backend
+
         self.dim = dim
 
         # conditional flow related
@@ -272,8 +274,10 @@ class CFM(nn.Module):
 
         # if want rigorously mask out padding, record in collate_fn in dataset.py, and pass in here
         # adding mask will use more memory, thus also need to adjust batchsampler with scaled down threshold for long sequences
+        mask = None if self.attn_backend == "sdpa" else mask
+
         pred = self.transformer(
-            x=φ, cond=cond, text=text, time=time, drop_audio_cond=drop_audio_cond, drop_text=drop_text
+            x=φ, cond=cond, text=text, time=time, drop_audio_cond=drop_audio_cond, drop_text=drop_text, mask=mask
         )
 
         # flow matching loss
