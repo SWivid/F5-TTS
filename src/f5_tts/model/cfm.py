@@ -63,7 +63,6 @@ class CFM(nn.Module):
         # transformer
         self.transformer = transformer
         dim = transformer.dim
-
         self.dim = dim
 
         # conditional flow related
