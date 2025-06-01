@@ -65,7 +65,8 @@ vocoder = load_vocoder()
 def load_f5tts():
     ckpt_path = str(cached_path(DEFAULT_TTS_MODEL_CFG[0]))
     F5TTS_model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
-    return load_model(DiT, F5TTS_model_cfg, ckpt_path)
+    vocab_file = str(cached_path(DEFAULT_TTS_MODEL_CFG[1]))
+    return load_model(DiT, F5TTS_model_cfg, ckpt_path, vocab_file=vocab_file)
 
 
 def load_e2tts():
