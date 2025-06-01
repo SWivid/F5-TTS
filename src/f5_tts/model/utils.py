@@ -45,10 +45,6 @@ def is_package_available(package_name: str) -> bool:
         return False
 
 
-def is_flash_attn_available() -> bool:
-    return is_package_available("flash_attn")
-
-
 # tensor helpers
 
 
