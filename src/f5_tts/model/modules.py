@@ -22,6 +22,12 @@ from x_transformers.x_transformers import apply_rotary_pos_emb
 from f5_tts.model.utils import is_flash_attn_available
 
 
+if is_flash_attn_available():
+    from flash_attn.bert_padding import pad_input, unpad_input  # noqa
+    from flash_attn import flash_attn_varlen_func, flash_attn_func
+else:
+    print("Flash Attention is not available. If you want to use flash attention, please install flash-attn first.")
+
 # raw wav to mel spec
 
 
@@ -436,12 +442,6 @@ class Attention(nn.Module):
 
 # Flash Attention Processor
 
-if is_flash_attn_available():
-    from flash_attn.bert_padding import pad_input, unpad_input  # noqa
-    from flash_attn import flash_attn_varlen_func, flash_attn_func
-else:
-    print("Flash Attention is not available. Please install flash-attn.")
-
 
 class FlashAttnProcessor:
     def __init__(
@@ -485,8 +485,8 @@ class FlashAttnProcessor:
 
             if self.pe_attn_head is not None:
                 pn = self.pe_attn_head
-                query[:, :pn, :, :] = apply_rotary_pos_emb(query[:, :pn, :, :], freqs, q_xpos_scale)
-                key[:, :pn, :, :] = apply_rotary_pos_emb(key[:, :pn, :, :], freqs, k_xpos_scale)
+                query[:, :, :pn, :] = apply_rotary_pos_emb(query[:, :, :pn, :], freqs, q_xpos_scale)
+                key[:, :, :pn, :] = apply_rotary_pos_emb(key[:, :, :pn, :], freqs, k_xpos_scale)
             else:
                 query = apply_rotary_pos_emb(query, freqs, q_xpos_scale)
                 key = apply_rotary_pos_emb(key, freqs, k_xpos_scale)
@@ -506,10 +506,10 @@ class FlashAttnProcessor:
                 k_max_seqlen_in_batch,
             )
             x = pad_input(x, indices, batch_size, q_max_seqlen_in_batch)
-            x = x.view(batch_size, -1, attn.heads * head_dim)
+            x = x.reshape(batch_size, -1, attn.heads * head_dim)
         else:
             x = flash_attn_func(query, key, value, dropout_p=0.0, causal=False)
-            x = x.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
+            x = x.reshape(batch_size, -1, attn.heads * head_dim)
 
         x = x.to(query.dtype)
 
