@@ -1,4 +1,4 @@
-    #!/usr/bin/env python3
+#!/usr/bin/env python3
 # Copyright      2022  Xiaomi Corp.        (authors: Fangjun Kuang)
 #                2023  Nvidia              (authors: Yuekai Zhang)
 #                2023  Recurrent.ai        (authors: Songtao Shi)
