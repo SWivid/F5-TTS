@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+    #!/usr/bin/env python3
 # Copyright      2022  Xiaomi Corp.        (authors: Fangjun Kuang)
 #                2023  Nvidia              (authors: Yuekai Zhang)
 #                2023  Recurrent.ai        (authors: Songtao Shi)
@@ -310,8 +310,9 @@ async def send(
         audio_save_path = os.path.join(audio_save_dir, f"{item['target_audio_path']}.wav")
         sf.write(audio_save_path, audio, save_sample_rate, "PCM_16")
 
-        latency_data.append((end, estimated_target_duration))
-        total_duration += estimated_target_duration
+        actual_duration = len(audio) / save_sample_rate
+        latency_data.append((end, actual_duration))
+        total_duration += actual_duration
 
     return total_duration, latency_data
 
