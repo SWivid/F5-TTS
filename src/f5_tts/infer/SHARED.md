@@ -106,6 +106,12 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 |:---:|:------------:|:-----------:|:-------------:|
 |F5-TTS Base|[ckpt & vocab](https://huggingface.co/hvoss-techfak/F5-TTS-German)|[Mozilla Common Voice 19.0](https://commonvoice.mozilla.org/en/datasets) & 800 hours Crowdsourced |cc-by-nc-4.0|
 
+```bash
+Model: hf://hvoss-techfak/F5-TTS-German/model_f5tts_german.pt
+Vocab: hf://hvoss-techfak/F5-TTS-German/vocab.txt
+Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "text_mask_padding": False, "conv_layers": 4, "pe_attn_head": 1}
+```
+
 - Finetuned by [@hvoss-techfak](https://github.com/hvoss-techfak)
 
 
