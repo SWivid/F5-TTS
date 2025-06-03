@@ -128,7 +128,7 @@ def load_text_from_file(file):
     return gr.update(value=text)
 
 
-@lru_cache(maxsize=100)  # NOTE. need to ensure params of infer() hashable
+@lru_cache(maxsize=1000)  # NOTE. need to ensure params of infer() hashable
 @gpu_decorator
 def infer(
     ref_audio_orig,
@@ -209,14 +209,6 @@ def infer(
     return (final_sample_rate, final_wave), spectrogram_path, ref_text, used_seed
 
 
-with gr.Blocks() as app_credits:
-    gr.Markdown("""
-# Credits
-
-* [mrfakename](https://github.com/fakerybakery) for the original [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
-* [RootingInLoad](https://github.com/RootingInLoad) for initial chunk generation and podcast app exploration
-* [jpgallegoar](https://github.com/jpgallegoar) for multiple speech-type generation & voice chat
-""")
 with gr.Blocks() as app_tts:
     gr.Markdown("# Batched TTS")
     ref_audio_input = gr.Audio(label="Reference Audio", type="filepath")
@@ -318,6 +310,12 @@ with gr.Blocks() as app_tts:
         load_text_from_file,
         inputs=[ref_text_file],
         outputs=[ref_text_input],
+    )
+
+    ref_audio_input.clear(
+        lambda: [None, None],
+        None,
+        [ref_text_input, ref_text_file],
     )
 
     generate_btn.click(
@@ -930,6 +928,16 @@ Have a conversation with an AI using your reference voice!
                 clear_conversation,
                 outputs=[chatbot_interface, audio_output_chat],
             )
+
+
+with gr.Blocks() as app_credits:
+    gr.Markdown("""
+# Credits
+
+* [mrfakename](https://github.com/fakerybakery) for the original [online demo](https://huggingface.co/spaces/mrfakename/E2-F5-TTS)
+* [RootingInLoad](https://github.com/RootingInLoad) for initial chunk generation and podcast app exploration
+* [jpgallegoar](https://github.com/jpgallegoar) for multiple speech-type generation & voice chat
+""")
 
 
 with gr.Blocks() as app:
