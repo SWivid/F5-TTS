@@ -183,4 +183,4 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 |:---:|:------------:|:-----------:|:-------------:|
 |F5-TTS Base|[ckpt & vocab](https://huggingface.co/hvoss-techfak/F5-TTS-German)|[Mozilla Common Voice 19.0](https://commonvoice.mozilla.org/en/datasets) & 800 hours Crowdsourced |cc-by-nc-4.0|
 
-- [@hvoss-techfak](https://github.com/hvoss-techfak)
+- Finetuned by [@hvoss-techfak](https://github.com/hvoss-techfak)
