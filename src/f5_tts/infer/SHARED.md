@@ -22,6 +22,8 @@
     - [F5-TTS Base @ fi @ AsmoKoskinen](#f5-tts-base--fi--asmokoskinen)
 - [French](#french)
     - [F5-TTS Base @ fr @ RASPIAUDIO](#f5-tts-base--fr--raspiaudio)
+- [German](#german)
+    - [F5-TTS Base @ de @ hvoss-techfak](#f5-tts-base--de--hvoss-techfak)
 - [Hindi](#hindi)
     - [F5-TTS Small @ hi @ SPRINGLab](#f5-tts-small--hi--springlab)
 - [Italian](#italian)
@@ -33,8 +35,6 @@
     - [F5-TTS Base @ ru @ HotDro4illa](#f5-tts-base--ru--hotdro4illa)
 - [Spanish](#spanish)
     - [F5-TTS Base @ es @ jpgallegoar](#f5-tts-base--es--jpgallegoar)
-- [German](#german)
-    - [F5-TTS Base @ de @ hvoss-techfak](#f5-tts-base--de--hvoss-techfak)
 
 
 ## Multilingual
@@ -97,6 +97,16 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 - [Online Inference with Hugging Face Space](https://huggingface.co/spaces/RASPIAUDIO/f5-tts_french).
 - [Tutorial video to train a new language model](https://www.youtube.com/watch?v=UO4usaOojys).
 - [Discussion about this training can be found here](https://github.com/SWivid/F5-TTS/issues/434).
+
+
+## German
+
+#### F5-TTS Base @ de @ hvoss-techfak
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/hvoss-techfak/F5-TTS-German)|[Mozilla Common Voice 19.0](https://commonvoice.mozilla.org/en/datasets) & 800 hours Crowdsourced |cc-by-nc-4.0|
+
+- Finetuned by [@hvoss-techfak](https://github.com/hvoss-techfak)
 
 
 ## Hindi
@@ -175,12 +185,3 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 |F5-TTS Base|[ckpt & vocab](https://huggingface.co/jpgallegoar/F5-Spanish)|[Voxpopuli](https://huggingface.co/datasets/facebook/voxpopuli) & Crowdsourced & TEDx, 218 hours|cc0-1.0|
 
 - @jpgallegoar [GitHub repo](https://github.com/jpgallegoar/Spanish-F5), Jupyter Notebook and Gradio usage for Spanish model.
-
-## German
-
-#### F5-TTS Base @ de @ hvoss-techfak
-|Model|🤗Hugging Face|Data (Hours)|Model License|
-|:---:|:------------:|:-----------:|:-------------:|
-|F5-TTS Base|[ckpt & vocab](https://huggingface.co/hvoss-techfak/F5-TTS-German)|[Mozilla Common Voice 19.0](https://commonvoice.mozilla.org/en/datasets) & 800 hours Crowdsourced |cc-by-nc-4.0|
-
-- Finetuned by [@hvoss-techfak](https://github.com/hvoss-techfak)
