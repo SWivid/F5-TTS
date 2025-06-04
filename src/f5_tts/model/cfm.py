@@ -22,6 +22,7 @@ from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import (
     default,
     exists,
+    get_epss_timesteps,
     lens_to_mask,
     list_str_to_idx,
     list_str_to_tensor,
@@ -92,6 +93,7 @@ class CFM(nn.Module):
         seed: int | None = None,
         max_duration=4096,
         vocoder: Callable[[float["b d n"]], float["b nw"]] | None = None,  # noqa: F722
+        use_epss=True,
         no_ref_audio=False,
         duplicate_test=False,
         t_inter=0.1,
@@ -190,7 +192,10 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype)
+        if t_start == 0 and use_epss:  # use Empirically Pruned Step Sampling for low NFE
+            t = get_epss_timesteps(steps, device=self.device, dtype=step_cond.dtype)
+        else:
+            t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
