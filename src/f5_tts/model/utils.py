@@ -190,6 +190,8 @@ def repetition_found(text, length=2, tolerance=10):
             return True
     return False
 
+
+# get the empirically pruned step for sampling
 def get_epss_timesteps(n, device, dtype):
     dt = 1 / 32
     predefined_timesteps = {
