@@ -434,7 +434,7 @@ def start_training(
         fp16 = ""
 
     cmd = (
-        f"accelerate launch {fp16} {file_train} --exp_name {exp_name}"
+        f'accelerate launch {fp16} "{file_train}" --exp_name {exp_name}'
         f" --learning_rate {learning_rate}"
         f" --batch_size_per_gpu {batch_size_per_gpu}"
         f" --batch_size_type {batch_size_type}"
@@ -453,7 +453,7 @@ def start_training(
         cmd += " --finetune"
 
     if file_checkpoint_train != "":
-        cmd += f" --pretrain {file_checkpoint_train}"
+        cmd += f' --pretrain "{file_checkpoint_train}"'
 
     if tokenizer_file != "":
         cmd += f" --tokenizer_path {tokenizer_file}"
