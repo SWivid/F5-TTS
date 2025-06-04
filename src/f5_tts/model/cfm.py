@@ -22,11 +22,11 @@ from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import (
     default,
     exists,
+    get_epss_timesteps,
     lens_to_mask,
     list_str_to_idx,
     list_str_to_tensor,
     mask_from_frac_lengths,
-    get_epss_timesteps,
 )
 
 
