@@ -192,7 +192,7 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        # use Empirically Pruned Step Sampling to imporve synthesis quality with small number of sampling steps
+        # use Empirically Pruned Step Sampling to improve synthesis quality with small number of sampling steps
         if t_start == 0 and use_epss:
             t = get_epss_timesteps(steps, device=self.device, dtype=step_cond.dtype)
         else:
