@@ -93,11 +93,11 @@ class CFM(nn.Module):
         seed: int | None = None,
         max_duration=4096,
         vocoder: Callable[[float["b d n"]], float["b nw"]] | None = None,  # noqa: F722
+        use_epss=True,
         no_ref_audio=False,
         duplicate_test=False,
         t_inter=0.1,
         edit_mask=None,
-        use_epss=True,
     ):
         self.eval()
         # raw wave
@@ -192,8 +192,7 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        # use Empirically Pruned Step Sampling to improve synthesis quality with small number of sampling steps
-        if t_start == 0 and use_epss:
+        if t_start == 0 and use_epss:  # use Empirically Pruned Step Sampling for low NFE
             t = get_epss_timesteps(steps, device=self.device, dtype=step_cond.dtype)
         else:
             t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype)
