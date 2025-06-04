@@ -23,6 +23,8 @@
 
 ## Installation
 
+You need to have [Conda](https://docs.conda.io/projects/conda/en/latest/index.html) installed as a prerequesite.
+
 ### Create a separate environment if needed
 
 ```bash
@@ -96,6 +98,9 @@ conda activate f5-tts
 > ```
 
 ### Docker usage also available
+
+First, make sure you have installed and configured the [Nvidia Cuda Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
 ```bash
 # Build from Dockerfile
 docker build -t f5tts:v1 .
