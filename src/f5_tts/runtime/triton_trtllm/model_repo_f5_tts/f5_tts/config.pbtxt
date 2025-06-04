@@ -33,7 +33,7 @@ parameters [
   },
   {
    key: "reference_audio_sample_rate", 
-   value: {string_value:"16000"}
+   value: {string_value:"24000"}
   },
   {
    key: "vocoder", 

@@ -220,8 +220,8 @@ def get_args():
     return parser.parse_args()
 
 
-def load_audio(wav_path, target_sample_rate=16000):
-    assert target_sample_rate == 16000, "hard coding in server"
+def load_audio(wav_path, target_sample_rate=24000):
+    assert target_sample_rate == 24000, "hard coding in server"
     if isinstance(wav_path, dict):
         waveform = wav_path["array"]
         sample_rate = wav_path["sampling_rate"]
@@ -244,7 +244,7 @@ async def send(
     model_name: str,
     padding_duration: int = None,
     audio_save_dir: str = "./",
-    save_sample_rate: int = 16000,
+    save_sample_rate: int = 24000,
 ):
     total_duration = 0.0
     latency_data = []
@@ -254,7 +254,7 @@ async def send(
     for i, item in enumerate(manifest_item_list):
         if i % log_interval == 0:
             print(f"{name}: {i}/{len(manifest_item_list)}")
-        waveform, sample_rate = load_audio(item["audio_filepath"], target_sample_rate=16000)
+        waveform, sample_rate = load_audio(item["audio_filepath"], target_sample_rate=24000)
         duration = len(waveform) / sample_rate
         lengths = np.array([[len(waveform)]], dtype=np.int32)
 
@@ -417,7 +417,7 @@ async def main():
                 model_name=args.model_name,
                 audio_save_dir=args.log_dir,
                 padding_duration=1,
-                save_sample_rate=24000 if args.model_name == "f5_tts" else 16000,
+                save_sample_rate=24000,
             )
         )
         tasks.append(task)

@@ -82,7 +82,7 @@ def prepare_request(
     samples,
     reference_text,
     target_text,
-    sample_rate=16000,
+    sample_rate=24000,
     audio_save_dir: str = "./",
 ):
     assert len(samples.shape) == 1, "samples should be 1D"
@@ -106,8 +106,8 @@ def prepare_request(
     return data
 
 
-def load_audio(wav_path, target_sample_rate=16000):
-    assert target_sample_rate == 16000, "hard coding in server"
+def load_audio(wav_path, target_sample_rate=24000):
+    assert target_sample_rate == 24000, "hard coding in server"
     if isinstance(wav_path, dict):
         samples = wav_path["array"]
         sample_rate = wav_path["sampling_rate"]
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     url = f"{server_url}/v2/models/{args.model_name}/infer"
     samples, sr = load_audio(args.reference_audio)
-    assert sr == 16000, "sample rate hardcoded in server"
+    assert sr == 24000, "sample rate hardcoded in server"
 
     samples = np.array(samples, dtype=np.float32)
     data = prepare_request(samples, args.reference_text, args.target_text)
