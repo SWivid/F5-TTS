@@ -191,29 +191,19 @@ def repetition_found(text, length=2, tolerance=10):
     return False
 
 def get_epss_timesteps(n, device, dtype):
-    t = []
     dt = 1 / 32
-    if n == 5:
-        t = [0 * dt, 2 * dt, 4 * dt, 8 * dt, 
-                16* dt, 32* dt]
-    elif n == 6:
-        # t = [0 * dt, 2 * dt, 4 * dt, 8 * dt, 
-        #      16* dt, 24* dt, 32* dt]
-        t = [0 * dt, 2 * dt, 4 * dt, 6 * dt, 8 * dt, 
-                16* dt, 32* dt]
-    elif n == 7:
-        t = [0 * dt, 2 * dt, 4 * dt, 6 * dt, 8 * dt, 
-                16* dt, 24* dt, 32* dt]
-    elif n == 10:
-        t = [0 * dt, 1 * dt, 2 * dt, 3 * dt, 4 * dt, 5 * dt, 6 * dt, 7 * dt, 8 * dt, 
-                12* dt, 16* dt, 20* dt, 24* dt, 28* dt, 32* dt]
-    elif n == 12:
-        t = [0 * dt, 2 * dt, 4 * dt, 6 * dt, 8 * dt, 
-                10* dt, 12* dt, 14* dt, 16* dt, 20* dt, 24* dt, 28* dt, 32* dt]
-    elif n == 16:
-        t = [0 * dt, 1 * dt, 2 * dt, 3 * dt, 4 * dt, 5 * dt, 6 * dt, 7 * dt, 8 * dt, 
-                10* dt, 12* dt, 14* dt, 16* dt, 20* dt, 24* dt, 28* dt, 32* dt]
-    if len(t) == 0:
+    predefined_timesteps = {
+        5: [0, 2, 4, 8, 16, 32],
+        6: [0, 2, 4, 6, 8, 16, 32],
+        7: [0, 2, 4, 6, 8, 16, 24, 32],
+        10: [0, 1, 2, 3, 4, 5, 6, 7, 8, 
+             12, 16, 20, 24, 28, 32],
+        12: [0, 2, 4, 6, 8, 10, 12, 14, 
+             16, 20, 24, 28, 32],
+        16: [0, 1, 2, 3, 4, 5, 6, 7, 8, 
+             10, 12, 14, 16, 20, 24, 28, 32],
+    }
+    t = predefined_timesteps.get(n, [])
+    if not t:
         return torch.linspace(0, 1, n + 1, device=device, dtype=dtype)
-    else:
-        return torch.tensor(t, device=device, dtype=dtype)
+    return dt * torch.tensor(t, device=device, dtype=dtype)
