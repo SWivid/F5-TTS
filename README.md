@@ -91,7 +91,7 @@ conda activate f5-tts
 > ```bash
 > git clone https://github.com/SWivid/F5-TTS.git
 > cd F5-TTS
-> # git submodule update --init --recursive  # (optional, if need > bigvgan)
+> # git submodule update --init --recursive  # (optional, if use bigvgan as vocoder)
 > pip install -e .
 > ```
 
