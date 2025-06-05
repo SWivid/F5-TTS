@@ -5,6 +5,7 @@ on:
     branches:
       - main
 
+
 jobs:
   trigger_curl:
     runs-on: ubuntu-latest
