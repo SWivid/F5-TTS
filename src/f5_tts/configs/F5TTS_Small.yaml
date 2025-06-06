@@ -31,6 +31,8 @@ model:
     text_mask_padding: False
     conv_layers: 4
     pe_attn_head: 1
+    attn_backend: torch  # torch | flash_attn
+    attn_mask_enabled: False
     checkpoint_activations: False  # recompute activations and save memory for extra compute
   mel_spec:
     target_sample_rate: 24000
