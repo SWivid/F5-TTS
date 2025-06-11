@@ -141,26 +141,15 @@ class MMDiT(nn.Module):
         nn.init.constant_(self.proj_out.weight, 0)
         nn.init.constant_(self.proj_out.bias, 0)
 
-    def clear_cache(self):
-        self.text_cond, self.text_uncond = None, None
-
-    def forward(
+    def get_input_embed(
         self,
-        x: float["b n d"],  # nosied input audio  # noqa: F722
-        cond: float["b n d"],  # masked cond audio  # noqa: F722
-        text: int["b nt"],  # text  # noqa: F722
-        time: float["b"] | float[""],  # time step  # noqa: F821 F722
-        drop_audio_cond,  # cfg for cond audio
-        drop_text,  # cfg for text
-        mask: bool["b n"] | None = None,  # noqa: F722
-        cache=False,
+        x,  # b n d
+        cond,  # b n d
+        text,  # b nt
+        drop_audio_cond: bool = False,
+        drop_text: bool = False,
+        cache: bool = True,
     ):
-        batch = x.shape[0]
-        if time.ndim == 0:
-            time = time.repeat(batch)
-
-        # t: conditioning (time), c: context (text + masked cond audio), x: noised input audio
-        t = self.time_embed(time)
         if cache:
             if drop_text:
                 if self.text_uncond is None:
@@ -173,6 +162,41 @@ class MMDiT(nn.Module):
         else:
             c = self.text_embed(text, drop_text=drop_text)
         x = self.audio_embed(x, cond, drop_audio_cond=drop_audio_cond)
+
+        return x, c
+
+    def clear_cache(self):
+        self.text_cond, self.text_uncond = None, None
+
+    def forward(
+        self,
+        x: float["b n d"],  # nosied input audio  # noqa: F722
+        cond: float["b n d"],  # masked cond audio  # noqa: F722
+        text: int["b nt"],  # text  # noqa: F722
+        time: float["b"] | float[""],  # time step  # noqa: F821 F722
+        mask: bool["b n"] | None = None,  # noqa: F722
+        drop_audio_cond: bool = False,  # cfg for cond audio
+        drop_text: bool = False,  # cfg for text
+        cfg_infer: bool = False,  # cfg inference, pack cond & uncond forward
+        cache: bool = False,
+    ):
+        batch = x.shape[0]
+        if time.ndim == 0:
+            time = time.repeat(batch)
+
+        # t: conditioning (time), c: context (text + masked cond audio), x: noised input audio
+        t = self.time_embed(time)
+        if cfg_infer:  # pack cond & uncond forward: b n d -> 2b n d
+            x_cond, c_cond = self.get_input_embed(x, cond, text, drop_audio_cond=False, drop_text=False, cache=cache)
+            x_uncond, c_uncond = self.get_input_embed(x, cond, text, drop_audio_cond=True, drop_text=True, cache=cache)
+            x = torch.cat((x_cond, x_uncond), dim=0)
+            c = torch.cat((c_cond, c_uncond), dim=0)
+            t = torch.cat((t, t), dim=0)
+            mask = torch.cat((mask, mask), dim=0) if mask is not None else None
+        else:
+            x, c = self.get_input_embed(
+                x, cond, text, drop_audio_cond=drop_audio_cond, drop_text=drop_text, cache=cache
+            )
 
         seq_len = x.shape[1]
         text_len = text.shape[1]

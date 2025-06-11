@@ -162,16 +162,31 @@ class CFM(nn.Module):
             # at each step, conditioning is fixed
             # step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))
 
-            # predict flow
-            pred = self.transformer(
-                x=x, cond=step_cond, text=text, time=t, mask=mask, drop_audio_cond=False, drop_text=False, cache=True
-            )
+            # predict flow (cond)
             if cfg_strength < 1e-5:
+                pred = self.transformer(
+                    x=x,
+                    cond=step_cond,
+                    text=text,
+                    time=t,
+                    mask=mask,
+                    drop_audio_cond=False,
+                    drop_text=False,
+                    cache=True,
+                )
                 return pred
 
-            null_pred = self.transformer(
-                x=x, cond=step_cond, text=text, time=t, mask=mask, drop_audio_cond=True, drop_text=True, cache=True
+            # predict flow (cond and uncond), for classifier-free guidance
+            pred_cfg = self.transformer(
+                x=x,
+                cond=step_cond,
+                text=text,
+                time=t,
+                mask=mask,
+                cfg_infer=True,
+                cache=True,
             )
+            pred, null_pred = torch.chunk(pred_cfg, 2, dim=0)
             return pred + (pred - null_pred) * cfg_strength
 
         # noise input
