@@ -148,14 +148,11 @@ def main():
         vocab_char_map=vocab_char_map,
     ).to(device)
 
-    ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
-    if not os.path.exists(ckpt_path):
-        safetensors_path = ckpt_path.replace(".pt", ".safetensors")
-        if os.path.exists(safetensors_path):
-            ckpt_path = safetensors_path
-            print(f"Loading from {ckpt_path}")
-        else:
-            raise FileNotFoundError(f"Checkpoint file not found: {ckpt_path}")
+    ckpt_prefix = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}"
+    if os.path.exists(ckpt_prefix + ".pt"):
+        ckpt_path = ckpt_prefix + ".pt"
+    elif os.path.exists(ckpt_prefix + ".safetensors"):
+        ckpt_path = ckpt_prefix + ".safetensors"
     else:
         print("Loading from self-organized training checkpoints rather than released pretrained.")
         ckpt_path = rel_path + f"/{model_cfg.ckpts.save_dir}/model_{ckpt_step}.pt"
