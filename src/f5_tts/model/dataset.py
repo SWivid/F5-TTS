@@ -312,7 +312,7 @@ def collate_fn(batch):
     max_mel_length = mel_lengths.amax()
 
     padded_mel_specs = []
-    for spec in mel_specs:  # TODO. maybe records mask for attention here
+    for spec in mel_specs:
         padding = (0, max_mel_length - spec.size(-1))
         padded_spec = F.pad(spec, padding, value=0)
         padded_mel_specs.append(padded_spec)
@@ -324,7 +324,7 @@ def collate_fn(batch):
 
     return dict(
         mel=mel_specs,
-        mel_lengths=mel_lengths,
+        mel_lengths=mel_lengths,  # records for padding mask
         text=text,
         text_lengths=text_lengths,
     )

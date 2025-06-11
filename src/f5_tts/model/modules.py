@@ -6,6 +6,7 @@ nt - text sequence
 nw - raw wave length
 d - dimension
 """
+# flake8: noqa
 
 from __future__ import annotations
 
@@ -18,6 +19,8 @@ import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 from torch import nn
 from x_transformers.x_transformers import apply_rotary_pos_emb
+
+from f5_tts.model.utils import is_package_available
 
 
 # raw wav to mel spec
@@ -175,7 +178,7 @@ class ConvPositionEmbedding(nn.Module):
             nn.Mish(),
         )
 
-    def forward(self, x: float["b n d"], mask: bool["b n"] | None = None):  # noqa: F722
+    def forward(self, x: float["b n d"], mask: bool["b n"] | None = None):
         if mask is not None:
             mask = mask[..., None]
             x = x.masked_fill(~mask, 0.0)
@@ -417,9 +420,9 @@ class Attention(nn.Module):
 
     def forward(
         self,
-        x: float["b n d"],  # noised input x  # noqa: F722
-        c: float["b n d"] = None,  # context c  # noqa: F722
-        mask: bool["b n"] | None = None,  # noqa: F722
+        x: float["b n d"],  # noised input x
+        c: float["b n d"] = None,  # context c
+        mask: bool["b n"] | None = None,
         rope=None,  # rotary position embedding for x
         c_rope=None,  # rotary position embedding for c
     ) -> torch.Tensor:
@@ -431,19 +434,30 @@ class Attention(nn.Module):
 
 # Attention processor
 
+if is_package_available("flash_attn"):
+    from flash_attn.bert_padding import pad_input, unpad_input
+    from flash_attn import flash_attn_varlen_func, flash_attn_func
+
 
 class AttnProcessor:
     def __init__(
         self,
         pe_attn_head: int | None = None,  # number of attention head to apply rope, None for all
+        attn_backend: str = "flash_attn",
+        attn_mask_enabled: bool = True,
     ):
+        if attn_backend == "flash_attn":
+            assert is_package_available("flash_attn"), "Please install flash-attn first."
+
         self.pe_attn_head = pe_attn_head
+        self.attn_backend = attn_backend
+        self.attn_mask_enabled = attn_mask_enabled
 
     def __call__(
         self,
         attn: Attention,
-        x: float["b n d"],  # noised input x  # noqa: F722
-        mask: bool["b n"] | None = None,  # noqa: F722
+        x: float["b n d"],  # noised input x
+        mask: bool["b n"] | None = None,
         rope=None,  # rotary position embedding
     ) -> torch.FloatTensor:
         batch_size = x.shape[0]
@@ -479,16 +493,40 @@ class AttnProcessor:
                 query = apply_rotary_pos_emb(query, freqs, q_xpos_scale)
                 key = apply_rotary_pos_emb(key, freqs, k_xpos_scale)
 
-        # mask. e.g. inference got a batch with different target durations, mask out the padding
-        if mask is not None:
-            attn_mask = mask
-            attn_mask = attn_mask.unsqueeze(1).unsqueeze(1)  # 'b n -> b 1 1 n'
-            attn_mask = attn_mask.expand(batch_size, attn.heads, query.shape[-2], key.shape[-2])
-        else:
-            attn_mask = None
+        if self.attn_backend == "torch":
+            # mask. e.g. inference got a batch with different target durations, mask out the padding
+            if self.attn_mask_enabled and mask is not None:
+                attn_mask = mask
+                attn_mask = attn_mask.unsqueeze(1).unsqueeze(1)  # 'b n -> b 1 1 n'
+                attn_mask = attn_mask.expand(batch_size, attn.heads, query.shape[-2], key.shape[-2])
+            else:
+                attn_mask = None
+            x = F.scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=0.0, is_causal=False)
+            x = x.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
 
-        x = F.scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=0.0, is_causal=False)
-        x = x.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
+        elif self.attn_backend == "flash_attn":
+            query = query.transpose(1, 2)  # [b, h, n, d] -> [b, n, h, d]
+            key = key.transpose(1, 2)
+            value = value.transpose(1, 2)
+            if self.attn_mask_enabled and mask is not None:
+                query, indices, q_cu_seqlens, q_max_seqlen_in_batch, _ = unpad_input(query, mask)
+                key, _, k_cu_seqlens, k_max_seqlen_in_batch, _ = unpad_input(key, mask)
+                value, _, _, _, _ = unpad_input(value, mask)
+                x = flash_attn_varlen_func(
+                    query,
+                    key,
+                    value,
+                    q_cu_seqlens,
+                    k_cu_seqlens,
+                    q_max_seqlen_in_batch,
+                    k_max_seqlen_in_batch,
+                )
+                x = pad_input(x, indices, batch_size, q_max_seqlen_in_batch)
+                x = x.reshape(batch_size, -1, attn.heads * head_dim)
+            else:
+                x = flash_attn_func(query, key, value, dropout_p=0.0, causal=False)
+                x = x.reshape(batch_size, -1, attn.heads * head_dim)
+
         x = x.to(query.dtype)
 
         # linear proj
@@ -514,9 +552,9 @@ class JointAttnProcessor:
     def __call__(
         self,
         attn: Attention,
-        x: float["b n d"],  # noised input x  # noqa: F722
-        c: float["b nt d"] = None,  # context c, here text # noqa: F722
-        mask: bool["b n"] | None = None,  # noqa: F722
+        x: float["b n d"],  # noised input x
+        c: float["b nt d"] = None,  # context c, here text
+        mask: bool["b n"] | None = None,
         rope=None,  # rotary position embedding for x
         c_rope=None,  # rotary position embedding for c
     ) -> torch.FloatTensor:
@@ -608,12 +646,27 @@ class JointAttnProcessor:
 
 
 class DiTBlock(nn.Module):
-    def __init__(self, dim, heads, dim_head, ff_mult=4, dropout=0.1, qk_norm=None, pe_attn_head=None):
+    def __init__(
+        self,
+        dim,
+        heads,
+        dim_head,
+        ff_mult=4,
+        dropout=0.1,
+        qk_norm=None,
+        pe_attn_head=None,
+        attn_backend="flash_attn",
+        attn_mask_enabled=True,
+    ):
         super().__init__()
 
         self.attn_norm = AdaLayerNorm(dim)
         self.attn = Attention(
-            processor=AttnProcessor(pe_attn_head=pe_attn_head),
+            processor=AttnProcessor(
+                pe_attn_head=pe_attn_head,
+                attn_backend=attn_backend,
+                attn_mask_enabled=attn_mask_enabled,
+            ),
             dim=dim,
             heads=heads,
             dim_head=dim_head,
@@ -724,7 +777,7 @@ class TimestepEmbedding(nn.Module):
         self.time_embed = SinusPositionEmbedding(freq_embed_dim)
         self.time_mlp = nn.Sequential(nn.Linear(freq_embed_dim, dim), nn.SiLU(), nn.Linear(dim, dim))
 
-    def forward(self, timestep: float["b"]):  # noqa: F821
+    def forward(self, timestep: float["b"]):
         time_hidden = self.time_embed(timestep)
         time_hidden = time_hidden.to(timestep.dtype)
         time = self.time_mlp(time_hidden)  # b d
