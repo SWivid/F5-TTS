@@ -163,15 +163,31 @@ class CFM(nn.Module):
             # step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))
 
             # predict flow
-            pred = self.transformer(
-                x=x, cond=step_cond, text=text, time=t, mask=mask, drop_audio_cond=False, drop_text=False, cache=True
-            )
             if cfg_strength < 1e-5:
+                pred = self.transformer(
+                    x=x,
+                    cond=step_cond,
+                    text=text,
+                    time=t,
+                    mask=mask,
+                    drop_audio_cond=False,
+                    drop_text=False,
+                    cache=True,
+                )
                 return pred
 
-            null_pred = self.transformer(
-                x=x, cond=step_cond, text=text, time=t, mask=mask, drop_audio_cond=True, drop_text=True, cache=True
+            pred_and_null = self.transformer(
+                x=x,
+                cond=step_cond,
+                text=text,
+                time=t,
+                mask=mask,
+                drop_audio_cond=False,
+                drop_text=False,
+                batch_cfg=True,
+                cache=True,
             )
+            pred, null_pred = torch.chunk(pred_and_null, 2, dim=0)
             return pred + (pred - null_pred) * cfg_strength
 
         # noise input
