@@ -150,8 +150,16 @@ def main():
 
     ckpt_path = rel_path + f"/ckpts/{exp_name}/model_{ckpt_step}.pt"
     if not os.path.exists(ckpt_path):
+        safetensors_path = ckpt_path.replace(".pt", ".safetensors")
+        if os.path.exists(safetensors_path):
+            ckpt_path = safetensors_path
+            print(f"Loading from {ckpt_path}")
+        else:
+            raise FileNotFoundError(f"Checkpoint file not found: {ckpt_path}")
+    else:
         print("Loading from self-organized training checkpoints rather than released pretrained.")
         ckpt_path = rel_path + f"/{model_cfg.ckpts.save_dir}/model_{ckpt_step}.pt"
+
     dtype = torch.float32 if mel_spec_type == "bigvgan" else None
     model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
 

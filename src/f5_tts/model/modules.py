@@ -434,6 +434,12 @@ class Attention(nn.Module):
 
 # Attention processor
 
+if is_package_available("flash_attn"):
+    from flash_attn.bert_padding import pad_input, unpad_input
+    from flash_attn import flash_attn_varlen_func, flash_attn_func
+else:
+    print("flash_attn is not installed, using torch.scaled_dot_product_attention instead.")
+
 
 class AttnProcessor:
     def __init__(
@@ -444,9 +450,6 @@ class AttnProcessor:
     ):
         if attn_backend == "flash_attn":
             assert is_package_available("flash_attn"), "Please install flash-attn first."
-
-            from flash_attn.bert_padding import pad_input, unpad_input
-            from flash_attn import flash_attn_varlen_func, flash_attn_func
 
         self.pe_attn_head = pe_attn_head
         self.attn_backend = attn_backend
