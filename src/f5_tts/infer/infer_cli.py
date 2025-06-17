@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
+from unidecode import unidecode
 
 import numpy as np
 import soundfile as sf
@@ -345,7 +346,7 @@ def main():
             if len(gen_text_) > 200:
                 gen_text_ = gen_text_[:200] + " ... "
             sf.write(
-                os.path.join(output_chunk_dir, f"{len(generated_audio_segments) - 1}_{gen_text_}.wav"),
+                os.path.join(output_chunk_dir, f"{len(generated_audio_segments) - 1}_{unidecode(gen_text_)}.wav"),
                 audio_segment,
                 final_sample_rate,
             )
