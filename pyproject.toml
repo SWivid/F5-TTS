@@ -40,7 +40,7 @@ dependencies = [
     "transformers_stream_generator",
     "vocos",
     "wandb",
-    "unidecode"
+    "unidecode",
     "x_transformers>=1.31.14",
 ]
 
