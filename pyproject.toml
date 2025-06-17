@@ -38,9 +38,9 @@ dependencies = [
     "tqdm>=4.65.0",
     "transformers",
     "transformers_stream_generator",
+    "unidecode",
     "vocos",
     "wandb",
-    "unidecode",
     "x_transformers>=1.31.14",
 ]
 
