@@ -178,11 +178,6 @@ def get_audio_duration(audio_path):
     return audio.shape[1] / sample_rate
 
 
-def clear_text(text):
-    """Clean and prepare text by lowering the case and stripping whitespace."""
-    return text.lower().strip()
-
-
 def get_rms(
     y,
     frame_length=2048,
@@ -707,7 +702,7 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
 
             try:
                 text = transcribe(file_segment, language)
-                text = text.lower().strip().replace('"', "")
+                text = text.strip()
 
                 data += f"{name_segment}|{text}\n"
 
@@ -816,7 +811,7 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
             error_files.append([file_audio, "very short text length 3"])
             continue
 
-        text = clear_text(text)
+        text = text.strip()
         text = convert_char_to_pinyin([text], polyphone=True)[0]
 
         audio_path_list.append(file_audio)
@@ -1234,8 +1229,8 @@ def infer(
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         tts_api.infer(
             ref_file=ref_audio,
-            ref_text=ref_text.lower().strip(),
-            gen_text=gen_text.lower().strip(),
+            ref_text=ref_text.strip(),
+            gen_text=gen_text.strip(),
             nfe_step=nfe_step,
             speed=speed,
             remove_silence=remove_silence,
