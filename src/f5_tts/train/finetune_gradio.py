@@ -1127,7 +1127,7 @@ def vocab_check(project_name, tokenizer_type):
         if len(sp) != 2:
             continue
 
-        text = sp[1].lower().strip()
+        text = sp[1].strip()
         if tokenizer_type == "pinyin":
             text = convert_char_to_pinyin([text], polyphone=True)[0]
 
