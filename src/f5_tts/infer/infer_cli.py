@@ -12,6 +12,7 @@ import tomli
 from cached_path import cached_path
 from hydra.utils import get_class
 from omegaconf import OmegaConf
+from sanitize_filename import sanitize
 from unidecode import unidecode
 
 from f5_tts.infer.utils_infer import (
@@ -359,7 +360,7 @@ def main():
             if use_legacy_text:
                 gen_text_ = unidecode(gen_text_)
             sf.write(
-                os.path.join(output_chunk_dir, f"{len(generated_audio_segments) - 1}_{gen_text_}.wav"),
+                os.path.join(output_chunk_dir, sanitize(f"{len(generated_audio_segments) - 1}_{gen_text_}.wav")),
                 audio_segment,
                 final_sample_rate,
             )
