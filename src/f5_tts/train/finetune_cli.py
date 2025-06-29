@@ -127,7 +127,7 @@ def main():
                 if mel_spec_type == "vocos":
                     ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
                 else:
-                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1200000.pt"))
+                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt"))
             else:
                 ckpt_path = args.pretrain
 
