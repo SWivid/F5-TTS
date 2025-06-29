@@ -89,7 +89,10 @@ def main():
     args = parse_args()
 
     checkpoint_path = str(files("f5_tts").joinpath(f"../../ckpts/{args.dataset_name}"))
-    mel_spec_type = args.mel_spec_type
+    if args.exp_name == "F5TTS_Base_bigvgan":
+        mel_spec_type = "bigvgan"
+    else:
+        mel_spec_type = "vocos"
     # Model parameters based on experiment name
 
     if args.exp_name == "F5TTS_v1_Base":
@@ -109,7 +112,7 @@ def main():
             else:
                 ckpt_path = args.pretrain
 
-    elif args.exp_name == "F5TTS_Base":
+    elif args.exp_name == "F5TTS_Base" or args.exp_name == "F5TTS_Base_bigvgan":
         wandb_resume_id = None
         model_cls = DiT
         model_cfg = dict(
@@ -124,13 +127,12 @@ def main():
         )
         if args.finetune:
             if args.pretrain is None:
-                if mel_spec_type == "vocos":
+                if args.exp_name == "F5TTS_Base":
                     ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
                 else:
                     ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt"))
             else:
                 ckpt_path = args.pretrain
-
     elif args.exp_name == "E2TTS_Base":
         wandb_resume_id = None
         model_cls = UNetT
