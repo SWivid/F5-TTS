@@ -27,7 +27,7 @@ def parse_args():
         "--exp_name",
         type=str,
         default="F5TTS_v1_Base",
-        choices=["F5TTS_v1_Base", "F5TTS_Base", "E2TTS_Base"],
+        choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"],
         help="Experiment name",
     )
     parser.add_argument(
