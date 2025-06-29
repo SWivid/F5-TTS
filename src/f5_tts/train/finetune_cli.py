@@ -16,7 +16,7 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
-mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
+# mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
 
 
 # -------------------------- Argument Parsing --------------------------- #
@@ -29,6 +29,13 @@ def parse_args():
         default="F5TTS_v1_Base",
         choices=["F5TTS_v1_Base", "F5TTS_Base", "E2TTS_Base"],
         help="Experiment name",
+    )
+    parser.add_argument(
+        "--mel_spec_type",
+        type=str,
+        default="vocos",
+        choices=["vocos", "bigvgan"],
+        help="Mel spectrogram type",
     )
     parser.add_argument("--dataset_name", type=str, default="Emilia_ZH_EN", help="Name of the dataset to use")
     parser.add_argument("--learning_rate", type=float, default=1e-5, help="Learning rate for training")
@@ -82,7 +89,7 @@ def main():
     args = parse_args()
 
     checkpoint_path = str(files("f5_tts").joinpath(f"../../ckpts/{args.dataset_name}"))
-
+    mel_spec_type = args.mel_spec_type
     # Model parameters based on experiment name
 
     if args.exp_name == "F5TTS_v1_Base":
@@ -117,7 +124,10 @@ def main():
         )
         if args.finetune:
             if args.pretrain is None:
-                ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
+                if mel_spec_type == "vocos":
+                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
+                else:
+                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1200000.pt"))
             else:
                 ckpt_path = args.pretrain
 
@@ -200,6 +210,7 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
+        mel_spec_type=mel_spec_type
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
