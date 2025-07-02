@@ -13,8 +13,8 @@ output_file = "infer_cli_story.wav"
 [voices.town]
 ref_audio = "infer/examples/multi/town.flac"
 ref_text = ""
+speed = 0.8  # will ignore global speed
 
 [voices.country]
 ref_audio = "infer/examples/multi/country.flac"
 ref_text = ""
-
