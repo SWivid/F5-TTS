@@ -377,11 +377,17 @@ def main():
 
         # Subtitle generation
         if output_subtitle_file:
+            # Clean up text for subtitle and add speaker tag
+            clean_text = gen_text_
+            if clean_text.startswith('"') and clean_text.endswith('"'):
+                clean_text = clean_text[1:-1]
+
             segment_duration_ms = (len(audio_segment) / final_sample_rate) * 1000
             text_begin = text_offset
-            text_end = text_offset + len(gen_text_)
+            text_end = text_offset + len(gen_text_)  # Use original length for offset
             subtitle_entry = {
-                "text": gen_text_,
+                "text": clean_text,
+                "speaker": voice,
                 "time_begin": cumulative_time_ms,
                 "time_end": cumulative_time_ms + segment_duration_ms,
                 "text_begin": text_begin,
