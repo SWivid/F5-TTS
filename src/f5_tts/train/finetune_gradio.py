@@ -178,45 +178,12 @@ def get_audio_duration(audio_path):
     return audio.shape[1] / sample_rate
 
 
-def get_rms(
-    y,
-    frame_length=2048,
-    hop_length=512,
-    pad_mode="constant",
-):  # https://github.com/RVC-Boss/GPT-SoVITS/blob/main/tools/slicer2.py
-    padding = (int(frame_length // 2), int(frame_length // 2))
-    y = np.pad(y, padding, mode=pad_mode)
-
-    axis = -1
-    # put our new within-frame axis at the end for now
-    out_strides = y.strides + tuple([y.strides[axis]])
-    # Reduce the shape on the framing axis
-    x_shape_trimmed = list(y.shape)
-    x_shape_trimmed[axis] -= frame_length - 1
-    out_shape = tuple(x_shape_trimmed) + tuple([frame_length])
-    xw = np.lib.stride_tricks.as_strided(y, shape=out_shape, strides=out_strides)
-    if axis < 0:
-        target_axis = axis - 1
-    else:
-        target_axis = axis + 1
-    xw = np.moveaxis(xw, -1, target_axis)
-    # Downsample along the target axis
-    slices = [slice(None)] * xw.ndim
-    slices[axis] = slice(0, None, hop_length)
-    x = xw[tuple(slices)]
-
-    # Calculate power
-    power = np.mean(np.abs(x) ** 2, axis=-2, keepdims=True)
-
-    return np.sqrt(power)
-
-
 class Slicer:  # https://github.com/RVC-Boss/GPT-SoVITS/blob/main/tools/slicer2.py
     def __init__(
         self,
         sr: int,
         threshold: float = -40.0,
-        min_length: int = 2000,
+        min_length: int = 20000,  # 20 seconds
         min_interval: int = 300,
         hop_size: int = 20,
         max_sil_kept: int = 2000,
@@ -247,7 +214,7 @@ class Slicer:  # https://github.com/RVC-Boss/GPT-SoVITS/blob/main/tools/slicer2.
             samples = waveform
         if samples.shape[0] <= self.min_length:
             return [waveform]
-        rms_list = get_rms(y=samples, frame_length=self.win_size, hop_length=self.hop_size).squeeze(0)
+        rms_list = librosa.feature.rms(y=samples, frame_length=self.win_size, hop_length=self.hop_size).squeeze(0)
         sil_tags = []
         silence_start = None
         clip_start = 0
@@ -301,8 +268,7 @@ class Slicer:  # https://github.com/RVC-Boss/GPT-SoVITS/blob/main/tools/slicer2.
             silence_end = min(total_frames, silence_start + self.max_sil_kept)
             pos = rms_list[silence_start : silence_end + 1].argmin() + silence_start
             sil_tags.append((pos, total_frames + 1))
-        # Apply and return slices.
-        ####音频+起始时间+终止时间
+        # Apply and return slices: [chunk, start, end]
         if len(sil_tags) == 0:
             return [[waveform, 0, int(total_frames * self.hop_size)]]
         else:
