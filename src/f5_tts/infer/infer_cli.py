@@ -326,16 +326,26 @@ def main():
     cumulative_time_ms = 0
     text_offset = 0
 
-    reg1 = r"(?=\[\\w+\])"
-    chunks = re.split(reg1, gen_text)
-    reg2 = r"\[(\\w+)\]"
+    reg1 = r"(\[\w+\])"
+    parts = re.split(reg1, gen_text)
+    chunks = []
+    # The first part may not have a tag, default to [main]
+    if parts[0].strip():
+        chunks.append("[main]" + parts[0])
+    # Combine tags with their corresponding text
+    for i in range(1, len(parts), 2):
+        tag = parts[i]
+        text = parts[i + 1]
+        if text.strip():
+            chunks.append(tag + text)
+
+    reg2 = r"\[(\w+)\]"
     for text in chunks:
-        if not text.strip():
-            continue
         match = re.match(reg2, text)
         if match:
             voice = match[1]
         else:
+            # This else block should ideally not be reached with the new logic
             print("No voice tag found, using main.")
             voice = "main"
         if voice not in voices:
