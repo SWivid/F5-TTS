@@ -103,6 +103,8 @@ gen_text = "I don't really care what you call me. I've been a silent spectator, 
 gen_file = ""
 remove_silence = false
 output_dir = "tests"
+# To generate a subtitle file along with the audio
+output_subtitle_file = "subtitle.json"
 ```
 
 You can also leverage `.toml` file to do multi-style generation, refer to `src/f5_tts/infer/examples/multi/story.toml`.
