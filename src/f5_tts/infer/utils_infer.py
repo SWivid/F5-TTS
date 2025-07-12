@@ -173,13 +173,30 @@ def transcribe(ref_audio, language=None):
     global asr_pipe
     if asr_pipe is None:
         initialize_asr_pipeline(device=device)
-    return asr_pipe(
-        ref_audio,
-        chunk_length_s=30,
-        batch_size=128,
-        generate_kwargs={"task": "transcribe", "language": language} if language else {"task": "transcribe"},
-        return_timestamps=False,
-    )["text"].strip()
+
+    import warnings
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")  # Capture all warnings
+
+        result = asr_pipe(
+            ref_audio,
+            chunk_length_s=30,
+            batch_size=128,
+            generate_kwargs={"task": "transcribe", "language": language} if language else {"task": "transcribe"},
+            return_timestamps=False,
+        )["text"].strip()
+
+        # Check for the specific warning that indicates a problem
+        for warning_message in w:
+            if issubclass(warning_message.category, UserWarning) and "The attention mask is not set" in str(warning_message.message):
+                raise RuntimeError(
+                    f"ERROR: Failed to process reference audio '{ref_audio}'. "
+                    f"The audio quality or format may be incompatible, leading to an 'attention mask' warning during transcription. "
+                    f"Please provide a clean, high-quality reference audio file (e.g., 16-bit WAV) and its accurate transcript to resolve this issue."
+                )
+
+    return result
 
 
 # load model checkpoint for inference
