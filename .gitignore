@@ -2,7 +2,11 @@
 .vscode/
 tests/
 runs/
-data/
+
+data/*
+#train benchmark dataset
+!data/train-benchmark_pinyin/
+
 ckpts/
 wandb/
 results/
