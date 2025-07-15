@@ -1,4 +1,8 @@
-﻿import time
+﻿from colorama import init as colorama_init
+from colorama import Fore
+from colorama import Style
+
+import time
 import argparse
 import os
 import shutil
@@ -44,8 +48,6 @@ def main():
         if file.endswith(".pt"):
           os.remove(os.path.join(checkpoint_path, file))  
     
-    print(f"CP path {checkpoint_path}")
-
     file_checkpoint = os.path.basename(ckpt_path)
     if not file_checkpoint.startswith("pretrained_"):  # Change: Add 'pretrained_' prefix to copied model
         file_checkpoint = "pretrained_" + file_checkpoint
@@ -56,9 +58,6 @@ def main():
 
     tokenizer = "pinyin"
     vocab_char_map, vocab_size = get_tokenizer(dataset_name, tokenizer)
-
-    print("\nvocab : ", vocab_size)
-    print("vocoder : ", mel_spec_type)
 
     mel_spec_kwargs = dict(
         n_fft=n_fft,
@@ -108,7 +107,9 @@ def main():
     if os.path.isfile(lastpt_file):
         os.remove(lastpt_file)
         
-    print(f"\nProcessing time {training_time:.2f} sec, \nF5-TTS Performance score: {1e05 / training_time:.2f} F5PS")
+    print(f"\nProcessing time {training_time:.2f} sec")
+    colorama_init()
+    print(f"F5-TTS Performance score: {Fore.GREEN}{1e05 / training_time:.2f}{Style.RESET_ALL} F5PS")   
 
 
 if __name__ == "__main__":
