@@ -185,6 +185,9 @@ f5-tts_infer-cli --model F5TTS_v1_Base \
 --ref_text "The content, subtitle or transcription of reference audio." \
 --gen_text "Some text you want TTS model generate for you."
 
+# Generate a subtitle file along with the audio
+f5-tts_infer-cli --output_subtitle_file subtitle.json --gen_text "This is a test."
+
 # Run with default setting. src/f5_tts/infer/examples/basic/basic.toml
 f5-tts_infer-cli
 # Or with your own .toml file
