@@ -132,8 +132,10 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         while True:
             row = self.data[index]   
-            
-            audio_path = os.path.join(self.path_project, row["audio_path"]) if not os.path.isabs(row["audio_path"]) else row["audio_path"]
+                                             
+            audio_path = os.path.normpath(row["audio_path"])          
+            if not os.path.isabs(audio_path):
+              audio_path = os.path.join(self.path_project, audio_path) 
             
             text = row["text"]
             duration = row["duration"]
