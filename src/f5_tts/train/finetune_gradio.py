@@ -779,12 +779,14 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
 
         text = text.strip()
         text = convert_char_to_pinyin([text], polyphone=True)[0]
-
-        audio_path_list.append(file_audio)
+           
+        rel_audio_path = os.path.relpath(file_audio, path_project)
+        
+        audio_path_list.append(rel_audio_path)
         duration_list.append(duration)
         text_list.append(text)
 
-        result.append({"audio_path": file_audio, "text": text, "duration": duration})
+        result.append({"audio_path": rel_audio_path, "text": text, "duration": duration})
         if ch_tokenizer:
             text_vocab_set.update(list(text))
 

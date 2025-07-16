@@ -1,3 +1,4 @@
+import os
 import json
 from importlib.resources import files
 
@@ -13,6 +14,7 @@ from tqdm import tqdm
 from f5_tts.model.modules import MelSpec
 from f5_tts.model.utils import default
 
+rel_data_path = None
 
 class HFDataset(Dataset):
     def __init__(
@@ -92,6 +94,7 @@ class CustomDataset(Dataset):
         mel_spec_type="vocos",
         preprocessed_mel=False,
         mel_spec_module: nn.Module | None = None,
+        path_project: str = ".",
     ):
         self.data = custom_dataset
         self.durations = durations
@@ -101,6 +104,7 @@ class CustomDataset(Dataset):
         self.win_length = win_length
         self.mel_spec_type = mel_spec_type
         self.preprocessed_mel = preprocessed_mel
+        self.path_project = path_project
 
         if not preprocessed_mel:
             self.mel_spectrogram = default(
@@ -127,8 +131,12 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, index):
         while True:
-            row = self.data[index]
-            audio_path = row["audio_path"]
+            row = self.data[index]   
+                                             
+            audio_path = os.path.normpath(row["audio_path"])          
+            if not os.path.isabs(audio_path):
+              audio_path = os.path.join(self.path_project, audio_path) 
+            
             text = row["text"]
             duration = row["duration"]
 
@@ -255,8 +263,9 @@ def load_dataset(
 
     print("Loading dataset ...")
 
+    rel_data_path = str(files("f5_tts").joinpath(f"../../data/{dataset_name}_{tokenizer}"))
+
     if dataset_type == "CustomDataset":
-        rel_data_path = str(files("f5_tts").joinpath(f"../../data/{dataset_name}_{tokenizer}"))
         if audio_type == "raw":
             try:
                 train_dataset = load_from_disk(f"{rel_data_path}/raw")
@@ -274,6 +283,7 @@ def load_dataset(
             durations=durations,
             preprocessed_mel=preprocessed_mel,
             mel_spec_module=mel_spec_module,
+            path_project=rel_data_path,
             **mel_spec_kwargs,
         )
 
@@ -287,7 +297,7 @@ def load_dataset(
             data_dict = json.load(f)
         durations = data_dict["duration"]
         train_dataset = CustomDataset(
-            train_dataset, durations=durations, preprocessed_mel=preprocessed_mel, **mel_spec_kwargs
+            train_dataset, durations=durations, preprocessed_mel=preprocessed_mel, path_project=rel_data_path, **mel_spec_kwargs
         )
 
     elif dataset_type == "HFDataset":

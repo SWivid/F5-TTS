@@ -3,6 +3,7 @@ from __future__ import annotations
 import gc
 import math
 import os
+import time
 
 import torch
 import torchaudio
@@ -334,7 +335,9 @@ class Trainer:
             skipped_batch = start_step % orig_epoch_step
             skipped_dataloader = self.accelerator.skip_first_batches(train_dataloader, num_batches=skipped_batch)
         else:
-            skipped_epoch = 0
+            skipped_epoch = 0  
+            
+        training_time = 0 # benchmark
 
         for epoch in range(skipped_epoch, self.epochs):
             self.model.train()
@@ -433,7 +436,14 @@ class Trainer:
                             f"{log_samples_path}/update_{global_update}_ref.wav", ref_audio, target_sample_rate
                         )
                         self.model.train()
+            
+            if training_time == 0: 
+              training_time = time.time() # benchmark timestamp 
 
+        training_time = time.time() - training_time # benchmark result
+        
         self.save_checkpoint(global_update, last=True)
 
         self.accelerator.end_training()
+        
+        return training_time
