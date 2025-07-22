@@ -178,7 +178,7 @@ def main():
 
     # dataset = Dataset.from_dict({"audio_path": audio_path_list, "text": text_list, "duration": duration_list})  # oom
     # dataset.save_to_disk(f"{save_dir}/raw", max_shard_size="2GB")
-    with ArrowWriter(path=f"{save_dir}/raw.arrow", writer_batch_size=100) as writer:
+    with ArrowWriter(path=f"{save_dir}/raw.arrow") as writer:
         for line in tqdm(result, desc="Writing to raw.arrow ..."):
             writer.write(line)
         writer.finalize()
