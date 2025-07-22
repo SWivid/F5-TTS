@@ -68,6 +68,7 @@ def main():
     with ArrowWriter(path=f"{save_dir}/raw.arrow") as writer:
         for line in tqdm(result, desc="Writing to raw.arrow ..."):
             writer.write(line)
+        writer.finalize()
 
     with open(f"{save_dir}/duration.json", "w", encoding="utf-8") as f:
         json.dump({"duration": duration_list}, f, ensure_ascii=False)
