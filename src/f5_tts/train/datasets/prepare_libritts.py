@@ -59,9 +59,10 @@ def main():
         os.makedirs(f"{save_dir}")
     print(f"\nSaving to {save_dir} ...")
 
-    with ArrowWriter(path=f"{save_dir}/raw.arrow") as writer:
+    with ArrowWriter(path=f"{save_dir}/raw.arrow", writer_batch_size=100) as writer:
         for line in tqdm(result, desc="Writing to raw.arrow ..."):
             writer.write(line)
+        writer.finalize()
 
     # dup a json separately saving duration in case for DynamicBatchSampler ease
     with open(f"{save_dir}/duration.json", "w", encoding="utf-8") as f:

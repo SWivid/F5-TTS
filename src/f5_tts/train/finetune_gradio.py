@@ -796,7 +796,8 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     min_second = round(min(duration_list), 2)
     max_second = round(max(duration_list), 2)
 
-    with ArrowWriter(path=file_raw, writer_batch_size=1) as writer:
+    # Save dataset with improved batch size for better I/O performance
+    with ArrowWriter(path=file_raw, writer_batch_size=100) as writer:
         for line in progress.tqdm(result, total=len(result), desc="prepare data"):
             writer.write(line)
         writer.finalize()
