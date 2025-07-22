@@ -213,6 +213,7 @@ def save_prepped_dataset(out_dir, result, duration_list, text_vocab_set, is_fine
     with ArrowWriter(path=raw_arrow_path.as_posix(), writer_batch_size=100) as writer:
         for line in tqdm(result, desc="Writing to raw.arrow ..."):
             writer.write(line)
+        writer.finalize()
 
     # Save durations to JSON
     dur_json_path = out_dir / "duration.json"

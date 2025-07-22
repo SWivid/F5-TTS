@@ -799,6 +799,7 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     with ArrowWriter(path=file_raw, writer_batch_size=1) as writer:
         for line in progress.tqdm(result, total=len(result), desc="prepare data"):
             writer.write(line)
+        writer.finalize()
 
     with open(file_duration, "w") as f:
         json.dump({"duration": duration_list}, f, ensure_ascii=False)
