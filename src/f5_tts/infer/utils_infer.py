@@ -302,6 +302,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         audio_hash = hashlib.md5(audio_data).hexdigest()
 
     global _ref_audio_cache
+    flag_long_audio = False
 
     if audio_hash in _ref_audio_cache:
         show_info("Using cached preprocessed reference audio...")
@@ -326,6 +327,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
 
         # 2. try to find short silence for clipping if 1. failed
         if len(non_silent_wave) > 12000:
+            flag_long_audio = True
             non_silent_segs = silence.split_on_silence(
                 aseg, min_silence_len=100, silence_thresh=-40, keep_silence=1000, seek_step=10
             )
@@ -341,6 +343,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         # 3. if no proper silence found for clipping
         if len(aseg) > 12000:
             aseg = aseg[:12000]
+            flag_long_audio = True
             show_info("Audio is over 12s, clipping short. (3)")
 
         aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
@@ -349,8 +352,8 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
 
         # Cache the processed reference audio
         _ref_audio_cache[audio_hash] = ref_audio
-
-    if not ref_text.strip():
+    
+    if not ref_text.strip() or flag_long_audio:
         global _ref_text_cache
         if audio_hash in _ref_text_cache:
             # Use cached asr transcription
