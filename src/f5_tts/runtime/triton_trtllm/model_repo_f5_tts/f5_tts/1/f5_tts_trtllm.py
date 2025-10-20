@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from tensorrt_llm._utils import str_dtype_to_torch, trt_dtype_to_torch
 from tensorrt_llm.logger import logger
 from tensorrt_llm.runtime.session import Session
+from torch.nn.utils.rnn import pad_sequence
 
 
 def remove_tensor_padding(input_tensor, input_tensor_lengths=None):
@@ -38,20 +39,15 @@ class TextEmbedding(nn.Module):
         self.register_buffer("freqs_cis", precompute_freqs_cis(text_dim, precompute_max_pos), persistent=False)
         self.text_blocks = nn.Sequential(*[ConvNeXtV2Block(text_dim, text_dim * conv_mult) for _ in range(conv_layers)])
 
-    def forward(self, text):
-        # only keep tensors with value not -1
-        text_mask = text != -1
-        text_pad_cut_off_index = text_mask.sum(dim=1).max()
+    def forward(self, text, seq_len):
+        text = text + 1
+        text = text[:, :seq_len]  # curtail if character tokens are more than the mel spec tokens
+        text = F.pad(text, (0, seq_len - text.shape[1]), value=0)
 
-        text = text[:, :text_pad_cut_off_index]
-        text = self.text_embed(text)
-        text = text + self.freqs_cis[: text.shape[1], :]
-        for block in self.text_blocks:
-            text = block(text)
-        # padding text to the original length
-        # text shape: B,seq_len,C
-        # pad at the second dimension
-        text = F.pad(text, (0, 0, 0, text_mask.shape[1] - text.shape[1], 0, 0), value=0)
+        text = self.text_embed(text)  # b n -> b n d
+        text = text + self.freqs_cis[:seq_len, :]
+        text = self.text_blocks(text)
+
         return text
 
 
@@ -112,20 +108,33 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_resca
     return torch.cat([freqs_cos, freqs_sin], dim=-1)
 
 
-def load_checkpoint(ckpt_path, use_ema=True):
-    checkpoint = torch.load(ckpt_path, weights_only=True)
+def get_text_embed_dict(ckpt_path, use_ema=True):
+    ckpt_type = ckpt_path.split(".")[-1]
+    if ckpt_type == "safetensors":
+        from safetensors.torch import load_file
+
+        checkpoint = load_file(ckpt_path)
+    else:
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+
     if use_ema:
+        if ckpt_type == "safetensors":
+            checkpoint = {"ema_model_state_dict": checkpoint}
         checkpoint["model_state_dict"] = {
             k.replace("ema_model.", ""): v
             for k, v in checkpoint["ema_model_state_dict"].items()
             if k not in ["initted", "step"]
         }
-    dict_state = checkpoint["model_state_dict"]
+    else:
+        if ckpt_type == "safetensors":
+            checkpoint = {"model_state_dict": checkpoint}
+    model_params = checkpoint["model_state_dict"]
+
     text_embed_dict = {}
-    for key in dict_state.keys():
+    for key in model_params.keys():
         # transformer.text_embed.text_embed.weight -> text_embed.weight
         if "text_embed" in key:
-            text_embed_dict[key.replace("transformer.text_embed.", "")] = dict_state[key]
+            text_embed_dict[key.replace("transformer.text_embed.", "")] = model_params[key]
     return text_embed_dict
 
 
@@ -196,15 +205,14 @@ class F5TTS(object):
         self.text_embedding = TextEmbedding(
             text_num_embeds=vocab_size, text_dim=512, conv_layers=4, precompute_max_pos=self.max_mel_len
         ).to(self.device)
-        self.text_embedding.load_state_dict(load_checkpoint(model_path), strict=True)
+        self.text_embedding.load_state_dict(get_text_embed_dict(model_path), strict=True)
 
-        self.target_audio_sample_rate = 24000
-        self.target_rms = 0.15  # target rms for audio
-        self.n_fft = 1024
-        self.win_length = 1024
-        self.hop_length = 256
+        # self.target_audio_sample_rate = 24000
+        # self.target_rms = 0.1  # least rms when inference, normalize to if lower
+        # self.n_fft = 1024
+        # self.win_length = 1024
+        # self.hop_length = 256
         self.n_mel_channels = 100
-        # self.max_mel_len = 3000
         self.head_dim = 64
         self.base_rescale_factor = 1.0
         self.interpolation_factor = 1.0
@@ -214,12 +222,21 @@ class F5TTS(object):
         self.freqs = freqs.repeat_interleave(2, dim=-1).unsqueeze(0)
         self.rope_cos = self.freqs.cos().half()
         self.rope_sin = self.freqs.sin().half()
-        self.nfe_steps = 16
-        t = torch.linspace(0, 1, self.nfe_steps + 1, dtype=torch.float32)
-        time_step = t + (-1.0) * (torch.cos(torch.pi * 0.5 * t) - 1 + t)
+
+        self.nfe_steps = 32
+        epss = {
+            5: [0, 2, 4, 8, 16, 32],
+            6: [0, 2, 4, 6, 8, 16, 32],
+            7: [0, 2, 4, 6, 8, 16, 24, 32],
+            10: [0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32],
+            12: [0, 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32],
+            16: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32],
+        }
+        t = 1 / 32 * torch.tensor(epss.get(self.nfe_steps, list(range(self.nfe_steps + 1))), dtype=torch.float32)
+        time_step = 1 - torch.cos(torch.pi * t / 2)
         delta_t = torch.diff(time_step)
-        # WAR: hard coding 256 here
-        tmp_dim = 256
+
+        tmp_dim = 256  # WAR: hard coding 256 here
         time_expand = torch.zeros((1, self.nfe_steps, tmp_dim), dtype=torch.float32)
         half_dim = tmp_dim // 2
         emb_factor = math.log(10000) / (half_dim - 1)
@@ -344,7 +361,7 @@ class F5TTS(object):
     def sample(
         self,
         text_pad_sequence: torch.Tensor,
-        ref_mel_batch: torch.Tensor,
+        cond_pad_sequence: torch.Tensor,
         ref_mel_len_batch: torch.Tensor,
         estimated_reference_target_mel_len: List[int],
         remove_input_padding: bool = False,
@@ -353,26 +370,43 @@ class F5TTS(object):
         if use_perf:
             torch.cuda.nvtx.range_push("text embedding")
         batch = text_pad_sequence.shape[0]
-        max_seq_len = ref_mel_batch.shape[1]
+        max_seq_len = cond_pad_sequence.shape[1]
 
-        text_pad_sequence_drop = torch.cat(
-            (text_pad_sequence, torch.zeros((1, text_pad_sequence.shape[1]), dtype=torch.int32).to(self.device)), dim=0
+        # get text_embed one by one to avoid misalignment
+        text_and_drop_embedding_list = []
+        for i in range(batch):
+            text_and_drop_embedding_i = self.text_embedding(
+                torch.cat(
+                    (
+                        text_pad_sequence[i].unsqueeze(0).to(self.device),
+                        torch.full((1, text_pad_sequence.shape[1]), -1, dtype=torch.int32).to(self.device),
+                    ),
+                    dim=0,
+                ),
+                estimated_reference_target_mel_len[i],
+            )
+            text_and_drop_embedding_list.extend([text_and_drop_embedding_i[0], text_and_drop_embedding_i[1]])
+
+        # pad separately computed text_embed to form batch with max_seq_len
+        text_and_drop_embedding = pad_sequence(
+            text_and_drop_embedding_list,
+            batch_first=True,
+            padding_value=0,
         )
+        text_embedding = text_and_drop_embedding[0::2]
+        text_embedding_drop = text_and_drop_embedding[1::2]
 
-        text_embedding_drop_list = []
-        for i in range(batch + 1):
-            text_embedding_drop_list.append(self.text_embedding(text_pad_sequence_drop[i].unsqueeze(0).to(self.device)))
-        text_embedding_drop_condition = torch.cat(text_embedding_drop_list, dim=0)
-
-        text_embedding = text_embedding_drop_condition[:-1]
-        # text_embedding_drop B,T,C batch should be the same
-        text_embedding_drop = text_embedding_drop_condition[-1].unsqueeze(0).repeat(batch, 1, 1)
-
-        noise = torch.randn_like(ref_mel_batch).to(self.device)
+        noise = torch.randn_like(cond_pad_sequence).to(self.device)
         rope_cos = self.rope_cos[:, :max_seq_len, :].float().repeat(batch, 1, 1)
         rope_sin = self.rope_sin[:, :max_seq_len, :].float().repeat(batch, 1, 1)
 
-        cat_mel_text = torch.cat((ref_mel_batch, text_embedding), dim=-1)
+        cat_mel_text = torch.cat(
+            (
+                cond_pad_sequence,
+                text_embedding,
+            ),
+            dim=-1,
+        )
         cat_mel_text_drop = torch.cat(
             (
                 torch.zeros((batch, max_seq_len, self.n_mel_channels), dtype=torch.float32).to(self.device),

@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import argparse
+import os
 
 import numpy as np
 import requests
@@ -65,14 +66,13 @@ def get_args():
         "--model-name",
         type=str,
         default="f5_tts",
-        choices=["f5_tts", "spark_tts"],
         help="triton model_repo module name to request",
     )
 
     parser.add_argument(
         "--output-audio",
         type=str,
-        default="output.wav",
+        default="tests/client_http.wav",
         help="Path to save the output audio",
     )
     return parser.parse_args()
@@ -140,4 +140,5 @@ if __name__ == "__main__":
     result = rsp.json()
     audio = result["outputs"][0]["data"]
     audio = np.array(audio, dtype=np.float32)
+    os.makedirs(os.path.dirname(args.output_audio), exist_ok=True)
     sf.write(args.output_audio, audio, 24000, "PCM_16")

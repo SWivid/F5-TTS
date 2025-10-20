@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Tsinghua Univ. (authors: Xingchen Song)
-#               2025               （authors: Yuekai Zhang）
+#               2025                (authors: Yuekai Zhang)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,38 +19,44 @@ benchmark.py --output-dir $log_dir \
 --batch-size $batch_size \
 --enable-warmup \
 --split-name $split_name \
---model-path $F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt \
---vocab-file $F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt \
+--model-path $CKPT_DIR/$model/model_1200000.pt \
+--vocab-file $CKPT_DIR/$model/vocab.txt \
 --vocoder-trt-engine-path $vocoder_trt_engine_path \
 --backend-type $backend_type \
---tllm-model-dir $F5_TTS_TRT_LLM_ENGINE_PATH || exit 1
+--tllm-model-dir $TRTLLM_ENGINE_DIR || exit 1
 """
 
 import argparse
+import importlib
 import json
 import os
+import sys
 import time
-from typing import Dict, List, Union
 
 import datasets
-import jieba
 import tensorrt as trt
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import torchaudio
 from datasets import load_dataset
-from f5_tts_trtllm import F5TTS
 from huggingface_hub import hf_hub_download
-from pypinyin import Style, lazy_pinyin
 from tensorrt_llm._utils import trt_dtype_to_torch
 from tensorrt_llm.logger import logger
 from tensorrt_llm.runtime.session import Session, TensorInfo
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 from vocos import Vocos
 
+
+sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../../../../src/")
+
+from f5_tts.eval.utils_eval import padded_mel_batch
+from f5_tts.model.modules import get_vocos_mel_spectrogram
+from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer, list_str_to_idx
+
+
+F5TTS = importlib.import_module("model_repo_f5_tts.f5_tts.1.f5_tts_trtllm").F5TTS
 
 torch.manual_seed(0)
 
@@ -111,22 +117,20 @@ def get_args():
     return args
 
 
-def padded_mel_batch(ref_mels, max_seq_len):
-    padded_ref_mels = []
-    for mel in ref_mels:
-        # pad along the last dimension
-        padded_ref_mel = F.pad(mel, (0, 0, 0, max_seq_len - mel.shape[0]), value=0)
-        padded_ref_mels.append(padded_ref_mel)
-    padded_ref_mels = torch.stack(padded_ref_mels)
-    return padded_ref_mels
-
-
 def data_collator(batch, vocab_char_map, device="cuda", use_perf=False):
     if use_perf:
         torch.cuda.nvtx.range_push("data_collator")
     target_sample_rate = 24000
     target_rms = 0.1
-    ids, ref_mel_list, ref_mel_len_list, estimated_reference_target_mel_len, reference_target_texts_list = (
+    (
+        ids,
+        ref_rms_list,
+        ref_mel_list,
+        ref_mel_len_list,
+        estimated_reference_target_mel_len,
+        reference_target_texts_list,
+    ) = (
+        [],
         [],
         [],
         [],
@@ -148,6 +152,7 @@ def data_collator(batch, vocab_char_map, device="cuda", use_perf=False):
         )
         ref_audio_org = torch.from_numpy(ref_audio_org).unsqueeze(0).float()
         ref_rms = torch.sqrt(torch.mean(torch.square(ref_audio_org)))
+        ref_rms_list.append(ref_rms)
         if ref_rms < target_rms:
             ref_audio_org = ref_audio_org * target_rms / ref_rms
 
@@ -159,40 +164,31 @@ def data_collator(batch, vocab_char_map, device="cuda", use_perf=False):
 
         if use_perf:
             torch.cuda.nvtx.range_push(f"mel_spectrogram {i}")
-        ref_mel = mel_spectrogram(ref_audio, vocoder="vocos", device="cuda")
+        ref_audio = ref_audio.to("cuda")
+        ref_mel = get_vocos_mel_spectrogram(ref_audio).squeeze(0)
         if use_perf:
             torch.cuda.nvtx.range_pop()
-        ref_mel = ref_mel.squeeze()
-        ref_mel_len = ref_mel.shape[0]
-        assert ref_mel.shape[1] == 100
+        ref_mel_len = ref_mel.shape[-1]
+        assert ref_mel.shape[0] == 100
 
         ref_mel_list.append(ref_mel)
         ref_mel_len_list.append(ref_mel_len)
 
         estimated_reference_target_mel_len.append(
-            int(ref_mel.shape[0] * (1 + len(target_text.encode("utf-8")) / len(prompt_text.encode("utf-8"))))
+            int(ref_mel_len * (1 + len(target_text.encode("utf-8")) / len(prompt_text.encode("utf-8"))))
         )
 
-    max_seq_len = max(estimated_reference_target_mel_len)
-    ref_mel_batch = padded_mel_batch(ref_mel_list, max_seq_len)
+    ref_mel_batch = padded_mel_batch(ref_mel_list)
     ref_mel_len_batch = torch.LongTensor(ref_mel_len_list)
 
     pinyin_list = convert_char_to_pinyin(reference_target_texts_list, polyphone=True)
     text_pad_sequence = list_str_to_idx(pinyin_list, vocab_char_map)
 
-    for i, item in enumerate(text_pad_sequence):
-        text_pad_sequence[i] = F.pad(
-            item, (0, estimated_reference_target_mel_len[i] - len(item)), mode="constant", value=-1
-        )
-        text_pad_sequence[i] += 1  # WAR: 0 is reserved for padding token, hard coding in F5-TTS
-    text_pad_sequence = pad_sequence(text_pad_sequence, padding_value=-1, batch_first=True).to(device)
-    text_pad_sequence = F.pad(
-        text_pad_sequence, (0, max_seq_len - text_pad_sequence.shape[1]), mode="constant", value=-1
-    )
     if use_perf:
         torch.cuda.nvtx.range_pop()
     return {
         "ids": ids,
+        "ref_rms_list": ref_rms_list,
         "ref_mel_batch": ref_mel_batch,
         "ref_mel_len_batch": ref_mel_len_batch,
         "text_pad_sequence": text_pad_sequence,
@@ -214,72 +210,6 @@ def init_distributed():
         "nccl",
     )
     return world_size, local_rank, rank
-
-
-def get_tokenizer(vocab_file_path: str):
-    """
-    tokenizer   - "pinyin" do g2p for only chinese characters, need .txt vocab_file
-                - "char" for char-wise tokenizer, need .txt vocab_file
-                - "byte" for utf-8 tokenizer
-                - "custom" if you're directly passing in a path to the vocab.txt you want to use
-    vocab_size  - if use "pinyin", all available pinyin types, common alphabets (also those with accent) and symbols
-                - if use "char", derived from unfiltered character & symbol counts of custom dataset
-                - if use "byte", set to 256 (unicode byte range)
-    """
-    with open(vocab_file_path, "r", encoding="utf-8") as f:
-        vocab_char_map = {}
-        for i, char in enumerate(f):
-            vocab_char_map[char[:-1]] = i
-    vocab_size = len(vocab_char_map)
-    return vocab_char_map, vocab_size
-
-
-def convert_char_to_pinyin(reference_target_texts_list, polyphone=True):
-    final_reference_target_texts_list = []
-    custom_trans = str.maketrans(
-        {";": ",", "“": '"', "”": '"', "‘": "'", "’": "'"}
-    )  # add custom trans here, to address oov
-
-    def is_chinese(c):
-        return "\u3100" <= c <= "\u9fff"  # common chinese characters
-
-    for text in reference_target_texts_list:
-        char_list = []
-        text = text.translate(custom_trans)
-        for seg in jieba.cut(text):
-            seg_byte_len = len(bytes(seg, "UTF-8"))
-            if seg_byte_len == len(seg):  # if pure alphabets and symbols
-                if char_list and seg_byte_len > 1 and char_list[-1] not in " :'\"":
-                    char_list.append(" ")
-                char_list.extend(seg)
-            elif polyphone and seg_byte_len == 3 * len(seg):  # if pure east asian characters
-                seg_ = lazy_pinyin(seg, style=Style.TONE3, tone_sandhi=True)
-                for i, c in enumerate(seg):
-                    if is_chinese(c):
-                        char_list.append(" ")
-                    char_list.append(seg_[i])
-            else:  # if mixed characters, alphabets and symbols
-                for c in seg:
-                    if ord(c) < 256:
-                        char_list.extend(c)
-                    elif is_chinese(c):
-                        char_list.append(" ")
-                        char_list.extend(lazy_pinyin(c, style=Style.TONE3, tone_sandhi=True))
-                    else:
-                        char_list.append(c)
-        final_reference_target_texts_list.append(char_list)
-
-    return final_reference_target_texts_list
-
-
-def list_str_to_idx(
-    text: Union[List[str], List[List[str]]],
-    vocab_char_map: Dict[str, int],  # {char: idx}
-    padding_value=-1,
-):
-    list_idx_tensors = [torch.tensor([vocab_char_map.get(c, 0) for c in t]) for t in text]  # pinyin or char style
-    # text = pad_sequence(list_idx_tensors, padding_value=padding_value, batch_first=True)
-    return list_idx_tensors
 
 
 def load_vocoder(
@@ -316,29 +246,11 @@ def load_vocoder(
     return vocoder
 
 
-def mel_spectrogram(waveform, vocoder="vocos", device="cuda"):
-    if vocoder == "vocos":
-        mel_stft = torchaudio.transforms.MelSpectrogram(
-            sample_rate=24000,
-            n_fft=1024,
-            win_length=1024,
-            hop_length=256,
-            n_mels=100,
-            power=1,
-            center=True,
-            normalized=False,
-            norm=None,
-        ).to(device)
-    mel = mel_stft(waveform.to(device))
-    mel = mel.clamp(min=1e-5).log()
-    return mel.transpose(1, 2)
-
-
 class VocosTensorRT:
     def __init__(self, engine_path="./vocos_vocoder.plan", stream=None):
         TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
         trt.init_libnvinfer_plugins(TRT_LOGGER, namespace="")
-        logger.info(f"Loading vae engine from {engine_path}")
+        logger.info(f"Loading vocoder engine from {engine_path}")
         self.engine_path = engine_path
         with open(engine_path, "rb") as f:
             engine_buffer = f.read()
@@ -368,20 +280,20 @@ def main():
     world_size, local_rank, rank = init_distributed()
     device = torch.device(f"cuda:{local_rank}")
 
-    vocab_char_map, vocab_size = get_tokenizer(args.vocab_file)
+    vocab_char_map, vocab_size = get_tokenizer(args.vocab_file, "custom")
 
-    tllm_model_dir = args.tllm_model_dir
-    config_file = os.path.join(tllm_model_dir, "config.json")
-    with open(config_file) as f:
-        config = json.load(f)
     if args.backend_type == "trt":
+        tllm_model_dir = args.tllm_model_dir
+        with open(os.path.join(tllm_model_dir, "config.json")) as f:
+            tllm_model_config = json.load(f)
         model = F5TTS(
-            config, debug_mode=False, tllm_model_dir=tllm_model_dir, model_path=args.model_path, vocab_size=vocab_size
+            tllm_model_config,
+            debug_mode=False,
+            tllm_model_dir=tllm_model_dir,
+            model_path=args.model_path,
+            vocab_size=vocab_size,
         )
     elif args.backend_type == "pytorch":
-        import sys
-
-        sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../../../../src/")
         from f5_tts.infer.utils_infer import load_model
         from f5_tts.model import DiT
 
@@ -445,20 +357,23 @@ def main():
             ref_mels, ref_mel_lens = batch["ref_mel_batch"].to(device), batch["ref_mel_len_batch"].to(device)
             text_pad_seq = batch["text_pad_sequence"].to(device)
             total_mel_lens = batch["estimated_reference_target_mel_len"]
+            cond_pad_seq = F.pad(ref_mels, (0, 0, 0, max(total_mel_lens) - ref_mels.shape[1], 0, 0))
             if args.backend_type == "trt":
                 _ = model.sample(
-                    text_pad_seq, ref_mels, ref_mel_lens, total_mel_lens, remove_input_padding=args.remove_input_padding
+                    text_pad_seq,
+                    cond_pad_seq,
+                    ref_mel_lens,
+                    total_mel_lens,
+                    remove_input_padding=args.remove_input_padding,
                 )
             elif args.backend_type == "pytorch":
+                total_mel_lens = torch.tensor(total_mel_lens, device=device)
                 with torch.inference_mode():
-                    text_pad_seq -= 1
-                    text_pad_seq[text_pad_seq == -2] = -1
-                    total_mel_lens = torch.tensor(total_mel_lens, device=device)
                     generated, _ = model.sample(
                         cond=ref_mels,
                         text=text_pad_seq,
                         duration=total_mel_lens,
-                        steps=16,
+                        steps=32,
                         cfg_strength=2.0,
                         sway_sampling_coef=-1,
                     )
@@ -478,13 +393,13 @@ def main():
         ref_mels, ref_mel_lens = batch["ref_mel_batch"].to(device), batch["ref_mel_len_batch"].to(device)
         text_pad_seq = batch["text_pad_sequence"].to(device)
         total_mel_lens = batch["estimated_reference_target_mel_len"]
-
+        cond_pad_seq = F.pad(ref_mels, (0, 0, 0, max(total_mel_lens) - ref_mels.shape[1], 0, 0))
         if args.use_perf:
             torch.cuda.nvtx.range_pop()
         if args.backend_type == "trt":
             generated, cost_time = model.sample(
                 text_pad_seq,
-                ref_mels,
+                cond_pad_seq,
                 ref_mel_lens,
                 total_mel_lens,
                 remove_input_padding=args.remove_input_padding,
@@ -494,20 +409,20 @@ def main():
             total_mel_lens = torch.tensor(total_mel_lens, device=device)
             with torch.inference_mode():
                 start_time = time.time()
-                text_pad_seq -= 1
-                text_pad_seq[text_pad_seq == -2] = -1
                 generated, _ = model.sample(
                     cond=ref_mels,
                     text=text_pad_seq,
                     duration=total_mel_lens,
                     lens=ref_mel_lens,
-                    steps=16,
+                    steps=32,
                     cfg_strength=2.0,
                     sway_sampling_coef=-1,
                 )
                 cost_time = time.time() - start_time
         decoding_time += cost_time
         vocoder_start_time = time.time()
+        target_rms = 0.1
+        target_sample_rate = 24000
         for i, gen in enumerate(generated):
             gen = gen[ref_mel_lens[i] : total_mel_lens[i], :].unsqueeze(0)
             gen_mel_spec = gen.permute(0, 2, 1).to(torch.float32)
@@ -519,13 +434,10 @@ def main():
                     torch.cuda.nvtx.range_pop()
             else:
                 generated_wave = vocoder(gen_mel_spec).squeeze(0).cpu()
-            target_rms = 0.1
-            target_sample_rate = 24_000
-            # if ref_rms_list[i] < target_rms:
-            #     generated_wave = generated_wave * ref_rms_list[i] / target_rms
-            rms = torch.sqrt(torch.mean(torch.square(generated_wave)))
-            if rms < target_rms:
-                generated_wave = generated_wave * target_rms / rms
+
+            if batch["ref_rms_list"][i] < target_rms:
+                generated_wave = generated_wave * batch["ref_rms_list"][i] / target_rms
+
             utt = batch["ids"][i]
             torchaudio.save(
                 f"{args.output_dir}/{utt}.wav",

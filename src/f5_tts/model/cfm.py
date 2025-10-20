@@ -252,10 +252,9 @@ class CFM(nn.Module):
             assert text.shape[0] == batch
 
         # lens and mask
-        if not exists(lens):
+        if not exists(lens):  # if lens not acquired by trainer from collate_fn
             lens = torch.full((batch,), seq_len, device=device)
-
-        mask = lens_to_mask(lens, length=seq_len)  # useless here, as collate_fn will pad to max length in batch
+        mask = lens_to_mask(lens, length=seq_len)
 
         # get a random span to mask out for training conditionally
         frac_lengths = torch.zeros((batch,), device=self.device).float().uniform_(*self.frac_lengths_mask)

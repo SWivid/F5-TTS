@@ -30,15 +30,6 @@ python3 client_grpc.py \
     --huggingface-dataset yuekai/seed_tts \
     --split-name test_zh \
     --log-dir ./log_concurrent_tasks_${num_task}
-
-# For offline Spark-TTS-0.5B
-python3 client_grpc.py \
-    --server-addr localhost \
-    --model-name spark_tts \
-    --num-tasks $num_task \
-    --huggingface-dataset yuekai/seed_tts \
-    --split-name wenetspeech4tts \
-    --log-dir ./log_concurrent_tasks_${num_task}
 """
 
 import argparse
@@ -176,8 +167,7 @@ def get_args():
         "--model-name",
         type=str,
         default="f5_tts",
-        choices=["f5_tts", "spark_tts"],
-        help="triton model_repo module name to request: transducer for k2, attention_rescoring for wenet offline, streaming_wenet for wenet streaming, infer_pipeline for paraformer large offline",
+        help="triton model_repo module name to request",
     )
 
     parser.add_argument(
@@ -206,7 +196,7 @@ def get_args():
         "--log-dir",
         type=str,
         required=False,
-        default="./tmp",
+        default="./tests/client_grpc",
         help="log directory",
     )
 

@@ -1,0 +1,3 @@
+# runtime/triton_trtllm related
+model.cache
+model_repo/

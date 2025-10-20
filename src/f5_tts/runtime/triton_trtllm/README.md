@@ -3,8 +3,7 @@
 ### Quick Start
 Directly launch the service using docker compose.
 ```sh
-# TODO: support F5TTS_v1_Base
-MODEL=F5TTS_Base docker compose up
+MODEL=F5TTS_v1_Base docker compose up
 ```
 
 ### Build Image
@@ -20,10 +19,12 @@ docker run -it --name "f5-server" --gpus all --net host -v $your_mount_dir --shm
 ```
 
 ### Export Models to TensorRT-LLM and Launch Server
-Inside docker container, we would follow the official guide of TensorRT-LLM to build qwen and whisper TensorRT-LLM engines. See [here](https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/whisper).
+Inside docker container, we would follow the official guide of TensorRT-LLM to build qwen and whisper TensorRT-LLM engines. See [here](https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/models/core/whisper).
 ```sh
-bash run.sh 0 4 F5TTS_Base
+bash run.sh 0 4 F5TTS_v1_Base
 ```
+> [!NOTE]  
+> If use custom checkpoint, set `ckpt_file` and `vocab_file` in `run.sh`. Remember to used matched model version (`F5TTS_v1_Base` for v1, `F5TTS_Base` for v0).
 
 ### HTTP Client
 ```sh
@@ -49,11 +50,11 @@ benchmark.py --output-dir $log_dir \
 --batch-size $batch_size \
 --enable-warmup \
 --split-name $split_name \
---model-path $F5_TTS_HF_DOWNLOAD_PATH/$model/model_1200000.pt \
---vocab-file $F5_TTS_HF_DOWNLOAD_PATH/$model/vocab.txt \
+--model-path $CKPT_DIR/$model/model_1200000.pt \
+--vocab-file $CKPT_DIR/$model/vocab.txt \
 --vocoder-trt-engine-path $vocoder_trt_engine_path \
 --backend-type $backend_type \
---tllm-model-dir $F5_TTS_TRT_LLM_ENGINE_PATH || exit 1
+--tllm-model-dir $TRTLLM_ENGINE_DIR || exit 1
 ```
 
 ### Benchmark Results
@@ -66,4 +67,5 @@ Decoding on a single L20 GPU, using 26 different prompt_audio & target_text pair
 | F5-TTS Base (Vocos) | 1 (Batch_size) | -           | 0.1467 | Offline Pytorch |
 
 ### Credits
-1. [F5-TTS-TRTLLM](https://github.com/Bigfishering/f5-tts-trtllm)
+1. [Yuekai Zhang](https://github.com/yuekaizhang)
+2. [F5-TTS-TRTLLM](https://github.com/Bigfishering/f5-tts-trtllm)

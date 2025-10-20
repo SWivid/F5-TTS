@@ -20,7 +20,6 @@ from f5_tts.model.modules import (
     ConvPositionEmbedding,
     DiTBlock,
     TimestepEmbedding,
-    get_pos_embed_indices,
     precompute_freqs_cis,
 )
 
@@ -89,8 +88,7 @@ class TextEmbedding(nn.Module):
     def forward(self, text: int["b nt"], seq_len, drop_text=False, audio_mask: bool["b n"] | None = None):  # noqa: F722
         text = text + 1  # use 0 as filler token. preprocess of batch pad -1, see list_str_to_idx()
         text = text[:, :seq_len]  # curtail if character tokens are more than the mel spec tokens
-        batch, text_len = text.shape[0], text.shape[1]
-        text = F.pad(text, (0, seq_len - text_len), value=0)  # (opt.) if not self.average_upsampling:
+        text = F.pad(text, (0, seq_len - text.shape[1]), value=0)  # (opt.) if not self.average_upsampling:
         if self.mask_padding:
             text_mask = text == 0
 
@@ -102,10 +100,7 @@ class TextEmbedding(nn.Module):
         # possible extra modeling
         if self.extra_modeling:
             # sinus pos emb
-            batch_start = torch.zeros((batch,), device=text.device, dtype=torch.long)
-            pos_idx = get_pos_embed_indices(batch_start, seq_len, max_pos=self.precompute_max_pos)
-            text_pos_embed = self.freqs_cis[pos_idx]
-            text = text + text_pos_embed
+            text = text + self.freqs_cis[:seq_len, :]
 
             # convnextv2 blocks
             if self.mask_padding:
@@ -242,6 +237,7 @@ class DiT(nn.Module):
         audio_mask: bool["b n"] | None = None,  # noqa: F722
     ):
         seq_len = x.shape[1]
+        # TODO. modify to get text_embed one by one (to avoid misalignment when batching), as done in runtime imple.
         if cache:
             if drop_text:
                 if self.text_uncond is None:

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Manual installation of TensorRT, in case not using NVIDIA NGC:
+# https://docs.nvidia.com/deeplearning/tensorrt/latest/installing-tensorrt/installing.html#downloading-tensorrt
 TRTEXEC="/usr/src/tensorrt/bin/trtexec"
 
 ONNX_PATH=$1
@@ -40,4 +42,3 @@ ${TRTEXEC} \
     --maxShapes="mel:${MEL_MAX_SHAPE}" \
     --onnx=${ONNX_PATH} \
     --saveEngine=${ENGINE_PATH}
-

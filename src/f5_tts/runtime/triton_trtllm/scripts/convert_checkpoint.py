@@ -172,11 +172,12 @@ def parse_arguments():
     parser.add_argument(
         "--model_name",
         type=str,
-        default="F5TTS_Base",
+        default="F5TTS_v1_Base",
         choices=[
+            "F5TTS_v1_Base",
             "F5TTS_Base",
         ],
-    )  # TODO: support F5TTS_v1_Base
+    )
     parser.add_argument("--timm_ckpt", type=str, default="./ckpts/model_1200000.pt")
     parser.add_argument(
         "--output_dir", type=str, default="./tllm_checkpoint", help="The path to save the TensorRT-LLM checkpoint"
@@ -184,7 +185,6 @@ def parse_arguments():
     parser.add_argument("--hidden_size", type=int, default=1024, help="The hidden size of DiT")
     parser.add_argument("--depth", type=int, default=22, help="The number of DiTBlock layers")
     parser.add_argument("--num_heads", type=int, default=16, help="The number of heads of attention module")
-    parser.add_argument("--cfg_scale", type=float, default=4.0)
     parser.add_argument("--tp_size", type=int, default=1, help="N-way tensor parallelism size")
     parser.add_argument("--cp_size", type=int, default=1, help="Context parallelism size")
     parser.add_argument("--pp_size", type=int, default=1, help="N-way pipeline parallelism size")
@@ -197,18 +197,29 @@ def parse_arguments():
     return args
 
 
-def convert_timm_dit(args, mapping, dtype="float32"):
+def convert_timm_dit(args, mapping, dtype="float32", use_ema=True):
     weights = {}
     tik = time.time()
     torch_dtype = str_dtype_to_torch(dtype)
     tensor_parallel = mapping.tp_size
 
-    model_params = dict(torch.load(args.timm_ckpt))
-    model_params = {
-        k: v for k, v in model_params["ema_model_state_dict"].items() if k.startswith("ema_model.transformer")
-    }
-    prefix = "ema_model.transformer."
-    model_params = {key[len(prefix) :] if key.startswith(prefix) else key: value for key, value in model_params.items()}
+    ckpt_path = args.timm_ckpt
+    ckpt_type = ckpt_path.split(".")[-1]
+    if ckpt_type == "safetensors":
+        from safetensors.torch import load_file
+
+        model_params = load_file(ckpt_path)
+    else:
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        model_params = ckpt["ema_model_state_dict"] if use_ema else ckpt["model_state_dict"]
+
+    prefix = "ema_model.transformer." if use_ema else "transformer."
+    if any(k.startswith(prefix) for k in model_params.keys()):
+        model_params = {
+            key[len(prefix) :] if key.startswith(prefix) else key: value
+            for key, value in model_params.items()
+            if key.startswith(prefix)
+        }
 
     timm_to_trtllm_name = FACEBOOK_DIT_NAME_MAPPING
 
@@ -230,7 +241,7 @@ def convert_timm_dit(args, mapping, dtype="float32"):
 
     assert len(weights) == len(model_params)
 
-    # new_prefix = 'f5_transformer.'
+    # new_prefix = "f5_transformer."
     new_prefix = ""
     weights = {new_prefix + key: value for key, value in weights.items()}
     import math
@@ -278,7 +289,7 @@ def save_config(args):
         "num_hidden_layers": 22,
         "num_attention_heads": 16,
         "dim_head": 64,
-        "dropout": 0.1,
+        "dropout": 0.0,  # 0.1
         "ff_mult": 2,
         "mel_dim": 100,
         "text_num_embeds": 256,
@@ -296,7 +307,7 @@ def save_config(args):
         config["quantization"] = {
             "quant_algo": "FP8",
             # TODO: add support for exclude modules.
-            # 'exclude_modules': "*final_layer*",
+            # "exclude_modules": "*final_layer*",
         }
 
     with open(os.path.join(args.output_dir, "config.json"), "w") as f:
