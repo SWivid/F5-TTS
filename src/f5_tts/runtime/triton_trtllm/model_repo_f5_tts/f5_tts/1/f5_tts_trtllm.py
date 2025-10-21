@@ -33,9 +33,12 @@ def remove_tensor_padding(input_tensor, input_tensor_lengths=None):
 
 
 class TextEmbedding(nn.Module):
-    def __init__(self, text_num_embeds, text_dim, conv_layers=0, conv_mult=2, precompute_max_pos=4096):
+    def __init__(
+        self, text_num_embeds, text_dim, mask_padding=True, conv_layers=0, conv_mult=2, precompute_max_pos=4096
+    ):
         super().__init__()
         self.text_embed = nn.Embedding(text_num_embeds + 1, text_dim)  # use 0 as filler token
+        self.mask_padding = mask_padding
         self.register_buffer("freqs_cis", precompute_freqs_cis(text_dim, precompute_max_pos), persistent=False)
         self.text_blocks = nn.Sequential(*[ConvNeXtV2Block(text_dim, text_dim * conv_mult) for _ in range(conv_layers)])
 
@@ -43,10 +46,18 @@ class TextEmbedding(nn.Module):
         text = text + 1
         text = text[:, :seq_len]  # curtail if character tokens are more than the mel spec tokens
         text = F.pad(text, (0, seq_len - text.shape[1]), value=0)
+        if self.mask_padding:
+            text_mask = text == 0
 
         text = self.text_embed(text)  # b n -> b n d
         text = text + self.freqs_cis[:seq_len, :]
-        text = self.text_blocks(text)
+        if self.mask_padding:
+            text = text.masked_fill(text_mask.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
+            for block in self.text_blocks:
+                text = block(text)
+                text = text.masked_fill(text_mask.unsqueeze(-1).expand(-1, -1, text.size(-1)), 0.0)
+        else:
+            text = self.text_blocks(text)
 
         return text
 
@@ -203,17 +214,16 @@ class F5TTS(object):
 
         self.max_mel_len = 4096
         self.text_embedding = TextEmbedding(
-            text_num_embeds=vocab_size, text_dim=512, conv_layers=4, precompute_max_pos=self.max_mel_len
+            text_num_embeds=vocab_size,
+            text_dim=config["pretrained_config"]["text_dim"],
+            mask_padding=config["pretrained_config"]["text_mask_padding"],
+            conv_layers=config["pretrained_config"]["conv_layers"],
+            precompute_max_pos=self.max_mel_len,
         ).to(self.device)
         self.text_embedding.load_state_dict(get_text_embed_dict(model_path), strict=True)
 
-        # self.target_audio_sample_rate = 24000
-        # self.target_rms = 0.1  # least rms when inference, normalize to if lower
-        # self.n_fft = 1024
-        # self.win_length = 1024
-        # self.hop_length = 256
-        self.n_mel_channels = 100
-        self.head_dim = 64
+        self.n_mel_channels = config["pretrained_config"]["mel_dim"]
+        self.head_dim = config["pretrained_config"]["dim_head"]
         self.base_rescale_factor = 1.0
         self.interpolation_factor = 1.0
         base = 10000.0 * self.base_rescale_factor ** (self.head_dim / (self.head_dim - 2))
@@ -236,9 +246,9 @@ class F5TTS(object):
         time_step = 1 - torch.cos(torch.pi * t / 2)
         delta_t = torch.diff(time_step)
 
-        tmp_dim = 256  # WAR: hard coding 256 here
-        time_expand = torch.zeros((1, self.nfe_steps, tmp_dim), dtype=torch.float32)
-        half_dim = tmp_dim // 2
+        freq_embed_dim = 256  # Warning: hard coding 256 here
+        time_expand = torch.zeros((1, self.nfe_steps, freq_embed_dim), dtype=torch.float32)
+        half_dim = freq_embed_dim // 2
         emb_factor = math.log(10000) / (half_dim - 1)
         emb_factor = 1000.0 * torch.exp(torch.arange(half_dim, dtype=torch.float32) * -emb_factor)
         for i in range(self.nfe_steps):

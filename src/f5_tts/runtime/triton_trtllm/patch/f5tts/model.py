@@ -50,6 +50,7 @@ class F5TTS(PretrainedModel):
                     dim_head=config.dim_head,
                     ff_mult=config.ff_mult,
                     dropout=config.dropout,
+                    pe_attn_head=config.pe_attn_head,
                 )
                 for _ in range(self.depth)
             ]
@@ -79,13 +80,12 @@ class F5TTS(PretrainedModel):
     def prepare_inputs(self, **kwargs):
         max_batch_size = kwargs["max_batch_size"]
         batch_size_range = [2, 2, max_batch_size]
-        mel_size = 100
-        max_seq_len = 4096
-        num_frames_range = [200, 2 * max_seq_len, max_seq_len * max_batch_size]
-        hidden_size = 512
-        concat_feature_dim = mel_size + hidden_size
-        freq_embed_dim = 256
-        head_dim = 64
+        mel_size = self.config.mel_dim
+        max_seq_len = 3000  # 4096
+        num_frames_range = [mel_size * 2, max_seq_len * 2, max_seq_len * max_batch_size]
+        concat_feature_dim = mel_size + self.config.text_dim
+        freq_embed_dim = 256  # Warning: hard coding 256 here
+        head_dim = self.config.dim_head
         mapping = self.config.mapping
         if mapping.tp_size > 1:
             current_all_reduce_helper().set_workspace_tensor(mapping, 1)

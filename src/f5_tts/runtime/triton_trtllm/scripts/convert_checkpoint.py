@@ -23,168 +23,12 @@ def split_q_bias_tp(v, n_head, n_hidden, tensor_parallel, rank):
     return split_v.contiguous()
 
 
-FACEBOOK_DIT_NAME_MAPPING = {
-    "^time_embed.time_mlp.0.weight$": "time_embed.mlp1.weight",
-    "^time_embed.time_mlp.0.bias$": "time_embed.mlp1.bias",
-    "^time_embed.time_mlp.2.weight$": "time_embed.mlp2.weight",
-    "^time_embed.time_mlp.2.bias$": "time_embed.mlp2.bias",
-    "^input_embed.conv_pos_embed.conv1d.0.weight$": "input_embed.conv_pos_embed.conv1d1.weight",
-    "^input_embed.conv_pos_embed.conv1d.0.bias$": "input_embed.conv_pos_embed.conv1d1.bias",
-    "^input_embed.conv_pos_embed.conv1d.2.weight$": "input_embed.conv_pos_embed.conv1d2.weight",
-    "^input_embed.conv_pos_embed.conv1d.2.bias$": "input_embed.conv_pos_embed.conv1d2.bias",
-    "^transformer_blocks.0.attn.to_out.0.weight$": "transformer_blocks.0.attn.to_out.weight",
-    "^transformer_blocks.0.attn.to_out.0.bias$": "transformer_blocks.0.attn.to_out.bias",
-    "^transformer_blocks.1.attn.to_out.0.weight$": "transformer_blocks.1.attn.to_out.weight",
-    "^transformer_blocks.1.attn.to_out.0.bias$": "transformer_blocks.1.attn.to_out.bias",
-    "^transformer_blocks.2.attn.to_out.0.weight$": "transformer_blocks.2.attn.to_out.weight",
-    "^transformer_blocks.2.attn.to_out.0.bias$": "transformer_blocks.2.attn.to_out.bias",
-    "^transformer_blocks.3.attn.to_out.0.weight$": "transformer_blocks.3.attn.to_out.weight",
-    "^transformer_blocks.3.attn.to_out.0.bias$": "transformer_blocks.3.attn.to_out.bias",
-    "^transformer_blocks.4.attn.to_out.0.weight$": "transformer_blocks.4.attn.to_out.weight",
-    "^transformer_blocks.4.attn.to_out.0.bias$": "transformer_blocks.4.attn.to_out.bias",
-    "^transformer_blocks.5.attn.to_out.0.weight$": "transformer_blocks.5.attn.to_out.weight",
-    "^transformer_blocks.5.attn.to_out.0.bias$": "transformer_blocks.5.attn.to_out.bias",
-    "^transformer_blocks.6.attn.to_out.0.weight$": "transformer_blocks.6.attn.to_out.weight",
-    "^transformer_blocks.6.attn.to_out.0.bias$": "transformer_blocks.6.attn.to_out.bias",
-    "^transformer_blocks.7.attn.to_out.0.weight$": "transformer_blocks.7.attn.to_out.weight",
-    "^transformer_blocks.7.attn.to_out.0.bias$": "transformer_blocks.7.attn.to_out.bias",
-    "^transformer_blocks.8.attn.to_out.0.weight$": "transformer_blocks.8.attn.to_out.weight",
-    "^transformer_blocks.8.attn.to_out.0.bias$": "transformer_blocks.8.attn.to_out.bias",
-    "^transformer_blocks.9.attn.to_out.0.weight$": "transformer_blocks.9.attn.to_out.weight",
-    "^transformer_blocks.9.attn.to_out.0.bias$": "transformer_blocks.9.attn.to_out.bias",
-    "^transformer_blocks.10.attn.to_out.0.weight$": "transformer_blocks.10.attn.to_out.weight",
-    "^transformer_blocks.10.attn.to_out.0.bias$": "transformer_blocks.10.attn.to_out.bias",
-    "^transformer_blocks.11.attn.to_out.0.weight$": "transformer_blocks.11.attn.to_out.weight",
-    "^transformer_blocks.11.attn.to_out.0.bias$": "transformer_blocks.11.attn.to_out.bias",
-    "^transformer_blocks.12.attn.to_out.0.weight$": "transformer_blocks.12.attn.to_out.weight",
-    "^transformer_blocks.12.attn.to_out.0.bias$": "transformer_blocks.12.attn.to_out.bias",
-    "^transformer_blocks.13.attn.to_out.0.weight$": "transformer_blocks.13.attn.to_out.weight",
-    "^transformer_blocks.13.attn.to_out.0.bias$": "transformer_blocks.13.attn.to_out.bias",
-    "^transformer_blocks.14.attn.to_out.0.weight$": "transformer_blocks.14.attn.to_out.weight",
-    "^transformer_blocks.14.attn.to_out.0.bias$": "transformer_blocks.14.attn.to_out.bias",
-    "^transformer_blocks.15.attn.to_out.0.weight$": "transformer_blocks.15.attn.to_out.weight",
-    "^transformer_blocks.15.attn.to_out.0.bias$": "transformer_blocks.15.attn.to_out.bias",
-    "^transformer_blocks.16.attn.to_out.0.weight$": "transformer_blocks.16.attn.to_out.weight",
-    "^transformer_blocks.16.attn.to_out.0.bias$": "transformer_blocks.16.attn.to_out.bias",
-    "^transformer_blocks.17.attn.to_out.0.weight$": "transformer_blocks.17.attn.to_out.weight",
-    "^transformer_blocks.17.attn.to_out.0.bias$": "transformer_blocks.17.attn.to_out.bias",
-    "^transformer_blocks.18.attn.to_out.0.weight$": "transformer_blocks.18.attn.to_out.weight",
-    "^transformer_blocks.18.attn.to_out.0.bias$": "transformer_blocks.18.attn.to_out.bias",
-    "^transformer_blocks.19.attn.to_out.0.weight$": "transformer_blocks.19.attn.to_out.weight",
-    "^transformer_blocks.19.attn.to_out.0.bias$": "transformer_blocks.19.attn.to_out.bias",
-    "^transformer_blocks.20.attn.to_out.0.weight$": "transformer_blocks.20.attn.to_out.weight",
-    "^transformer_blocks.20.attn.to_out.0.bias$": "transformer_blocks.20.attn.to_out.bias",
-    "^transformer_blocks.21.attn.to_out.0.weight$": "transformer_blocks.21.attn.to_out.weight",
-    "^transformer_blocks.21.attn.to_out.0.bias$": "transformer_blocks.21.attn.to_out.bias",
-    "^transformer_blocks.0.ff.ff.0.0.weight$": "transformer_blocks.0.ff.project_in.weight",
-    "^transformer_blocks.0.ff.ff.0.0.bias$": "transformer_blocks.0.ff.project_in.bias",
-    "^transformer_blocks.0.ff.ff.2.weight$": "transformer_blocks.0.ff.ff.weight",
-    "^transformer_blocks.0.ff.ff.2.bias$": "transformer_blocks.0.ff.ff.bias",
-    "^transformer_blocks.1.ff.ff.0.0.weight$": "transformer_blocks.1.ff.project_in.weight",
-    "^transformer_blocks.1.ff.ff.0.0.bias$": "transformer_blocks.1.ff.project_in.bias",
-    "^transformer_blocks.1.ff.ff.2.weight$": "transformer_blocks.1.ff.ff.weight",
-    "^transformer_blocks.1.ff.ff.2.bias$": "transformer_blocks.1.ff.ff.bias",
-    "^transformer_blocks.2.ff.ff.0.0.weight$": "transformer_blocks.2.ff.project_in.weight",
-    "^transformer_blocks.2.ff.ff.0.0.bias$": "transformer_blocks.2.ff.project_in.bias",
-    "^transformer_blocks.2.ff.ff.2.weight$": "transformer_blocks.2.ff.ff.weight",
-    "^transformer_blocks.2.ff.ff.2.bias$": "transformer_blocks.2.ff.ff.bias",
-    "^transformer_blocks.3.ff.ff.0.0.weight$": "transformer_blocks.3.ff.project_in.weight",
-    "^transformer_blocks.3.ff.ff.0.0.bias$": "transformer_blocks.3.ff.project_in.bias",
-    "^transformer_blocks.3.ff.ff.2.weight$": "transformer_blocks.3.ff.ff.weight",
-    "^transformer_blocks.3.ff.ff.2.bias$": "transformer_blocks.3.ff.ff.bias",
-    "^transformer_blocks.4.ff.ff.0.0.weight$": "transformer_blocks.4.ff.project_in.weight",
-    "^transformer_blocks.4.ff.ff.0.0.bias$": "transformer_blocks.4.ff.project_in.bias",
-    "^transformer_blocks.4.ff.ff.2.weight$": "transformer_blocks.4.ff.ff.weight",
-    "^transformer_blocks.4.ff.ff.2.bias$": "transformer_blocks.4.ff.ff.bias",
-    "^transformer_blocks.5.ff.ff.0.0.weight$": "transformer_blocks.5.ff.project_in.weight",
-    "^transformer_blocks.5.ff.ff.0.0.bias$": "transformer_blocks.5.ff.project_in.bias",
-    "^transformer_blocks.5.ff.ff.2.weight$": "transformer_blocks.5.ff.ff.weight",
-    "^transformer_blocks.5.ff.ff.2.bias$": "transformer_blocks.5.ff.ff.bias",
-    "^transformer_blocks.6.ff.ff.0.0.weight$": "transformer_blocks.6.ff.project_in.weight",
-    "^transformer_blocks.6.ff.ff.0.0.bias$": "transformer_blocks.6.ff.project_in.bias",
-    "^transformer_blocks.6.ff.ff.2.weight$": "transformer_blocks.6.ff.ff.weight",
-    "^transformer_blocks.6.ff.ff.2.bias$": "transformer_blocks.6.ff.ff.bias",
-    "^transformer_blocks.7.ff.ff.0.0.weight$": "transformer_blocks.7.ff.project_in.weight",
-    "^transformer_blocks.7.ff.ff.0.0.bias$": "transformer_blocks.7.ff.project_in.bias",
-    "^transformer_blocks.7.ff.ff.2.weight$": "transformer_blocks.7.ff.ff.weight",
-    "^transformer_blocks.7.ff.ff.2.bias$": "transformer_blocks.7.ff.ff.bias",
-    "^transformer_blocks.8.ff.ff.0.0.weight$": "transformer_blocks.8.ff.project_in.weight",
-    "^transformer_blocks.8.ff.ff.0.0.bias$": "transformer_blocks.8.ff.project_in.bias",
-    "^transformer_blocks.8.ff.ff.2.weight$": "transformer_blocks.8.ff.ff.weight",
-    "^transformer_blocks.8.ff.ff.2.bias$": "transformer_blocks.8.ff.ff.bias",
-    "^transformer_blocks.9.ff.ff.0.0.weight$": "transformer_blocks.9.ff.project_in.weight",
-    "^transformer_blocks.9.ff.ff.0.0.bias$": "transformer_blocks.9.ff.project_in.bias",
-    "^transformer_blocks.9.ff.ff.2.weight$": "transformer_blocks.9.ff.ff.weight",
-    "^transformer_blocks.9.ff.ff.2.bias$": "transformer_blocks.9.ff.ff.bias",
-    "^transformer_blocks.10.ff.ff.0.0.weight$": "transformer_blocks.10.ff.project_in.weight",
-    "^transformer_blocks.10.ff.ff.0.0.bias$": "transformer_blocks.10.ff.project_in.bias",
-    "^transformer_blocks.10.ff.ff.2.weight$": "transformer_blocks.10.ff.ff.weight",
-    "^transformer_blocks.10.ff.ff.2.bias$": "transformer_blocks.10.ff.ff.bias",
-    "^transformer_blocks.11.ff.ff.0.0.weight$": "transformer_blocks.11.ff.project_in.weight",
-    "^transformer_blocks.11.ff.ff.0.0.bias$": "transformer_blocks.11.ff.project_in.bias",
-    "^transformer_blocks.11.ff.ff.2.weight$": "transformer_blocks.11.ff.ff.weight",
-    "^transformer_blocks.11.ff.ff.2.bias$": "transformer_blocks.11.ff.ff.bias",
-    "^transformer_blocks.12.ff.ff.0.0.weight$": "transformer_blocks.12.ff.project_in.weight",
-    "^transformer_blocks.12.ff.ff.0.0.bias$": "transformer_blocks.12.ff.project_in.bias",
-    "^transformer_blocks.12.ff.ff.2.weight$": "transformer_blocks.12.ff.ff.weight",
-    "^transformer_blocks.12.ff.ff.2.bias$": "transformer_blocks.12.ff.ff.bias",
-    "^transformer_blocks.13.ff.ff.0.0.weight$": "transformer_blocks.13.ff.project_in.weight",
-    "^transformer_blocks.13.ff.ff.0.0.bias$": "transformer_blocks.13.ff.project_in.bias",
-    "^transformer_blocks.13.ff.ff.2.weight$": "transformer_blocks.13.ff.ff.weight",
-    "^transformer_blocks.13.ff.ff.2.bias$": "transformer_blocks.13.ff.ff.bias",
-    "^transformer_blocks.14.ff.ff.0.0.weight$": "transformer_blocks.14.ff.project_in.weight",
-    "^transformer_blocks.14.ff.ff.0.0.bias$": "transformer_blocks.14.ff.project_in.bias",
-    "^transformer_blocks.14.ff.ff.2.weight$": "transformer_blocks.14.ff.ff.weight",
-    "^transformer_blocks.14.ff.ff.2.bias$": "transformer_blocks.14.ff.ff.bias",
-    "^transformer_blocks.15.ff.ff.0.0.weight$": "transformer_blocks.15.ff.project_in.weight",
-    "^transformer_blocks.15.ff.ff.0.0.bias$": "transformer_blocks.15.ff.project_in.bias",
-    "^transformer_blocks.15.ff.ff.2.weight$": "transformer_blocks.15.ff.ff.weight",
-    "^transformer_blocks.15.ff.ff.2.bias$": "transformer_blocks.15.ff.ff.bias",
-    "^transformer_blocks.16.ff.ff.0.0.weight$": "transformer_blocks.16.ff.project_in.weight",
-    "^transformer_blocks.16.ff.ff.0.0.bias$": "transformer_blocks.16.ff.project_in.bias",
-    "^transformer_blocks.16.ff.ff.2.weight$": "transformer_blocks.16.ff.ff.weight",
-    "^transformer_blocks.16.ff.ff.2.bias$": "transformer_blocks.16.ff.ff.bias",
-    "^transformer_blocks.17.ff.ff.0.0.weight$": "transformer_blocks.17.ff.project_in.weight",
-    "^transformer_blocks.17.ff.ff.0.0.bias$": "transformer_blocks.17.ff.project_in.bias",
-    "^transformer_blocks.17.ff.ff.2.weight$": "transformer_blocks.17.ff.ff.weight",
-    "^transformer_blocks.17.ff.ff.2.bias$": "transformer_blocks.17.ff.ff.bias",
-    "^transformer_blocks.18.ff.ff.0.0.weight$": "transformer_blocks.18.ff.project_in.weight",
-    "^transformer_blocks.18.ff.ff.0.0.bias$": "transformer_blocks.18.ff.project_in.bias",
-    "^transformer_blocks.18.ff.ff.2.weight$": "transformer_blocks.18.ff.ff.weight",
-    "^transformer_blocks.18.ff.ff.2.bias$": "transformer_blocks.18.ff.ff.bias",
-    "^transformer_blocks.19.ff.ff.0.0.weight$": "transformer_blocks.19.ff.project_in.weight",
-    "^transformer_blocks.19.ff.ff.0.0.bias$": "transformer_blocks.19.ff.project_in.bias",
-    "^transformer_blocks.19.ff.ff.2.weight$": "transformer_blocks.19.ff.ff.weight",
-    "^transformer_blocks.19.ff.ff.2.bias$": "transformer_blocks.19.ff.ff.bias",
-    "^transformer_blocks.20.ff.ff.0.0.weight$": "transformer_blocks.20.ff.project_in.weight",
-    "^transformer_blocks.20.ff.ff.0.0.bias$": "transformer_blocks.20.ff.project_in.bias",
-    "^transformer_blocks.20.ff.ff.2.weight$": "transformer_blocks.20.ff.ff.weight",
-    "^transformer_blocks.20.ff.ff.2.bias$": "transformer_blocks.20.ff.ff.bias",
-    "^transformer_blocks.21.ff.ff.0.0.weight$": "transformer_blocks.21.ff.project_in.weight",
-    "^transformer_blocks.21.ff.ff.0.0.bias$": "transformer_blocks.21.ff.project_in.bias",
-    "^transformer_blocks.21.ff.ff.2.weight$": "transformer_blocks.21.ff.ff.weight",
-    "^transformer_blocks.21.ff.ff.2.bias$": "transformer_blocks.21.ff.ff.bias",
-}
-
-
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model_name",
-        type=str,
-        default="F5TTS_v1_Base",
-        choices=[
-            "F5TTS_v1_Base",
-            "F5TTS_Base",
-        ],
-    )
-    parser.add_argument("--timm_ckpt", type=str, default="./ckpts/model_1200000.pt")
+    parser.add_argument("--pytorch_ckpt", type=str, default="./ckpts/model_last.pt")
     parser.add_argument(
         "--output_dir", type=str, default="./tllm_checkpoint", help="The path to save the TensorRT-LLM checkpoint"
     )
-    parser.add_argument("--hidden_size", type=int, default=1024, help="The hidden size of DiT")
-    parser.add_argument("--depth", type=int, default=22, help="The number of DiTBlock layers")
-    parser.add_argument("--num_heads", type=int, default=16, help="The number of heads of attention module")
     parser.add_argument("--tp_size", type=int, default=1, help="N-way tensor parallelism size")
     parser.add_argument("--cp_size", type=int, default=1, help="Context parallelism size")
     parser.add_argument("--pp_size", type=int, default=1, help="N-way pipeline parallelism size")
@@ -193,17 +37,86 @@ def parse_arguments():
     parser.add_argument(
         "--workers", type=int, default=1, help="The number of workers for converting checkpoint in parallel"
     )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default="F5TTS_Custom",
+        choices=[
+            "F5TTS_v1_Base",
+            "F5TTS_Base",
+            "F5TTS_v1_Small",
+            "F5TTS_Small",
+        ],  # if set, overwrite the below hyperparams
+    )
+    parser.add_argument("--hidden_size", type=int, default=1024, help="The hidden size of DiT")
+    parser.add_argument("--depth", type=int, default=22, help="The number of DiTBlock layers")
+    parser.add_argument("--num_heads", type=int, default=16, help="The number of heads of attention module")
+    parser.add_argument("--dim_head", type=int, default=64, help="The dimension of attention head")
+    parser.add_argument("--ff_mult", type=int, default=2, help="The FFN intermediate dimension multiplier")
+    parser.add_argument("--text_dim", type=int, default=512, help="The output dimension of text encoder")
+    parser.add_argument(
+        "--text_mask_padding",
+        type=lambda x: x.lower() == "true",
+        choices=[True, False],
+        default=True,
+        help="Whether apply padding mask for conv layers in text encoder",
+    )
+    parser.add_argument("--conv_layers", type=int, default=4, help="The number of conv layers of text encoder")
+    parser.add_argument("--pe_attn_head", type=int, default=None, help="The number of attn head that apply pos emb")
     args = parser.parse_args()
+
+    # overwrite if --model_name ordered
+    if args.model_name == "F5TTS_v1_Base":
+        args.hidden_size = 1024
+        args.depth = 22
+        args.num_heads = 16
+        args.dim_head = 64
+        args.ff_mult = 2
+        args.text_dim = 512
+        args.text_mask_padding = True
+        args.conv_layers = 4
+        args.pe_attn_head = None
+    elif args.model_name == "F5TTS_Base":
+        args.hidden_size = 1024
+        args.depth = 22
+        args.num_heads = 16
+        args.dim_head = 64
+        args.ff_mult = 2
+        args.text_dim = 512
+        args.text_mask_padding = False
+        args.conv_layers = 4
+        args.pe_attn_head = 1
+    elif args.model_name == "F5TTS_v1_Small":
+        args.hidden_size = 768
+        args.depth = 18
+        args.num_heads = 12
+        args.dim_head = 64
+        args.ff_mult = 2
+        args.text_dim = 512
+        args.text_mask_padding = True
+        args.conv_layers = 4
+        args.pe_attn_head = None
+    elif args.model_name == "F5TTS_Small":
+        args.hidden_size = 768
+        args.depth = 18
+        args.num_heads = 12
+        args.dim_head = 64
+        args.ff_mult = 2
+        args.text_dim = 512
+        args.text_mask_padding = False
+        args.conv_layers = 4
+        args.pe_attn_head = 1
+
     return args
 
 
-def convert_timm_dit(args, mapping, dtype="float32", use_ema=True):
+def convert_pytorch_dit_to_trtllm_weight(args, mapping, dtype="float32", use_ema=True):
     weights = {}
     tik = time.time()
     torch_dtype = str_dtype_to_torch(dtype)
     tensor_parallel = mapping.tp_size
 
-    ckpt_path = args.timm_ckpt
+    ckpt_path = args.pytorch_ckpt
     ckpt_type = ckpt_path.split(".")[-1]
     if ckpt_type == "safetensors":
         from safetensors.torch import load_file
@@ -221,16 +134,22 @@ def convert_timm_dit(args, mapping, dtype="float32", use_ema=True):
             if key.startswith(prefix)
         }
 
-    timm_to_trtllm_name = FACEBOOK_DIT_NAME_MAPPING
+    pytorch_to_trtllm_name = {
+        r"^time_embed\.time_mlp\.0\.(weight|bias)$": r"time_embed.mlp1.\1",
+        r"^time_embed\.time_mlp\.2\.(weight|bias)$": r"time_embed.mlp2.\1",
+        r"^input_embed\.conv_pos_embed\.conv1d\.0\.(weight|bias)$": r"input_embed.conv_pos_embed.conv1d1.\1",
+        r"^input_embed\.conv_pos_embed\.conv1d\.2\.(weight|bias)$": r"input_embed.conv_pos_embed.conv1d2.\1",
+        r"^transformer_blocks\.(\d+)\.attn\.to_out\.0\.(weight|bias)$": r"transformer_blocks.\1.attn.to_out.\2",
+        r"^transformer_blocks\.(\d+)\.ff\.ff\.0\.0\.(weight|bias)$": r"transformer_blocks.\1.ff.project_in.\2",
+        r"^transformer_blocks\.(\d+)\.ff\.ff\.2\.(weight|bias)$": r"transformer_blocks.\1.ff.ff.\2",
+    }
 
-    def get_trtllm_name(timm_name):
-        for k, v in timm_to_trtllm_name.items():
-            m = re.match(k, timm_name)
-            if m is not None:
-                if "*" in v:
-                    v = v.replace("*", m.groups()[0])
-                return v
-        return timm_name
+    def get_trtllm_name(pytorch_name):
+        for pytorch_name_pattern, trtllm_name_replacement in pytorch_to_trtllm_name.items():
+            trtllm_name_if_matched = re.sub(pytorch_name_pattern, trtllm_name_replacement, pytorch_name)
+            if trtllm_name_if_matched != pytorch_name:
+                return trtllm_name_if_matched
+        return pytorch_name
 
     weights = dict()
     for name, param in model_params.items():
@@ -283,19 +202,19 @@ def save_config(args):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     config = {
-        "architecture": "F5TTS",
+        "architecture": "F5TTS",  # set the same as in ../patch/__init__.py
         "dtype": args.dtype,
-        "hidden_size": 1024,
-        "num_hidden_layers": 22,
-        "num_attention_heads": 16,
-        "dim_head": 64,
-        "dropout": 0.0,  # 0.1
-        "ff_mult": 2,
+        "hidden_size": args.hidden_size,
+        "num_hidden_layers": args.depth,
+        "num_attention_heads": args.num_heads,
+        "dim_head": args.dim_head,
+        "dropout": 0.0,  # inference-only
+        "ff_mult": args.ff_mult,
         "mel_dim": 100,
-        "text_num_embeds": 256,
-        "text_dim": 512,
-        "conv_layers": 4,
-        "long_skip_connection": False,
+        "text_dim": args.text_dim,
+        "text_mask_padding": args.text_mask_padding,
+        "conv_layers": args.conv_layers,
+        "pe_attn_head": args.pe_attn_head,
         "mapping": {
             "world_size": args.cp_size * args.tp_size * args.pp_size,
             "cp_size": args.cp_size,
@@ -326,7 +245,7 @@ def covert_and_save(args, rank):
         pp_size=args.pp_size,
     )
 
-    weights = convert_timm_dit(args, mapping, dtype=args.dtype)
+    weights = convert_pytorch_dit_to_trtllm_weight(args, mapping, dtype=args.dtype)
 
     safetensors.torch.save_file(weights, os.path.join(args.output_dir, f"rank{rank}.safetensors"))
 
@@ -355,9 +274,9 @@ def main():
     assert args.pp_size == 1, "PP is not supported yet."
 
     tik = time.time()
-    if args.timm_ckpt is None:
+    if args.pytorch_ckpt is None:
         return
-    print("start execute")
+    print("Start execute")
     execute(args.workers, [covert_and_save] * world_size, args)
 
     tok = time.time()

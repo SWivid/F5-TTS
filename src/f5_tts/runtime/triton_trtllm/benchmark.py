@@ -282,10 +282,10 @@ def main():
 
     vocab_char_map, vocab_size = get_tokenizer(args.vocab_file, "custom")
 
+    tllm_model_dir = args.tllm_model_dir
+    with open(os.path.join(tllm_model_dir, "config.json")) as f:
+        tllm_model_config = json.load(f)
     if args.backend_type == "trt":
-        tllm_model_dir = args.tllm_model_dir
-        with open(os.path.join(tllm_model_dir, "config.json")) as f:
-            tllm_model_config = json.load(f)
         model = F5TTS(
             tllm_model_config,
             debug_mode=False,
@@ -297,17 +297,18 @@ def main():
         from f5_tts.infer.utils_infer import load_model
         from f5_tts.model import DiT
 
-        F5TTS_model_cfg = dict(
-            dim=1024,
-            depth=22,
-            heads=16,
-            ff_mult=2,
-            text_dim=512,
-            conv_layers=4,
-            pe_attn_head=1,
-            text_mask_padding=False,
+        pretrained_config = tllm_model_config["pretrained_config"]
+        pt_model_config = dict(
+            dim=pretrained_config["hidden_size"],
+            depth=pretrained_config["num_hidden_layers"],
+            heads=pretrained_config["num_attention_heads"],
+            ff_mult=pretrained_config["ff_mult"],
+            text_dim=pretrained_config["text_dim"],
+            text_mask_padding=pretrained_config["text_mask_padding"],
+            conv_layers=pretrained_config["conv_layers"],
+            pe_attn_head=pretrained_config["pe_attn_head"],
         )
-        model = load_model(DiT, F5TTS_model_cfg, args.model_path)
+        model = load_model(DiT, pt_model_config, args.model_path)
 
     vocoder = load_vocoder(
         vocoder_name=args.vocoder, device=device, vocoder_trt_engine_path=args.vocoder_trt_engine_path

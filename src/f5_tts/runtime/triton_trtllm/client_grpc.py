@@ -220,8 +220,7 @@ def load_audio(wav_path, target_sample_rate=24000):
     if sample_rate != target_sample_rate:
         from scipy.signal import resample
 
-        num_samples = int(len(waveform) * (target_sample_rate / sample_rate))
-        waveform = resample(waveform, num_samples)
+        waveform = resample(waveform, int(len(waveform) * (target_sample_rate / sample_rate)))
     return waveform, target_sample_rate
 
 

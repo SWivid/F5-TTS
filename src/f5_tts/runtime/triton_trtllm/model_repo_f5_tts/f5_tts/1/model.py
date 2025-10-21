@@ -113,7 +113,6 @@ class TritonPythonModel:
         self.hop_length = 256
         self.n_mel_channels = 100
         self.max_mel_len = 4096
-        self.head_dim = 64
 
         parameters = json.loads(args["model_config"])["parameters"]
         for key, value in parameters.items():

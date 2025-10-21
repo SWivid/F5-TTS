@@ -227,29 +227,52 @@ def rotate_every_two_3dim(tensor: Tensor) -> Tensor:
     return out
 
 
-def apply_rotary_pos_emb_3dim(x, rope_cos, rope_sin):
-    if default_net().plugin_config.remove_input_padding:
-        rot_dim = shape(rope_cos, -1)  # 64
-        new_t_shape = concat([shape(x, 0), rot_dim])  # (-1, 64)
-        x_ = slice(x, [0, 0], new_t_shape, [1, 1])
-        end_dim = shape(x, -1) - shape(rope_cos, -1)
-        new_t_unrotated_shape = concat([shape(x, 0), end_dim])  # (2, -1, 960)
-        x_unrotated = slice(x, concat([0, rot_dim]), new_t_unrotated_shape, [1, 1])
-        out = concat([x_ * rope_cos + rotate_every_two_3dim(x_) * rope_sin, x_unrotated], dim=-1)
-    else:
-        rot_dim = shape(rope_cos, 2)  # 64
-        new_t_shape = concat([shape(x, 0), shape(x, 1), rot_dim])  # (2, -1, 64)
-        x_ = slice(x, [0, 0, 0], new_t_shape, [1, 1, 1])
-        end_dim = shape(x, 2) - shape(rope_cos, 2)
-        new_t_unrotated_shape = concat([shape(x, 0), shape(x, 1), end_dim])  # (2, -1, 960)
-        x_unrotated = slice(x, concat([0, 0, rot_dim]), new_t_unrotated_shape, [1, 1, 1])
-        out = concat([x_ * rope_cos + rotate_every_two_3dim(x_) * rope_sin, x_unrotated], dim=-1)
+def apply_rotary_pos_emb_3dim(x, rope_cos, rope_sin, pe_attn_head):
+    full_dim = x.size(-1)
+    head_dim = rope_cos.size(-1)  # attn head dim, e.g. 64
+    if pe_attn_head is None:
+        pe_attn_head = full_dim // head_dim
+    rotated_dim = head_dim * pe_attn_head
+
+    rotated_and_unrotated_list = []
+
+    if default_net().plugin_config.remove_input_padding:  # for [N, D] input
+        new_t_shape = concat([shape(x, 0), head_dim])  # (2, -1, 64)
+
+        for i in range(pe_attn_head):
+            x_slice_i = slice(x, [0, i * 64], new_t_shape, [1, 1])
+            x_rotated_i = x_slice_i * rope_cos + rotate_every_two_3dim(x_slice_i) * rope_sin
+            rotated_and_unrotated_list.append(x_rotated_i)
+
+        new_t_unrotated_shape = concat([shape(x, 0), full_dim - rotated_dim])  # (2, -1, 1024 - 64 * pe_attn_head)
+        x_unrotated = slice(x, concat([0, rotated_dim]), new_t_unrotated_shape, [1, 1])
+        rotated_and_unrotated_list.append(x_unrotated)
+
+    else:  # for [B, N, D] input
+        new_t_shape = concat([shape(x, 0), shape(x, 1), head_dim])  # (2, -1, 64)
+
+        for i in range(pe_attn_head):
+            x_slice_i = slice(x, [0, 0, i * 64], new_t_shape, [1, 1, 1])
+            x_rotated_i = x_slice_i * rope_cos + rotate_every_two_3dim(x_slice_i) * rope_sin
+            rotated_and_unrotated_list.append(x_rotated_i)
+
+        new_t_unrotated_shape = concat(
+            [shape(x, 0), shape(x, 1), full_dim - rotated_dim]
+        )  # (2, -1, 1024 - 64 * pe_attn_head)
+        x_unrotated = slice(x, concat([0, 0, rotated_dim]), new_t_unrotated_shape, [1, 1, 1])
+        rotated_and_unrotated_list.append(x_unrotated)
+
+    out = concat(rotated_and_unrotated_list, dim=-1)
+
     return out
 
 
 class AttnProcessor:
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        pe_attn_head: Optional[int] = None,  # number of attention head to apply rope, None for all
+    ):
+        self.pe_attn_head = pe_attn_head
 
     def __call__(
         self,
@@ -265,8 +288,8 @@ class AttnProcessor:
         key = attn.to_k(x)
         value = attn.to_v(x)
         # k,v,q all (2,1226,1024)
-        query = apply_rotary_pos_emb_3dim(query, rope_cos, rope_sin)
-        key = apply_rotary_pos_emb_3dim(key, rope_cos, rope_sin)
+        query = apply_rotary_pos_emb_3dim(query, rope_cos, rope_sin, self.pe_attn_head)
+        key = apply_rotary_pos_emb_3dim(key, rope_cos, rope_sin, self.pe_attn_head)
 
         # attention
         inner_dim = key.shape[-1]
@@ -354,12 +377,12 @@ class AttnProcessor:
 
 # DiT Block
 class DiTBlock(Module):
-    def __init__(self, dim, heads, dim_head, ff_mult=2, dropout=0.1):
+    def __init__(self, dim, heads, dim_head, ff_mult=2, dropout=0.1, pe_attn_head=None):
         super().__init__()
 
         self.attn_norm = AdaLayerNormZero(dim)
         self.attn = Attention(
-            processor=AttnProcessor(),
+            processor=AttnProcessor(pe_attn_head=pe_attn_head),
             dim=dim,
             heads=heads,
             dim_head=dim_head,

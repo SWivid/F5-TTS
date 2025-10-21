@@ -1,6 +1,6 @@
 stage=$1
 stop_stage=$2
-model=$3  # F5TTS_v1_Base | F5TTS_Base
+model=$3  # F5TTS_v1_Base | F5TTS_Base | F5TTS_v1_Small | F5TTS_Small
 if [ -z "$model" ]; then
     model=F5TTS_v1_Base
 fi
@@ -26,7 +26,7 @@ vocab_file=$CKPT_DIR/$model/vocab.txt
 if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
     echo "Converting checkpoint"
     python3 scripts/convert_checkpoint.py \
-        --timm_ckpt $ckpt_file \
+        --pytorch_ckpt $ckpt_file \
         --output_dir $TRTLLM_CKPT_DIR --model_name $model
     python_package_path=/usr/local/lib/python3.12/dist-packages
     cp -r patch/* $python_package_path/tensorrt_llm/models
@@ -58,7 +58,7 @@ if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
     echo "Testing triton server"
     num_task=1
     split_name=wenetspeech4tts
-    log_dir=./tests/client_grpc_concurrent_${num_task}_${split_name}
+    log_dir=./tests/client_grpc_${model}_concurrent_${num_task}_${split_name}
     rm -r $log_dir
     python3 client_grpc.py --num-tasks $num_task --huggingface-dataset yuekai/seed_tts --split-name $split_name --log-dir $log_dir
 fi
@@ -68,7 +68,7 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
     audio=../../infer/examples/basic/basic_ref_en.wav
     reference_text="Some call me nature, others call me mother nature."
     target_text="I don't really care what you call me. I've been a silent spectator, watching species evolve, empires rise and fall. But always remember, I am mighty and enduring."
-    python3 client_http.py --reference-audio $audio --reference-text "$reference_text" --target-text "$target_text"
+    python3 client_http.py --reference-audio $audio --reference-text "$reference_text" --target-text "$target_text" --output-audio "./tests/client_http_$model.wav"
 fi
 
 if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
@@ -76,7 +76,7 @@ if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
     batch_size=1
     split_name=wenetspeech4tts
     backend_type=trt
-    log_dir=./tests/benchmark_batch_size_${batch_size}_${split_name}_${backend_type}
+    log_dir=./tests/benchmark_${model}_batch_size_${batch_size}_${split_name}_${backend_type}
     rm -r $log_dir
     torchrun --nproc_per_node=1 \
     benchmark.py --output-dir $log_dir \
@@ -95,10 +95,10 @@ if [ $stage -le 8 ] && [ $stop_stage -ge 8 ]; then
     if ! python3 -c "import f5_tts" &> /dev/null; then
         pip install -e ../../../../
     fi
-    batch_size=1  # set attn_mask_enabled=True if batched
+    batch_size=1  # set attn_mask_enabled=True if batching in actual use case
     split_name=wenetspeech4tts
     backend_type=pytorch
-    log_dir=./tests/benchmark_batch_size_${batch_size}_${split_name}_${backend_type}
+    log_dir=./tests/benchmark_${model}_batch_size_${batch_size}_${split_name}_${backend_type}
     rm -r $log_dir
     torchrun --nproc_per_node=1 \
     benchmark.py --output-dir $log_dir \

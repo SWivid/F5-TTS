@@ -79,19 +79,19 @@ def get_args():
 
 
 def prepare_request(
-    samples,
+    waveform,
     reference_text,
     target_text,
     sample_rate=24000,
     audio_save_dir: str = "./",
 ):
-    assert len(samples.shape) == 1, "samples should be 1D"
-    lengths = np.array([[len(samples)]], dtype=np.int32)
-    samples = samples.reshape(1, -1).astype(np.float32)
+    assert len(waveform.shape) == 1, "waveform should be 1D"
+    lengths = np.array([[len(waveform)]], dtype=np.int32)
+    waveform = waveform.reshape(1, -1).astype(np.float32)
 
     data = {
         "inputs": [
-            {"name": "reference_wav", "shape": samples.shape, "datatype": "FP32", "data": samples.tolist()},
+            {"name": "reference_wav", "shape": waveform.shape, "datatype": "FP32", "data": waveform.tolist()},
             {
                 "name": "reference_wav_len",
                 "shape": lengths.shape,
@@ -109,16 +109,15 @@ def prepare_request(
 def load_audio(wav_path, target_sample_rate=24000):
     assert target_sample_rate == 24000, "hard coding in server"
     if isinstance(wav_path, dict):
-        samples = wav_path["array"]
+        waveform = wav_path["array"]
         sample_rate = wav_path["sampling_rate"]
     else:
-        samples, sample_rate = sf.read(wav_path)
+        waveform, sample_rate = sf.read(wav_path)
     if sample_rate != target_sample_rate:
         from scipy.signal import resample
 
-        num_samples = int(len(samples) * (target_sample_rate / sample_rate))
-        samples = resample(samples, num_samples)
-    return samples, target_sample_rate
+        waveform = resample(waveform, int(len(waveform) * (target_sample_rate / sample_rate)))
+    return waveform, target_sample_rate
 
 
 if __name__ == "__main__":
@@ -128,11 +127,11 @@ if __name__ == "__main__":
         server_url = f"http://{server_url}"
 
     url = f"{server_url}/v2/models/{args.model_name}/infer"
-    samples, sr = load_audio(args.reference_audio)
+    waveform, sr = load_audio(args.reference_audio)
     assert sr == 24000, "sample rate hardcoded in server"
 
-    samples = np.array(samples, dtype=np.float32)
-    data = prepare_request(samples, args.reference_text, args.target_text)
+    waveform = np.array(waveform, dtype=np.float32)
+    data = prepare_request(waveform, args.reference_text, args.target_text)
 
     rsp = requests.post(
         url, headers={"Content-Type": "application/json"}, json=data, verify=False, params={"request_id": "0"}
