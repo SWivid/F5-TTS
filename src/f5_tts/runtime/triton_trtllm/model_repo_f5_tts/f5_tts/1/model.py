@@ -229,7 +229,7 @@ class TritonPythonModel:
         max_seq_len = min(max(estimated_reference_target_mel_len), self.max_mel_len)
 
         batch = len(requests)
-        mel_features = torch.zeros((batch, max_seq_len, self.n_mel_channels), dtype=torch.float16).to(self.device)
+        mel_features = torch.zeros((batch, max_seq_len, self.n_mel_channels), dtype=torch.float32).to(self.device)
         for i, mel in enumerate(mel_features_list):
             mel_features[i, : mel.shape[1], :] = mel
 
@@ -254,9 +254,9 @@ class TritonPythonModel:
 
         responses = []
         for i in range(batch):
-            ref_me_len = reference_mel_len[i]
+            ref_mel_len = reference_mel_len[i]
             estimated_mel_len = estimated_reference_target_mel_len[i]
-            denoised_one_item = denoised[i, ref_me_len:estimated_mel_len, :].unsqueeze(0).transpose(1, 2)
+            denoised_one_item = denoised[i, ref_mel_len:estimated_mel_len, :].unsqueeze(0).transpose(1, 2)
             audio = self.forward_vocoder(denoised_one_item)
             if reference_rms_list[i] < self.target_rms:
                 audio = audio * reference_rms_list[i] / self.target_rms

@@ -12,6 +12,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.nn.utils.rnn import pad_sequence
 from x_transformers.x_transformers import RotaryEmbedding
 
 from f5_tts.model.modules import (
@@ -236,19 +237,30 @@ class DiT(nn.Module):
         cache: bool = True,
         audio_mask: bool["b n"] | None = None,  # noqa: F722
     ):
-        seq_len = x.shape[1]
-        # TODO. modify to get text_embed one by one (to avoid misalignment when batching), as done in runtime imple.
+        if self.text_uncond is None or self.text_cond is None or not cache:
+            batch = x.shape[0]
+            seq_lens = audio_mask.sum(dim=1)
+            text_embed_list = []
+            for i in range(batch):
+                text_embed_i = self.text_embed(
+                    text[i].unsqueeze(0),
+                    seq_lens[i].item(),
+                    drop_text=drop_text,
+                    audio_mask=audio_mask,
+                )
+                text_embed_list.append(text_embed_i[0])
+            text_embed = pad_sequence(text_embed_list, batch_first=True, padding_value=0)
+            if cache:
+                if drop_text:
+                    self.text_uncond = text_embed
+                else:
+                    self.text_cond = text_embed
+
         if cache:
             if drop_text:
-                if self.text_uncond is None:
-                    self.text_uncond = self.text_embed(text, seq_len, drop_text=True, audio_mask=audio_mask)
                 text_embed = self.text_uncond
             else:
-                if self.text_cond is None:
-                    self.text_cond = self.text_embed(text, seq_len, drop_text=False, audio_mask=audio_mask)
                 text_embed = self.text_cond
-        else:
-            text_embed = self.text_embed(text, seq_len, drop_text=drop_text, audio_mask=audio_mask)
 
         x = self.input_embed(x, cond, text_embed, drop_audio_cond=drop_audio_cond)
 

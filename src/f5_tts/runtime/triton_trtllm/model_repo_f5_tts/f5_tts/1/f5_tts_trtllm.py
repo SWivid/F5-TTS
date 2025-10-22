@@ -42,12 +42,15 @@ class TextEmbedding(nn.Module):
         self.register_buffer("freqs_cis", precompute_freqs_cis(text_dim, precompute_max_pos), persistent=False)
         self.text_blocks = nn.Sequential(*[ConvNeXtV2Block(text_dim, text_dim * conv_mult) for _ in range(conv_layers)])
 
-    def forward(self, text, seq_len):
+    def forward(self, text, seq_len, drop_text=False):
         text = text + 1
         text = text[:, :seq_len]  # curtail if character tokens are more than the mel spec tokens
         text = F.pad(text, (0, seq_len - text.shape[1]), value=0)
         if self.mask_padding:
             text_mask = text == 0
+
+        if drop_text:  # cfg for text
+            text = torch.zeros_like(text)
 
         text = self.text_embed(text)  # b n -> b n d
         text = text + self.freqs_cis[:seq_len, :]
@@ -385,17 +388,17 @@ class F5TTS(object):
         # get text_embed one by one to avoid misalignment
         text_and_drop_embedding_list = []
         for i in range(batch):
-            text_and_drop_embedding_i = self.text_embedding(
-                torch.cat(
-                    (
-                        text_pad_sequence[i].unsqueeze(0).to(self.device),
-                        torch.full((1, text_pad_sequence.shape[1]), -1, dtype=torch.int32).to(self.device),
-                    ),
-                    dim=0,
-                ),
+            text_embedding_i = self.text_embedding(
+                text_pad_sequence[i].unsqueeze(0).to(self.device),
                 estimated_reference_target_mel_len[i],
+                drop_text=False,
             )
-            text_and_drop_embedding_list.extend([text_and_drop_embedding_i[0], text_and_drop_embedding_i[1]])
+            text_embedding_drop_i = self.text_embedding(
+                text_pad_sequence[i].unsqueeze(0).to(self.device),
+                estimated_reference_target_mel_len[i],
+                drop_text=True,
+            )
+            text_and_drop_embedding_list.extend([text_embedding_i[0], text_embedding_drop_i[0]])
 
         # pad separately computed text_embed to form batch with max_seq_len
         text_and_drop_embedding = pad_sequence(
