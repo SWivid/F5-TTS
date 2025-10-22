@@ -24,7 +24,9 @@ Inside docker container, we would follow the official guide of TensorRT-LLM to b
 bash run.sh 0 4 F5TTS_v1_Base
 ```
 > [!NOTE]  
-> If use custom checkpoint, set `ckpt_file` and `vocab_file` in `run.sh`. Remember to used matched model version (`F5TTS_v1_*` for v1, `F5TTS_*` for v0).  
+> If use custom checkpoint, set `ckpt_file` and `vocab_file` in `run.sh`.  
+> Remember to used matched model version (`F5TTS_v1_*` for v1, `F5TTS_*` for v0).
+> 
 > If use checkpoint of different structure, see `scripts/convert_checkpoint.py`, and perform modification if necessary.
 
 > [!IMPORTANT]  
