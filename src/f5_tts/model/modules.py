@@ -6,7 +6,7 @@ nt - text sequence
 nw - raw wave length
 d - dimension
 """
-# flake8: noqa
+# ruff: noqa: F722 F821
 
 from __future__ import annotations
 
@@ -177,14 +177,19 @@ class ConvPositionEmbedding(nn.Module):
             nn.Conv1d(dim, dim, kernel_size, groups=groups, padding=kernel_size // 2),
             nn.Mish(),
         )
+        self.layer_need_mask_idx = [i for i, layer in enumerate(self.conv1d) if isinstance(layer, nn.Conv1d)]
 
     def forward(self, x: float["b n d"], mask: bool["b n"] | None = None):
         if mask is not None:
-            mask = mask[..., None]
+            mask = mask.unsqueeze(-1)
+            mask_t = mask.permute(0, 2, 1)
             x = x.masked_fill(~mask, 0.0)
 
         x = x.permute(0, 2, 1)
-        x = self.conv1d(x)
+        for i, block in enumerate(self.conv1d):
+            x = block(x)
+            if mask is not None and i in self.layer_need_mask_idx:
+                x = x.masked_fill(~mask_t, 0.0)
         out = x.permute(0, 2, 1)
 
         if mask is not None:
@@ -435,8 +440,8 @@ class Attention(nn.Module):
 # Attention processor
 
 if is_package_available("flash_attn"):
+    from flash_attn import flash_attn_func, flash_attn_varlen_func
     from flash_attn.bert_padding import pad_input, unpad_input
-    from flash_attn import flash_attn_varlen_func, flash_attn_func
 
 
 class AttnProcessor:

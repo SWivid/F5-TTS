@@ -307,6 +307,8 @@ def main():
             text_mask_padding=pretrained_config["text_mask_padding"],
             conv_layers=pretrained_config["conv_layers"],
             pe_attn_head=pretrained_config["pe_attn_head"],
+            # attn_backend="flash_attn",  # torch | flash_attn
+            # attn_mask_enabled=True,
         )
         model = load_model(DiT, pt_model_config, args.model_path)
 
