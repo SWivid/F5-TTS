@@ -73,7 +73,7 @@ fi
 
 if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
     echo "TRT-LLM: offline decoding benchmark test"
-    batch_size=1
+    batch_size=2
     split_name=wenetspeech4tts
     backend_type=trt
     log_dir=./tests/benchmark_${model}_batch_size_${batch_size}_${split_name}_${backend_type}

@@ -4,11 +4,20 @@ import os
 import sys
 from collections import OrderedDict
 
+import numpy as np
 import tensorrt as trt
 from tensorrt_llm._common import default_net
 
 from ..._utils import str_dtype_to_trt
-from ...functional import Tensor, concat
+from ...functional import (
+    Tensor,
+    concat,
+    constant,
+    expand,
+    shape,
+    slice,
+    unsqueeze,
+)
 from ...layers import Linear
 from ...module import Module, ModuleList
 from ...plugin import current_all_reduce_helper
@@ -27,9 +36,9 @@ class InputEmbedding(Module):
         self.proj = Linear(mel_dim * 2 + text_dim, out_dim)
         self.conv_pos_embed = ConvPositionEmbedding(dim=out_dim)
 
-    def forward(self, x, cond):
+    def forward(self, x, cond, mask=None):
         x = self.proj(concat([x, cond], dim=-1))
-        return self.conv_pos_embed(x) + x
+        return self.conv_pos_embed(x, mask=mask) + x
 
 
 class F5TTS(PretrainedModel):
@@ -69,10 +78,26 @@ class F5TTS(PretrainedModel):
         input_lengths,
         scale=1.0,
     ):
+        if default_net().plugin_config.remove_input_padding:
+            mask = None
+        else:
+            N = shape(noise, 1)
+            B = shape(noise, 0)
+            seq_len_2d = concat([1, N])
+            max_position_embeddings = 4096
+            # create position ids
+            position_ids_buffer = constant(np.expand_dims(np.arange(max_position_embeddings).astype(np.int32), 0))
+            tmp_position_ids = slice(position_ids_buffer, starts=[0, 0], sizes=seq_len_2d)
+            tmp_position_ids = expand(tmp_position_ids, concat([B, N]))  # [B, N]
+            tmp_input_lengths = unsqueeze(input_lengths, 1)  # [B, 1]
+            tmp_input_lengths = expand(tmp_input_lengths, concat([B, N]))  # [B, N]
+            mask = tmp_position_ids < tmp_input_lengths  # [B, N]
+            mask = mask.cast("int32")
+
         t = self.time_embed(time)
-        x = self.input_embed(noise, cond)
+        x = self.input_embed(noise, cond, mask=mask)
         for block in self.transformer_blocks:
-            x = block(x, t, rope_cos=rope_cos, rope_sin=rope_sin, input_lengths=input_lengths, scale=scale)
+            x = block(x, t, rope_cos=rope_cos, rope_sin=rope_sin, input_lengths=input_lengths, scale=scale, mask=mask)
         denoise = self.proj_out(self.norm_out(x, t))
         denoise.mark_output("denoised", self.dtype)
         return denoise

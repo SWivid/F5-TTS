@@ -16,7 +16,6 @@ from ...functional import (
     chunk,
     concat,
     constant,
-    expand,
     expand_dims,
     expand_dims_like,
     expand_mask,
@@ -95,15 +94,24 @@ class ConvPositionEmbedding(Module):
         self.conv1d2 = Conv1d(dim, dim, kernel_size, groups=groups, padding=kernel_size // 2)
         self.mish = Mish()
 
-    def forward(self, x, mask=None):  # noqa: F722
+    def forward(self, x, mask=None):
         if default_net().plugin_config.remove_input_padding:
             x = unsqueeze(x, 0)
-        x = permute(x, [0, 2, 1])
-        x = self.mish(self.conv1d2(self.mish(self.conv1d1(x))))
-        out = permute(x, [0, 2, 1])
+        if mask is not None:
+            mask = mask.view(concat([shape(mask, 0), 1, shape(mask, 1)]))  # [B 1 N]
+            mask = expand_dims_like(mask, x)  # [B D N]
+            mask = cast(mask, x.dtype)
+        x = permute(x, [0, 2, 1])  # [B D N]
+
+        if mask is not None:
+            x = self.mish(self.conv1d2(self.mish(self.conv1d1(x * mask) * mask)) * mask)
+        else:
+            x = self.mish(self.conv1d2(self.mish(self.conv1d1(x))))
+
+        x = permute(x, [0, 2, 1])  # [B N D]
         if default_net().plugin_config.remove_input_padding:
-            out = squeeze(out, 0)
-        return out
+            x = squeeze(x, 0)
+        return x
 
 
 class Attention(Module):
@@ -185,6 +193,7 @@ class Attention(Module):
         rope_cos,
         rope_sin,
         input_lengths,
+        mask=None,
         c=None,  # context c
         scale=1.0,
         rope=None,
@@ -283,6 +292,7 @@ class AttnProcessor:
         input_lengths,
         scale=1.0,
         rope=None,
+        mask=None,
     ) -> torch.FloatTensor:
         query = attn.to_q(x)
         key = attn.to_k(x)
@@ -295,20 +305,8 @@ class AttnProcessor:
         inner_dim = key.shape[-1]
         norm_factor = math.sqrt(attn.attention_head_size)
         q_scaling = 1.0 / norm_factor
-        mask = None
-        if not default_net().plugin_config.remove_input_padding:
-            N = shape(x, 1)
-            B = shape(x, 0)
-            seq_len_2d = concat([1, N])
-            max_position_embeddings = 4096
-            # create position ids
-            position_ids_buffer = constant(np.expand_dims(np.arange(max_position_embeddings).astype(np.int32), 0))
-            tmp_position_ids = slice(position_ids_buffer, starts=[0, 0], sizes=seq_len_2d)
-            tmp_position_ids = expand(tmp_position_ids, concat([B, N]))  # BxL
-            tmp_input_lengths = unsqueeze(input_lengths, 1)  # Bx1
-            tmp_input_lengths = expand(tmp_input_lengths, concat([B, N]))  # BxL
-            mask = tmp_position_ids < tmp_input_lengths  # BxL
-            mask = mask.cast("int32")
+        if default_net().plugin_config.remove_input_padding:
+            mask = None
 
         if default_net().plugin_config.bert_attention_plugin:
             qkv = concat([query, key, value], dim=-1)
@@ -393,14 +391,15 @@ class DiTBlock(Module):
         self.ff = FeedForward(dim=dim, mult=ff_mult, dropout=dropout)
 
     def forward(
-        self, x, t, rope_cos, rope_sin, input_lengths, scale=1.0, rope=ModuleNotFoundError
+        self, x, t, rope_cos, rope_sin, input_lengths, scale=1.0, rope=ModuleNotFoundError, mask=None
     ):  # x: noised input, t: time embedding
         # pre-norm & modulation for attention input
         norm, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.attn_norm(x, emb=t)
         # attention
         # norm ----> (2,1226,1024)
-        attn_output = self.attn(x=norm, rope_cos=rope_cos, rope_sin=rope_sin, input_lengths=input_lengths, scale=scale)
-
+        attn_output = self.attn(
+            x=norm, rope_cos=rope_cos, rope_sin=rope_sin, input_lengths=input_lengths, scale=scale, mask=mask
+        )
         # process attention output for input x
         if default_net().plugin_config.remove_input_padding:
             x = x + gate_msa * attn_output
