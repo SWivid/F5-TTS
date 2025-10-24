@@ -181,21 +181,19 @@ class ConvPositionEmbedding(nn.Module):
 
     def forward(self, x: float["b n d"], mask: bool["b n"] | None = None):
         if mask is not None:
-            mask = mask.unsqueeze(-1)
-            mask_t = mask.permute(0, 2, 1)
-            x = x.masked_fill(~mask, 0.0)
+            mask = mask.unsqueeze(1)  # [B 1 N]
+        x = x.permute(0, 2, 1)  # [B D N]
 
-        x = x.permute(0, 2, 1)
+        if mask is not None:
+            x = x.masked_fill(~mask, 0.0)
         for i, block in enumerate(self.conv1d):
             x = block(x)
             if mask is not None and i in self.layer_need_mask_idx:
-                x = x.masked_fill(~mask_t, 0.0)
-        out = x.permute(0, 2, 1)
+                x = x.masked_fill(~mask, 0.0)
 
-        if mask is not None:
-            out = out.masked_fill(~mask, 0.0)
+        x = x.permute(0, 2, 1)  # [B N D]
 
-        return out
+        return x
 
 
 # rotary positional embedding related

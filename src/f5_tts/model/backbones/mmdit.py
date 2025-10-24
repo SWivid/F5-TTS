@@ -6,6 +6,7 @@ nt - text sequence
 nw - raw wave length
 d - dimension
 """
+# ruff: noqa: F722 F821
 
 from __future__ import annotations
 
@@ -36,7 +37,7 @@ class TextEmbedding(nn.Module):
         self.precompute_max_pos = 1024
         self.register_buffer("freqs_cis", precompute_freqs_cis(out_dim, self.precompute_max_pos), persistent=False)
 
-    def forward(self, text: int["b nt"], drop_text=False) -> int["b nt d"]:  # noqa: F722
+    def forward(self, text: int["b nt"], drop_text=False) -> int["b nt d"]:
         text = text + 1  # use 0 as filler token. preprocess of batch pad -1, see list_str_to_idx()
         if self.mask_padding:
             text_mask = text == 0
@@ -69,7 +70,7 @@ class AudioEmbedding(nn.Module):
         self.linear = nn.Linear(2 * in_dim, out_dim)
         self.conv_pos_embed = ConvPositionEmbedding(out_dim)
 
-    def forward(self, x: float["b n d"], cond: float["b n d"], drop_audio_cond=False):  # noqa: F722
+    def forward(self, x: float["b n d"], cond: float["b n d"], drop_audio_cond=False):
         if drop_audio_cond:
             cond = torch.zeros_like(cond)
         x = torch.cat((x, cond), dim=-1)
@@ -170,11 +171,11 @@ class MMDiT(nn.Module):
 
     def forward(
         self,
-        x: float["b n d"],  # nosied input audio  # noqa: F722
-        cond: float["b n d"],  # masked cond audio  # noqa: F722
-        text: int["b nt"],  # text  # noqa: F722
-        time: float["b"] | float[""],  # time step  # noqa: F821 F722
-        mask: bool["b n"] | None = None,  # noqa: F722
+        x: float["b n d"],  # nosied input audio
+        cond: float["b n d"],  # masked cond audio
+        text: int["b nt"],  # text
+        time: float["b"] | float[""],  # time step
+        mask: bool["b n"] | None = None,
         drop_audio_cond: bool = False,  # cfg for cond audio
         drop_text: bool = False,  # cfg for text
         cfg_infer: bool = False,  # cfg inference, pack cond & uncond forward
