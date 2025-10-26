@@ -155,7 +155,13 @@ def main():
         ckpt_path = ckpt_prefix + ".safetensors"
     else:
         print("Loading from self-organized training checkpoints rather than released pretrained.")
-        ckpt_path = rel_path + f"/{model_cfg.ckpts.save_dir}/model_{ckpt_step}.pt"
+        ckpt_prefix = rel_path + f"/{model_cfg.ckpts.save_dir}/model_{ckpt_step}"
+        if os.path.exists(ckpt_prefix + ".pt"):
+            ckpt_path = ckpt_prefix + ".pt"
+        elif os.path.exists(ckpt_prefix + ".safetensors"):
+            ckpt_path = ckpt_prefix + ".safetensors"
+        else:
+            raise ValueError("The checkpoint does not exist or cannot be found in given location.")
 
     dtype = torch.float32 if mel_spec_type == "bigvgan" else None
     model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
