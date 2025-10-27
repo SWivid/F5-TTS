@@ -48,6 +48,11 @@ def main():
     parser.add_argument("-ss", "--swaysampling", default=-1, type=float)
 
     parser.add_argument("-t", "--testset", required=True)
+    parser.add_argument(
+        "-p", "--librispeech_test_clean_path", default=f"{rel_path}/data/LibriSpeech/test-clean", type=str
+    )
+
+    parser.add_argument("--local", action="store_true", help="Use local vocoder checkpoint directory")
 
     args = parser.parse_args()
 
@@ -83,7 +88,7 @@ def main():
 
     if testset == "ls_pc_test_clean":
         metalst = rel_path + "/data/librispeech_pc_test_clean_cross_sentence.lst"
-        librispeech_test_clean_path = "<SOME_PATH>/LibriSpeech/test-clean"  # test-clean path
+        librispeech_test_clean_path = args.librispeech_test_clean_path
         metainfo = get_librispeech_test_clean_metainfo(metalst, librispeech_test_clean_path)
 
     elif testset == "seedtts_test_zh":
@@ -121,7 +126,7 @@ def main():
     )
 
     # Vocoder model
-    local = False
+    local = args.local
     if mel_spec_type == "vocos":
         vocoder_local_path = "../checkpoints/charactr/vocos-mel-24khz"
     elif mel_spec_type == "bigvgan":

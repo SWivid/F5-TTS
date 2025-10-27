@@ -1,6 +1,7 @@
 # Evaluate with Seed-TTS testset
 
 import argparse
+import ast
 import json
 import os
 import sys
@@ -24,9 +25,24 @@ def get_args():
     parser.add_argument("-e", "--eval_task", type=str, default="wer", choices=["sim", "wer"])
     parser.add_argument("-l", "--lang", type=str, default="en", choices=["zh", "en"])
     parser.add_argument("-g", "--gen_wav_dir", type=str, required=True)
-    parser.add_argument("-n", "--gpu_nums", type=int, default=8, help="Number of GPUs to use")
+    parser.add_argument(
+        "-n", "--gpu_nums", type=str, default="8", help="Number of GPUs to use (e.g., 8) or GPU list (e.g., [0,1,2,3])"
+    )
     parser.add_argument("--local", action="store_true", help="Use local custom checkpoint directory")
     return parser.parse_args()
+
+
+def parse_gpu_nums(gpu_nums_str):
+    try:
+        if gpu_nums_str.startswith("[") and gpu_nums_str.endswith("]"):
+            gpu_list = ast.literal_eval(gpu_nums_str)
+            if isinstance(gpu_list, list):
+                return gpu_list
+        return list(range(int(gpu_nums_str)))
+    except (ValueError, SyntaxError):
+        raise argparse.ArgumentTypeError(
+            f"Invalid GPU specification: {gpu_nums_str}. Use a number (e.g., 8) or a list (e.g., [0,1,2,3])"
+        )
 
 
 def main():
@@ -38,7 +54,7 @@ def main():
 
     # NOTE. paraformer-zh result will be slightly different according to the number of gpus, cuz batchsize is different
     #       zh 1.254 seems a result of 4 workers wer_seed_tts
-    gpus = list(range(args.gpu_nums))
+    gpus = parse_gpu_nums(args.gpu_nums)
     test_set = get_seed_tts_test(metalst, gen_wav_dir, gpus)
 
     local = args.local
