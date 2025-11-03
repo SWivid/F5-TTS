@@ -34,6 +34,7 @@ dependencies = [
     "tomli",
     "torch>=2.0.0",
     "torchaudio>=2.0.0",
+    "torchcodec",
     "torchdiffeq",
     "tqdm>=4.65.0",
     "transformers",
