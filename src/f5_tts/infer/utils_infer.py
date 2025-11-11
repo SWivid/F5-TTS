@@ -468,9 +468,15 @@ def infer_batch_process(
         ref_text = ref_text + " "
 
     def process_batch(gen_text):
+        if not gen_text.strip().endswith((".", "。", "!", "！", "?", "？")):
+            gen_text += "."
+
         local_speed = speed
-        if len(gen_text.encode("utf-8")) < 10:
-            local_speed = 0.3
+        gen_text_len_bytes = len(gen_text.encode("utf-8"))
+        if gen_text_len_bytes < 15:
+            local_speed = 0.4
+        elif gen_text_len_bytes < 30:
+            local_speed = 0.7
 
         # Prepare the text
         text_list = [ref_text + gen_text]
