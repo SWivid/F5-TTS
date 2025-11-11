@@ -3,6 +3,7 @@
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
+import gc
 
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
@@ -171,15 +172,27 @@ def initialize_asr_pipeline(device: str = device, dtype=None):
 
 def transcribe(ref_audio, language=None):
     global asr_pipe
+    # Initialize the ASR pipeline if it's not already loaded
     if asr_pipe is None:
         initialize_asr_pipeline(device=device)
-    return asr_pipe(
+
+    # Perform the transcription
+    result_text = asr_pipe(
         ref_audio,
         chunk_length_s=30,
         batch_size=128,
         generate_kwargs={"task": "transcribe", "language": language} if language else {"task": "transcribe"},
         return_timestamps=False,
     )["text"].strip()
+
+    # Unload the ASR model to free up GPU resources immediately after use
+    del asr_pipe
+    asr_pipe = None
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    return result_text
 
 
 # load model checkpoint for inference
