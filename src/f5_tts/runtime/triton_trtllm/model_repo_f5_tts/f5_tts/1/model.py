@@ -26,7 +26,7 @@
 import json
 import os
 
-import jieba
+import rjieba
 import torch
 import torchaudio
 import triton_python_backend_utils as pb_utils
@@ -66,7 +66,7 @@ def convert_char_to_pinyin(reference_target_texts_list, polyphone=True):
     for text in reference_target_texts_list:
         char_list = []
         text = text.translate(custom_trans)
-        for seg in jieba.cut(text):
+        for seg in rjieba.cut(text):
             seg_byte_len = len(bytes(seg, "UTF-8"))
             if seg_byte_len == len(seg):  # if pure alphabets and symbols
                 if char_list and seg_byte_len > 1 and char_list[-1] not in " :'\"":

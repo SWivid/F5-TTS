@@ -7,7 +7,7 @@ import random
 from collections import defaultdict
 from importlib.resources import files
 
-import jieba
+import rjieba
 import torch
 from pypinyin import Style, lazy_pinyin
 from torch.nn.utils.rnn import pad_sequence
@@ -146,10 +146,6 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
 
 
 def convert_char_to_pinyin(text_list, polyphone=True):
-    if jieba.dt.initialized is False:
-        jieba.default_logger.setLevel(50)  # CRITICAL
-        jieba.initialize()
-
     final_text_list = []
     custom_trans = str.maketrans(
         {";": ",", "“": '"', "”": '"', "‘": "'", "’": "'"}
@@ -163,7 +159,7 @@ def convert_char_to_pinyin(text_list, polyphone=True):
     for text in text_list:
         char_list = []
         text = text.translate(custom_trans)
-        for seg in jieba.cut(text):
+        for seg in rjieba.cut(text):
             seg_byte_len = len(bytes(seg, "UTF-8"))
             if seg_byte_len == len(seg):  # if pure alphabets and symbols
                 if char_list and seg_byte_len > 1 and char_list[-1] not in " :'\"":

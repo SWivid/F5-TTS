@@ -225,5 +225,5 @@ if __name__ == "__main__":
     # bad zh asr cnt        230435   (samples)
     # bad eh asr cnt         37217   (samples)
 
-    # vocab size may be slightly different due to jieba tokenizer and pypinyin (e.g. way of polyphoneme)
+    # vocab size may be slightly different due to rjieba tokenizer and pypinyin (e.g. way of polyphoneme)
     # please be careful if using pretrained model, make sure the vocab.txt is same

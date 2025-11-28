@@ -122,5 +122,5 @@ if __name__ == "__main__":
     #                           -            -        1459   (polyphone)
     # char   vocab size      5264         5219        5042
 
-    # vocab size may be slightly different due to jieba tokenizer and pypinyin (e.g. way of polyphoneme)
+    # vocab size may be slightly different due to rjieba tokenizer and pypinyin (e.g. way of polyphoneme)
     # please be careful if using pretrained model, make sure the vocab.txt is same
