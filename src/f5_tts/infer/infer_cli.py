@@ -109,6 +109,12 @@ parser.add_argument(
     help="The name of output file",
 )
 parser.add_argument(
+    "-j",
+    "--output_subtitle_file",
+    type=str,
+    help="The name of output subtitle file, e.g. subtitle.json",
+)
+parser.add_argument(
     "--save_chunk",
     action="store_true",
     help="To save each audio chunks during inference",
@@ -201,6 +207,7 @@ output_dir = args.output_dir or config.get("output_dir", "tests")
 output_file = args.output_file or config.get(
     "output_file", f"infer_cli_{datetime.now().strftime(r'%Y%m%d_%H%M%S')}.wav"
 )
+output_subtitle_file = args.output_subtitle_file or config.get("output_subtitle_file", "")
 
 save_chunk = args.save_chunk or config.get("save_chunk", False)
 use_legacy_text = args.no_legacy_text or config.get("no_legacy_text", False)  # no_legacy_text is a store_false arg
@@ -315,16 +322,30 @@ def main():
         print("ref_audio_", voices[voice]["ref_audio"], "\n\n")
 
     generated_audio_segments = []
-    reg1 = r"(?=\[\w+\])"
-    chunks = re.split(reg1, gen_text)
+    subtitle_data = []
+    cumulative_time_ms = 0
+    text_offset = 0
+
+    reg1 = r"(\[\w+\])"
+    parts = re.split(reg1, gen_text)
+    chunks = []
+    # The first part may not have a tag, default to [main]
+    if parts[0].strip():
+        chunks.append("[main]" + parts[0])
+    # Combine tags with their corresponding text
+    for i in range(1, len(parts), 2):
+        tag = parts[i]
+        text = parts[i + 1]
+        if text.strip():
+            chunks.append(tag + text)
+
     reg2 = r"\[(\w+)\]"
     for text in chunks:
-        if not text.strip():
-            continue
         match = re.match(reg2, text)
         if match:
             voice = match[1]
         else:
+            # This else block should ideally not be reached with the new logic
             print("No voice tag found, using main.")
             voice = "main"
         if voice not in voices:
@@ -354,6 +375,28 @@ def main():
         )
         generated_audio_segments.append(audio_segment)
 
+        # Subtitle generation
+        if output_subtitle_file:
+            # Clean up text for subtitle and add speaker tag
+            clean_text = gen_text_
+            if clean_text.startswith('"') and clean_text.endswith('"'):
+                clean_text = clean_text[1:-1]
+
+            segment_duration_ms = (len(audio_segment) / final_sample_rate) * 1000
+            text_begin = text_offset
+            text_end = text_offset + len(gen_text_)  # Use original length for offset
+            subtitle_entry = {
+                "text": clean_text,
+                "speaker": voice,
+                "time_begin": cumulative_time_ms,
+                "time_end": cumulative_time_ms + segment_duration_ms,
+                "text_begin": text_begin,
+                "text_end": text_end,
+            }
+            subtitle_data.append(subtitle_entry)
+            cumulative_time_ms += segment_duration_ms
+            text_offset = text_end
+
         if save_chunk:
             if len(gen_text_) > 200:
                 gen_text_ = gen_text_[:200] + " ... "
@@ -377,6 +420,14 @@ def main():
             if remove_silence:
                 remove_silence_for_generated_wav(f.name)
             print(f.name)
+
+    if output_subtitle_file and subtitle_data:
+        import json
+
+        subtitle_path = Path(output_dir) / output_subtitle_file
+        with open(subtitle_path, "w", encoding="utf-8") as f:
+            json.dump(subtitle_data, f, indent=3, ensure_ascii=False)
+        print(f"Subtitle file saved to: {subtitle_path}")
 
 
 if __name__ == "__main__":
