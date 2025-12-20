@@ -577,7 +577,7 @@ with gr.Blocks() as app_multistyle:
         label="Cherry-pick Interface",
         lines=10,
         max_lines=40,
-        show_copy_button=True,
+        buttons=["copy"],  # show_copy_button=True if gradio<6.0
         interactive=False,
         visible=False,
     )
