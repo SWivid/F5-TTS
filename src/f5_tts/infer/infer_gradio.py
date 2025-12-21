@@ -221,7 +221,7 @@ with gr.Blocks() as app_tts:
         )
         gen_text_file = gr.File(label="Load Text to Generate from File (.txt)", file_types=[".txt"], scale=1)
     generate_btn = gr.Button("Synthesize", variant="primary")
-    with gr.Accordion("Advanced Settings", open=False):
+    with gr.Accordion("Advanced Settings", open=True) as adv_settn:
         with gr.Row():
             ref_text_input = gr.Textbox(
                 label="Reference Text",
@@ -268,6 +268,17 @@ with gr.Blocks() as app_tts:
             step=0.01,
             info="Set the duration of the cross-fade between audio clips.",
         )
+
+    def collapse_accordion():
+        return gr.Accordion(open=False)
+
+    # Workaround for https://github.com/SWivid/F5-TTS/issues/1239#issuecomment-3677987413
+    # i.e. to set gr.Accordion(open=True) by default, then collapse manually Blocks loaded
+    app_tts.load(
+        fn=collapse_accordion,
+        inputs=None,
+        outputs=adv_settn,
+    )
 
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
