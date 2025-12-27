@@ -34,7 +34,6 @@ dependencies = [
     "tomli",
     "torch>=2.0.0",
     "torchaudio>=2.0.0",
-    "torchcodec",
     "torchdiffeq",
     "tqdm>=4.65.0",
     "transformers",
@@ -46,6 +45,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+video = [
+    "torchcodec",
+]
+
 eval = [
     "faster_whisper==0.10.1",
     "funasr",
