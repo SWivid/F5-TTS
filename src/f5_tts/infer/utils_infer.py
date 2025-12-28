@@ -41,7 +41,7 @@ device = (
     else "xpu"
     if hasattr(torch, 'xpu') and torch.xpu.is_available()
     else "mps"
-    if torch.backends.mps.is_available()
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
     else "cpu"
 )
 
