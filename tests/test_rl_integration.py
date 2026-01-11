@@ -251,14 +251,16 @@ def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:
     return model_dir
 
 
-def _install_funasr_stub(monkeypatch) -> None:
+def _install_funasr_stub(monkeypatch, texts: list[str] | None = None) -> None:
+    texts = texts or ["hello world"]
+
     class DummyAutoModel:
         def __init__(self, model, device, disable_update=True):
             self.model = model
             self.device = device
 
         def inference(self, input, cache, language, use_itn, disable_pbar, batch_size):
-            return [{"text": "hello"} for _ in input]
+            return [{"text": texts[idx % len(texts)]} for idx in range(len(input))]
 
     funasr = types.ModuleType("funasr")
     funasr.__path__ = []
@@ -364,7 +366,7 @@ def test_wespeaker_respects_device(tmp_path, monkeypatch):
 
 
 def test_funasr_stub_runs_and_respects_device(monkeypatch):
-    _install_funasr_stub(monkeypatch)
+    _install_funasr_stub(monkeypatch, texts=["hello"])
     provider = FunASRWERProvider()
     provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
     audio = torch.randn(16000)
@@ -380,6 +382,48 @@ def test_funasr_stub_runs_and_respects_device(monkeypatch):
     outputs = provider.compute(batch)
     assert outputs[0].total_reward.device.type == "cpu"
     assert provider._model.device == "cpu"
+
+
+def test_funasr_reward_values(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["hello world"])
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hello world",
+            speaker_ref=None,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["wer"].item() == 0.0
+    assert outputs[0].components["acc"].item() == 1.0
+    assert outputs[0].total_reward.item() == 1.0
+
+
+def test_wespeaker_similarity_identical_audio(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hi",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["sim"].item() >= 0.99
 
 
 @pytest.mark.integration
