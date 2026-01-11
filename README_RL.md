@@ -295,6 +295,28 @@ Low-disk or restricted environments:
 - Keep only the final checkpoint to avoid extra 5+ GB files:
   `ckpts.keep_last_n_checkpoints=0` (still writes `model_last.pt`).
 
+### Trackio (drop-in alternative)
+
+Trackio is a lightweight, local-first tracker that is API-compatible with W&B.
+To use it:
+
+```bash
+./.venv/bin/python -m pip install -e ".[trackio]"
+```
+
+Then set:
+```
+ckpts.logger=trackio
+```
+
+To view logs locally:
+```bash
+trackio show
+```
+
+If local ports are restricted, set `TRACKIO_SPACE_ID` to log to a Space, or
+pick a custom port range with `GRADIO_SERVER_PORT`.
+
 ## Implementation parity notes
 
 These details intentionally match the F5R reference code:

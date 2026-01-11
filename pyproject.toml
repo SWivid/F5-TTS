@@ -64,6 +64,9 @@ reward_funasr = [
 reward_wespeaker = [
     "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794",
 ]
+trackio = [
+    "trackio",
+]
 
 [project.urls]
 Homepage = "https://github.com/SWivid/F5-TTS"

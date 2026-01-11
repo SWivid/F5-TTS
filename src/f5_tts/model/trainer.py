@@ -6,7 +6,6 @@ import os
 
 import torch
 import torchaudio
-import wandb
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 from ema_pytorch import EMA
@@ -15,6 +14,7 @@ from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from tqdm import tqdm
 
+import wandb
 from f5_tts.model import CFM
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
 from f5_tts.model.utils import default, exists, load_state_dict_compat
@@ -57,18 +57,28 @@ class Trainer:
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
-        if logger == "wandb" and not wandb.api.api_key:
-            logger = None
+        self.logger = logger
+        self._trackio = None
+        if self.logger == "trackio":
+            try:
+                import trackio as trackio_module
+            except Exception as exc:  # noqa: BLE001
+                raise ImportError(
+                    "Trackio is required for logger='trackio'. Install with: pip install f5-tts[trackio]"
+                ) from exc
+            self._trackio = trackio_module
+        elif self.logger == "wandb" and not wandb.api.api_key:
+            self.logger = None
         self.log_samples = log_samples
 
         self.accelerator = Accelerator(
-            log_with=logger if logger == "wandb" else None,
+            log_with=self.logger if self.logger == "wandb" else None,
             kwargs_handlers=[ddp_kwargs],
             gradient_accumulation_steps=grad_accumulation_steps,
             **accelerate_kwargs,
         )
 
-        self.logger = logger
+        self.writer = None
         if self.logger == "wandb":
             if exists(wandb_resume_id):
                 init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name, "id": wandb_resume_id}}
@@ -93,6 +103,28 @@ class Trainer:
                 init_kwargs=init_kwargs,
                 config=model_cfg_dict,
             )
+        elif self.logger == "trackio":
+            if not model_cfg_dict:
+                model_cfg_dict = {
+                    "epochs": epochs,
+                    "learning_rate": learning_rate,
+                    "num_warmup_updates": num_warmup_updates,
+                    "batch_size_per_gpu": batch_size_per_gpu,
+                    "batch_size_type": batch_size_type,
+                    "max_samples": max_samples,
+                    "grad_accumulation_steps": grad_accumulation_steps,
+                    "max_grad_norm": max_grad_norm,
+                    "noise_scheduler": noise_scheduler,
+                }
+            model_cfg_dict["gpus"] = self.accelerator.num_processes
+            self._trackio.init(
+                project=wandb_project,
+                name=wandb_run_name,
+                config=model_cfg_dict,
+                space_id=os.getenv("TRACKIO_SPACE_ID"),
+                dataset_id=os.getenv("TRACKIO_DATASET_ID"),
+                embed=False,
+            )
 
         elif self.logger == "tensorboard":
             from torch.utils.tensorboard import SummaryWriter
@@ -105,7 +137,7 @@ class Trainer:
             self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
             self.ema_model.to(self.accelerator.device)
 
-            print(f"Using logger: {logger}")
+            print(f"Using logger: {self.logger}")
             if grad_accumulation_steps > 1:
                 print(
                     "Gradient accumulation checkpointing with per_updates now, old logic per_steps used with before f992c4e"
@@ -145,6 +177,15 @@ class Trainer:
     @property
     def is_main(self):
         return self.accelerator.is_main_process
+
+    def _log(self, payload: dict[str, float], step: int) -> None:
+        if self.logger == "wandb":
+            self.accelerator.log(payload, step=step)
+        elif self.logger == "trackio":
+            self._trackio.log(payload, step=step)
+        elif self.logger == "tensorboard":
+            for key, value in payload.items():
+                self.writer.add_scalar(key, value, step)
 
     def save_checkpoint(self, update, last=False):
         self.accelerator.wait_for_everyone()
@@ -384,7 +425,7 @@ class Trainer:
                     # TODO. add duration predictor training
                     if self.duration_predictor is not None and self.accelerator.is_local_main_process:
                         dur_loss = self.duration_predictor(mel_spec, lens=batch.get("durations"))
-                        self.accelerator.log({"duration loss": dur_loss.item()}, step=global_update)
+                        self._log({"duration loss": dur_loss.item()}, step=global_update)
 
                     loss, cond, pred = self.model(
                         mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
@@ -407,12 +448,7 @@ class Trainer:
                     progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
                 if self.accelerator.is_local_main_process:
-                    self.accelerator.log(
-                        {"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update
-                    )
-                    if self.logger == "tensorboard":
-                        self.writer.add_scalar("loss", loss.item(), global_update)
-                        self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_update)
+                    self._log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update, last=True)
@@ -455,3 +491,5 @@ class Trainer:
         self.save_checkpoint(global_update, last=True)
 
         self.accelerator.end_training()
+        if self.logger == "trackio":
+            self._trackio.finish()

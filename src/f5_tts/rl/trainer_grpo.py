@@ -86,51 +86,94 @@ class GRPOTrainer:
 
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
-        if logger == "wandb":
+        self.logger = logger
+        self._trackio = None
+        if self.logger == "trackio":
+            try:
+                import trackio as trackio_module
+            except Exception as exc:  # noqa: BLE001
+                raise ImportError(
+                    "Trackio is required for logger='trackio'. Install with: pip install f5-tts[trackio]"
+                ) from exc
+            self._trackio = trackio_module
+        elif self.logger == "wandb":
             try:
                 import wandb  # noqa: F401
             except Exception:
-                logger = None
+                self.logger = None
 
         self.accelerator = Accelerator(
-            log_with=logger if logger == "wandb" else None,
+            log_with=self.logger if self.logger == "wandb" else None,
             kwargs_handlers=[ddp_kwargs],
             gradient_accumulation_steps=grad_accumulation_steps,
             **accelerate_kwargs,
         )
 
-        self.logger = logger
         if self.logger == "wandb":
             init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name}}
             if exists(wandb_resume_id):
                 init_kwargs["wandb"]["id"] = wandb_resume_id
             reward_providers = [provider.name for provider in reward_combiner.providers]
+            tracker_config = {
+                "epochs": epochs,
+                "learning_rate": learning_rate,
+                "num_warmup_updates": num_warmup_updates,
+                "batch_size_per_gpu": batch_size_per_gpu,
+                "batch_size_type": batch_size_type,
+                "max_samples": max_samples,
+                "grad_accumulation_steps": grad_accumulation_steps,
+                "max_grad_norm": max_grad_norm,
+                "gpus": self.accelerator.num_processes,
+                "noise_scheduler": noise_scheduler,
+                "repeat_count": repeat_count,
+                "mini_repeat_count": mini_repeat_count,
+                "prompt_frac_range": prompt_frac_range,
+                "prompt_length_mode": prompt_length_mode,
+                "steps": steps,
+                "cfg_strength": cfg_strength,
+                "sway_sampling_coef": sway_sampling_coef,
+                "kl_weight": kl_weight,
+                "reward_mode": reward_combiner.mode,
+                "reward_weights": reward_combiner.weights,
+                "reward_providers": reward_providers,
+            }
             self.accelerator.init_trackers(
                 project_name=wandb_project,
                 init_kwargs=init_kwargs,
-                config={
-                    "epochs": epochs,
-                    "learning_rate": learning_rate,
-                    "num_warmup_updates": num_warmup_updates,
-                    "batch_size_per_gpu": batch_size_per_gpu,
-                    "batch_size_type": batch_size_type,
-                    "max_samples": max_samples,
-                    "grad_accumulation_steps": grad_accumulation_steps,
-                    "max_grad_norm": max_grad_norm,
-                    "gpus": self.accelerator.num_processes,
-                    "noise_scheduler": noise_scheduler,
-                    "repeat_count": repeat_count,
-                    "mini_repeat_count": mini_repeat_count,
-                    "prompt_frac_range": prompt_frac_range,
-                    "prompt_length_mode": prompt_length_mode,
-                    "steps": steps,
-                    "cfg_strength": cfg_strength,
-                    "sway_sampling_coef": sway_sampling_coef,
-                    "kl_weight": kl_weight,
-                    "reward_mode": reward_combiner.mode,
-                    "reward_weights": reward_combiner.weights,
-                    "reward_providers": reward_providers,
-                },
+                config=tracker_config,
+            )
+        elif self.logger == "trackio":
+            reward_providers = [provider.name for provider in reward_combiner.providers]
+            tracker_config = {
+                "epochs": epochs,
+                "learning_rate": learning_rate,
+                "num_warmup_updates": num_warmup_updates,
+                "batch_size_per_gpu": batch_size_per_gpu,
+                "batch_size_type": batch_size_type,
+                "max_samples": max_samples,
+                "grad_accumulation_steps": grad_accumulation_steps,
+                "max_grad_norm": max_grad_norm,
+                "gpus": self.accelerator.num_processes,
+                "noise_scheduler": noise_scheduler,
+                "repeat_count": repeat_count,
+                "mini_repeat_count": mini_repeat_count,
+                "prompt_frac_range": prompt_frac_range,
+                "prompt_length_mode": prompt_length_mode,
+                "steps": steps,
+                "cfg_strength": cfg_strength,
+                "sway_sampling_coef": sway_sampling_coef,
+                "kl_weight": kl_weight,
+                "reward_mode": reward_combiner.mode,
+                "reward_weights": reward_combiner.weights,
+                "reward_providers": reward_providers,
+            }
+            self._trackio.init(
+                project=wandb_project,
+                name=wandb_run_name,
+                config=tracker_config,
+                space_id=os.getenv("TRACKIO_SPACE_ID"),
+                dataset_id=os.getenv("TRACKIO_DATASET_ID"),
+                embed=False,
             )
 
         self.model = model
@@ -182,6 +225,12 @@ class GRPOTrainer:
     @property
     def is_main(self):
         return self.accelerator.is_main_process
+
+    def _log(self, payload: dict[str, float], step: int) -> None:
+        if self.logger == "wandb":
+            self.accelerator.log(payload, step=step)
+        elif self.logger == "trackio":
+            self._trackio.log(payload, step=step)
 
     def _init_ref_model(self, ref_model: CFM | None, ckpt_path: str | None, use_ema: bool) -> CFM:
         if ref_model is not None:
@@ -532,7 +581,7 @@ class GRPOTrainer:
                     for key, values in component_values.items():
                         if values:
                             log_payload[f"reward/{key}"] = torch.stack(values).mean().item()
-                    self.accelerator.log(log_payload, step=global_update)
+                    self._log(log_payload, step=global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update, last=True)
@@ -542,3 +591,5 @@ class GRPOTrainer:
 
         self.save_checkpoint(global_update, last=True)
         self.accelerator.end_training()
+        if self.logger == "trackio":
+            self._trackio.finish()
