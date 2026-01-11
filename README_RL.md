@@ -70,6 +70,42 @@ PY
 Use `datasets.name=mini_rl` with `model.tokenizer=custom` so the loader reads
 `data/mini_rl_custom`.
 
+### Better small dataset (LibriSpeech streaming)
+
+For a more realistic ASR signal without a huge download, stream a small subset:
+
+```bash
+./.venv/bin/python - <<'PY'
+from datasets import load_dataset, Dataset
+from pathlib import Path
+import json
+import soundfile as sf
+
+out_root = Path("data/mini_rl_custom")
+wav_dir = out_root / "wavs"
+wav_dir.mkdir(parents=True, exist_ok=True)
+
+ds = load_dataset("librispeech_asr", "clean", split="train.100", streaming=True)
+items = []
+durations = []
+for idx, row in enumerate(ds):
+    if idx >= 64:
+        break
+    audio = row["audio"]["array"]
+    sr = row["audio"]["sampling_rate"]
+    text = row.get("text", "")
+    wav_path = wav_dir / f"sample_{idx:02d}.wav"
+    sf.write(wav_path, audio, sr)
+    duration = len(audio) / sr
+    items.append({"audio_path": str(wav_path), "text": text, "duration": duration})
+    durations.append(duration)
+
+Dataset.from_list(items).save_to_disk(str(out_root / "raw"))
+with (out_root / "duration.json").open("w", encoding="utf-8") as f:
+    json.dump({"duration": durations}, f)
+PY
+```
+
 ## Tiny smoke-test run (what we used)
 
 This is the exact sequence used for the local smoke test:
@@ -262,6 +298,43 @@ rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall
 ```
 
 Output: `ckpts/mini_rl_grpo/model_last.pt`
+
+### Longer GPU run (model on GPU, rewards on CPU)
+
+Suggested knobs for a longer run on an 8 GB GPU:
+- Use AMP: `ACCELERATE_MIXED_PRECISION=bf16`
+- Use 8-bit optimizer: `optim.bnb_optimizer=true`
+- Keep only `model_last.pt`: `ckpts.keep_last_n_checkpoints=0`
+
+Stage 1 warmup (8 epochs ≈ 64 * 8 = 512 updates):
+```bash
+CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 \
+./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
+datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=2 \
+model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
+model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
+model.arch.checkpoint_activations=true \
+optim.epochs=8 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
+ckpts.save_dir=ckpts/mini_rl_warmup ckpts.save_per_updates=50 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=null
+```
+
+Stage 2 GRPO (GPU model, CPU rewards):
+```bash
+CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 \
+./.venv/bin/python -m f5_tts.train.train_rl \
+datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=2 \
+model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
+model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=true \
+optim.epochs=8 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
+ckpts.save_dir=ckpts/mini_rl_grpo ckpts.save_per_updates=50 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=trackio \
+rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.1]' rl.prompt_length_mode=min \
+rl.cfg_strength=1.0 rl.sway_sampling_coef=null rl.kl_weight=1.0 \
+rl.ref_model_ckpt=$PWD/ckpts/mini_rl_warmup/model_last.pt \
+rl.rewards.providers.0.config.model_dir=$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
+rl.rewards.providers.0.config.device=cpu \
+rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall \
+rl.rewards.providers.1.config.device=cpu
+```
 
 Prompt length modes:
 - `min` (default): keep batch prompt length equal to the minimum sampled value (matches F5R behavior).
