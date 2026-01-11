@@ -232,6 +232,24 @@ class GRPOTrainer:
         elif self.logger == "trackio":
             self._trackio.log(payload, step=step)
 
+    def _format_reward_key(self, key: str) -> str:
+        if "." in key:
+            provider, metric = key.split(".", 1)
+        else:
+            provider, metric = "reward", key
+        provider_label = {
+            "wespeaker_sim": "speaker_similarity",
+            "funasr_wer": "asr",
+        }.get(provider, provider)
+        metric_label = {
+            ("wespeaker_sim", "sim"): "cosine",
+            ("wespeaker_sim", "total"): "total",
+            ("funasr_wer", "wer"): "word_error_rate",
+            ("funasr_wer", "acc"): "accuracy",
+            ("funasr_wer", "total"): "total",
+        }.get((provider, metric), metric)
+        return f"reward/{provider_label}/{metric_label}"
+
     def _init_ref_model(self, ref_model: CFM | None, ckpt_path: str | None, use_ema: bool) -> CFM:
         if ref_model is not None:
             return ref_model
@@ -580,7 +598,7 @@ class GRPOTrainer:
                             component_values.setdefault(key, []).append(value.detach().float().cpu())
                     for key, values in component_values.items():
                         if values:
-                            log_payload[f"reward/{key}"] = torch.stack(values).mean().item()
+                            log_payload[self._format_reward_key(key)] = torch.stack(values).mean().item()
                     self._log(log_payload, step=global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:

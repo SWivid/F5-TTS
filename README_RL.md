@@ -276,7 +276,8 @@ Reference model mode:
 GRPO now logs useful metrics:
 - `loss`, `loss/kl`, `loss/pro_adv`
 - `reward/mean`, `reward/std`, `reward/min`, `reward/max`
-- `reward/<component>` per provider (e.g., `reward/wespeaker_sim.sim`, `reward/funasr_wer.acc`)
+- `reward/<provider>/<metric>` per provider (e.g., `reward/speaker_similarity/cosine`,
+  `reward/asr/word_error_rate`, `reward/asr/accuracy`)
 
 To visualize:
 ```bash
