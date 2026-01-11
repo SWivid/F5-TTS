@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import sys
 from pathlib import Path
 import json
@@ -9,8 +10,10 @@ import torch
 
 from f5_tts.model.backbones.dit import DiT
 from f5_tts.model.cfm import CFM
+from f5_tts.model import Trainer
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
+from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
 from f5_tts.rl.trainer_grpo import GRPOTrainer
 
 
@@ -161,6 +164,140 @@ def test_rewards_import_does_not_pull_optional_deps():
 
     assert "funasr" not in sys.modules
     assert "wespeaker" not in sys.modules
+
+
+def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:
+    pkg_root = tmp_path / "wespeaker"
+    models_dir = pkg_root / "models"
+    utils_dir = pkg_root / "utils"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    utils_dir.mkdir(parents=True, exist_ok=True)
+    (pkg_root / "__init__.py").write_text("", encoding="utf-8")
+    (models_dir / "__init__.py").write_text("", encoding="utf-8")
+    (utils_dir / "__init__.py").write_text("", encoding="utf-8")
+    (models_dir / "speaker_model.py").write_text(
+        "\n".join(
+            [
+                "import torch",
+                "",
+                "class DummyModel(torch.nn.Module):",
+                "    def __init__(self, **kwargs):",
+                "        super().__init__()",
+                "",
+                "    def forward(self, feats):",
+                "        return torch.ones((feats.size(0), 256), device=feats.device)",
+                "",
+                "def get_speaker_model(name):",
+                "    return DummyModel",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (utils_dir / "checkpoint.py").write_text(
+        "\n".join(
+            [
+                "def load_checkpoint(model, path):",
+                "    return model",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    model_dir = tmp_path / "wespeaker_model"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "avg_model.pt").write_bytes(b"stub")
+    config = "\n".join(
+        [
+            "model: ResNet34",
+            "model_args: {}",
+            "dataset_args:",
+            f"  frontend: {frontend}",
+            "  fbank_args:",
+            "    num_mel_bins: 80",
+            "    frame_length: 25",
+            "    frame_shift: 10",
+            "    dither: 0.0",
+            "    window_type: hamming",
+            "  resample_rate: 16000",
+            "",
+        ]
+    )
+    (model_dir / "config.yaml").write_text(config, encoding="utf-8")
+    return model_dir
+
+
+def test_trainer_allows_num_workers_zero(tmp_path, monkeypatch):
+    model = _make_cfm(output_dist="deterministic", objective="mse")
+    trainer = Trainer(
+        model,
+        epochs=1,
+        learning_rate=1e-4,
+        num_warmup_updates=0,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        log_samples=False,
+        mel_spec_type="vocos",
+    )
+    monkeypatch.setattr(trainer, "save_checkpoint", lambda *args, **kwargs: None)
+    trainer.train(DummyDataset(), num_workers=0)
+
+
+def test_wespeaker_requires_package(monkeypatch):
+    original_find_spec = importlib.util.find_spec
+
+    def _missing_spec(name, *args, **kwargs):
+        if name == "wespeaker":
+            return None
+        return original_find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib.util, "find_spec", _missing_spec)
+    provider = WeSpeakerSimProvider()
+    provider.setup({})
+    with pytest.raises(ImportError, match="WeSpeaker is required"):
+        provider._ensure_model()
+
+
+def test_wespeaker_rejects_non_fbank(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="s3prl")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    with pytest.raises(RuntimeError, match="frontend"):
+        provider._ensure_model()
+
+
+def test_wespeaker_fbank_stub_runs(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hi",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert torch.isfinite(outputs[0].total_reward)
 
 
 @pytest.mark.integration
