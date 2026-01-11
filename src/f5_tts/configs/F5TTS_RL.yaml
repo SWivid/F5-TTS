@@ -74,6 +74,7 @@ rl:
           model_id: FunAudioLLM/SenseVoiceSmall
           lang: auto
           wer_mode: char
+          ref_source: audio
           device: auto
 
 ckpts:

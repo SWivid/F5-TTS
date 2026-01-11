@@ -44,12 +44,12 @@ Override any parameter via env vars:
 
 ```bash
 LOGGER=wandb NUM_SAMPLES=2048 STAGE1_EPOCHS=1 STAGE2_EPOCHS=1 RL_STEPS=30 \
-PROMPT_FRAC_RANGE='[0.1,0.3]' WER_MODE=char CUDA_DEVICE=0 \
+PROMPT_FRAC_RANGE='[0.1,0.3]' WER_MODE=char REF_SOURCE=audio CUDA_DEVICE=0 \
 bash src/f5_tts/scripts/run_rl_colab.sh
 ```
 
 Key env vars: `DATASET_NAME`, `HF_DATASET_ID`, `HF_CONFIG`, `HF_SPLIT`, `NUM_SAMPLES`,
-`WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`.
+`WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`, `REF_SOURCE`.
 
 If you want a tiny smoke-test dataset:
 
@@ -233,7 +233,9 @@ FunASR:
 ./.venv/bin/python -m f5_tts.scripts.fetch_reward_asr_model \
   --cache_dir checkpoints/funasr/SenseVoiceSmall
 ```
-`funasr_wer` supports `wer_mode: char | word` (default: `char`, matching F5R).
+`funasr_wer` supports:
+- `wer_mode: char | word` (default: `char`, matching F5R).
+- `ref_source: text | audio` (default: `text`, set `audio` to match F5R's ASR-vs-ASR comparison).
 
 WeSpeaker (HF archive; fallback supported):
 ```bash

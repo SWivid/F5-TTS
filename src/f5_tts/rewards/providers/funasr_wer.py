@@ -48,6 +48,9 @@ class FunASRWERProvider(RewardProvider):
         self.model_id = cfg.get("model_id", "FunAudioLLM/SenseVoiceSmall")
         self.lang = cfg.get("lang", "auto")
         self.wer_mode = cfg.get("wer_mode", "char")
+        self.ref_source = cfg.get("ref_source", "text")
+        if self.ref_source not in {"text", "audio"}:
+            raise ValueError(f"Unsupported ref_source '{self.ref_source}'. Expected 'text' or 'audio'.")
         self.device = resolve_device(cfg.get("device", "auto"))
         self.batch_size = cfg.get("batch_size", 8)
         self.cache = RewardCache(cfg.get("cache_dir"), enabled=cfg.get("cache_enabled", True))
@@ -133,9 +136,11 @@ class FunASRWERProvider(RewardProvider):
         ref_keys = []
         ref_indices = []
         for idx, item in enumerate(batch):
-            if item.text:
+            use_audio_ref = self.ref_source == "audio"
+            if not use_audio_ref and item.text:
                 ref_texts.append(item.text)
-            elif item.speaker_ref is not None:
+                continue
+            if item.speaker_ref is not None:
                 ref_audio = self._prepare_audio(item.speaker_ref, item.sample_rate)
                 key = f"ref_{self.model_id}_{lang}_{audio_hash(ref_audio, 16000)}"
                 cached = self.cache.get(key)
@@ -146,6 +151,8 @@ class FunASRWERProvider(RewardProvider):
                     ref_indices.append(idx)
                 else:
                     ref_texts.append(cached)
+            elif item.text:
+                ref_texts.append(item.text)
             else:
                 ref_texts.append("")
 

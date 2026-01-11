@@ -419,6 +419,52 @@ def test_funasr_default_wer_mode_is_char():
     assert provider.wer_mode == "char"
 
 
+def test_funasr_default_ref_source_is_text():
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    assert provider.ref_source == "text"
+
+
+def test_funasr_ref_source_audio_uses_asr_ref(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["match"])
+    provider = FunASRWERProvider()
+    provider.setup(
+        {"model_id": "stub", "device": "cpu", "cache_enabled": False, "wer_mode": "char", "ref_source": "audio"}
+    )
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="different text",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["wer"].item() == 0.0
+
+
+def test_funasr_ref_source_text_prefers_text(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["match"])
+    provider = FunASRWERProvider()
+    provider.setup(
+        {"model_id": "stub", "device": "cpu", "cache_enabled": False, "wer_mode": "char", "ref_source": "text"}
+    )
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="different text",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["wer"].item() > 0.0
+
+
 def test_wespeaker_similarity_identical_audio(tmp_path, monkeypatch):
     model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
     monkeypatch.syspath_prepend(str(tmp_path))

@@ -28,6 +28,7 @@ PROMPT_LENGTH_MODE="${PROMPT_LENGTH_MODE:-min}"
 CFG_STRENGTH="${CFG_STRENGTH:-2.0}"
 KL_WEIGHT="${KL_WEIGHT:-1.0}"
 WER_MODE="${WER_MODE:-char}"
+REF_SOURCE="${REF_SOURCE:-audio}"
 
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE}"
 export ACCELERATE_MIXED_PRECISION="${ACCELERATE_MIXED_PRECISION:-bf16}"
@@ -118,4 +119,5 @@ cp -f "${WARMUP_DIR}/model_last.pt" "${GRPO_DIR}/model_last.pt"
   rl.rewards.providers.0.config.device=cpu \
   rl.rewards.providers.1.config.model_id="$PWD/checkpoints/funasr/SenseVoiceSmall" \
   rl.rewards.providers.1.config.device=cpu \
-  rl.rewards.providers.1.config.wer_mode="${WER_MODE}"
+  rl.rewards.providers.1.config.wer_mode="${WER_MODE}" \
+  rl.rewards.providers.1.config.ref_source="${REF_SOURCE}"
