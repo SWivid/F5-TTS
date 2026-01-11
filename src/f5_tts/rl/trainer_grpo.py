@@ -488,7 +488,24 @@ class GRPOTrainer:
                     progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
                 if self.accelerator.is_local_main_process:
-                    self.accelerator.log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update)
+                    log_payload = {
+                        "loss": loss.item(),
+                        "lr": self.scheduler.get_last_lr()[0],
+                        "loss/kl": loss_kl.item(),
+                        "loss/pro_adv": pro_advantages.item(),
+                        "reward/mean": mean.item(),
+                        "reward/std": std.item(),
+                        "reward/min": rewards_all.min().item(),
+                        "reward/max": rewards_all.max().item(),
+                    }
+                    component_values: dict[str, list[torch.Tensor]] = {}
+                    for output in reward_outputs:
+                        for key, value in output.components.items():
+                            component_values.setdefault(key, []).append(value.detach().float().cpu())
+                    for key, values in component_values.items():
+                        if values:
+                            log_payload[f"reward/{key}"] = torch.stack(values).mean().item()
+                    self.accelerator.log(log_payload, step=global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update, last=True)
