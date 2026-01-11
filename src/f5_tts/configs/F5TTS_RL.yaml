@@ -1,0 +1,84 @@
+hydra:
+  run:
+    dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}_rl/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+datasets:
+  name: Emilia_ZH_EN
+  batch_size_per_gpu: 1600
+  batch_size_type: frame
+  max_samples: 1
+  num_workers: 16
+
+optim:
+  epochs: 5
+  learning_rate: 1.0e-5
+  num_warmup_updates: 100
+  grad_accumulation_steps: 8
+  max_grad_norm: 1.0
+  bnb_optimizer: False
+
+model:
+  name: F5TTS_Base
+  tokenizer: pinyin
+  tokenizer_path: null
+  backbone: DiT
+  output_dist: gaussian
+  objective: grpo
+  sample_from_dist: False
+  use_rl_head: True
+  arch:
+    dim: 1024
+    depth: 22
+    heads: 16
+    ff_mult: 2
+    text_dim: 512
+    text_mask_padding: False
+    conv_layers: 4
+    pe_attn_head: 1
+    attn_backend: torch
+    attn_mask_enabled: False
+    checkpoint_activations: False
+  mel_spec:
+    target_sample_rate: 24000
+    n_mel_channels: 100
+    hop_length: 256
+    win_length: 1024
+    n_fft: 1024
+    mel_spec_type: vocos
+  vocoder:
+    is_local: False
+    local_path: null
+
+rl:
+  repeat_count: 8
+  mini_repeat_count: 1
+  prompt_frac_range: [0.1, 0.3]
+  steps: 30
+  cfg_strength: 2.0
+  sway_sampling_coef: -1.0
+  kl_weight: 1.0
+  ref_model_ckpt: null
+  ref_model_use_ema: True
+  rewards:
+    mode: sum
+    providers:
+      - name: wespeaker_sim
+        weight: 1.0
+        config:
+          model_dir: checkpoints/wespeaker/chinese
+          device: auto
+      - name: funasr_wer
+        weight: 3.0
+        config:
+          model_id: FunAudioLLM/SenseVoiceSmall
+          lang: auto
+          device: auto
+
+ckpts:
+  logger: wandb
+  log_samples: False
+  save_per_updates: 100
+  keep_last_n_checkpoints: -1
+  last_per_updates: 100
+  allow_extra_keys: False
+  save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}_rl

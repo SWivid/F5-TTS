@@ -47,6 +47,28 @@ def is_package_available(package_name: str) -> bool:
         return False
 
 
+def load_state_dict_compat(
+    model: torch.nn.Module,
+    state_dict: dict,
+    *,
+    allow_extra_keys: bool = False,
+    output_dist: str | None = None,
+) -> None:
+    if output_dist is None:
+        output_dist = getattr(getattr(model, "transformer", model), "output_dist", "deterministic")
+    allowed_missing = []
+    if output_dist == "gaussian":
+        allowed_missing.append("proj_out_ln_sig")
+    incompatible = model.load_state_dict(state_dict, strict=False)
+    missing = [key for key in incompatible.missing_keys if not any(tag in key for tag in allowed_missing)]
+    unexpected = incompatible.unexpected_keys if not allow_extra_keys else []
+    if missing or unexpected:
+        raise RuntimeError(
+            f"State dict incompatible. Missing: {missing} Unexpected: {unexpected}. "
+            f"allow_extra_keys={allow_extra_keys}"
+        )
+
+
 # tensor helpers
 
 

@@ -270,6 +270,8 @@ model_cfg = OmegaConf.load(
 )
 model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
 model_arc = model_cfg.model.arch
+output_dist = model_cfg.model.get("output_dist", "deterministic")
+sample_from_dist = model_cfg.model.get("sample_from_dist", False)
 
 repo_name, ckpt_step, ckpt_type = "F5-TTS", 1250000, "safetensors"
 
@@ -292,7 +294,14 @@ if not ckpt_file:
 
 print(f"Using {model}...")
 ema_model = load_model(
-    model_cls, model_arc, ckpt_file, mel_spec_type=vocoder_name, vocab_file=vocab_file, device=device
+    model_cls,
+    model_arc,
+    ckpt_file,
+    mel_spec_type=vocoder_name,
+    vocab_file=vocab_file,
+    device=device,
+    output_dist=output_dist,
+    sample_from_dist=sample_from_dist,
 )
 
 

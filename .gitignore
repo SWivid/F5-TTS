@@ -1,11 +1,11 @@
 # Customed
 .vscode/
-tests/
 runs/
 data/
 ckpts/
 wandb/
 results/
+tests/assets/audio_pack/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

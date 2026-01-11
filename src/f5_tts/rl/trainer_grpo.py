@@ -1,0 +1,480 @@
+from __future__ import annotations
+
+import copy
+import gc
+import os
+from typing import Any
+
+import math
+import torch
+import torch.nn.functional as F
+from accelerate import Accelerator
+from accelerate.utils import DistributedDataParallelKwargs
+from ema_pytorch import EMA
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import LinearLR, SequentialLR
+from torch.utils.data import DataLoader, Dataset, SequentialSampler
+from tqdm import tqdm
+
+from f5_tts.infer.utils_infer import load_vocoder
+from f5_tts.model import CFM
+from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
+from f5_tts.model.utils import default, exists, load_state_dict_compat, mask_from_start_end_indices
+from f5_tts.rewards import RewardCombiner, RewardInput
+
+
+def mask_from_frac_lengths(seq_len, frac_lengths):
+    max_start = (frac_lengths * seq_len).long()
+    rand = torch.rand_like(frac_lengths)
+    start = (max_start * rand).long().clamp(min=0)
+    start = torch.min(start, dim=-1, keepdim=True).values.repeat(start.size(0))
+    prompt_idx = mask_from_start_end_indices(seq_len, (0 * start).long(), start)
+    trg_idx = mask_from_start_end_indices(seq_len, start, seq_len)
+    return prompt_idx, trg_idx
+
+
+class GRPOTrainer:
+    def __init__(
+        self,
+        model: CFM,
+        reward_combiner: RewardCombiner,
+        epochs: int,
+        learning_rate: float,
+        num_warmup_updates: int = 20000,
+        save_per_updates: int = 1000,
+        keep_last_n_checkpoints: int = -1,
+        checkpoint_path: str | None = None,
+        batch_size_per_gpu: int = 32,
+        batch_size_type: str = "sample",
+        max_samples: int = 32,
+        grad_accumulation_steps: int = 1,
+        max_grad_norm: float = 1.0,
+        noise_scheduler: str | None = None,
+        duration_predictor: torch.nn.Module | None = None,
+        logger: str | None = "wandb",
+        wandb_project: str = "CFM-TTS",
+        wandb_run_name: str = "grpo_run",
+        wandb_resume_id: str | None = None,
+        last_per_updates: int | None = None,
+        accelerate_kwargs: dict | None = None,
+        ema_kwargs: dict | None = None,
+        mel_spec_type: str = "vocos",
+        vocoder: Any | None = None,
+        repeat_count: int = 8,
+        mini_repeat_count: int = 1,
+        prompt_frac_range: tuple[float, float] = (0.1, 0.3),
+        steps: int = 30,
+        cfg_strength: float = 2.0,
+        sway_sampling_coef: float | None = -1.0,
+        kl_weight: float = 1.0,
+        ref_model: CFM | None = None,
+        ref_model_ckpt: str | None = None,
+        ref_model_use_ema: bool = True,
+        allow_extra_keys: bool = False,
+    ):
+        if accelerate_kwargs is None:
+            accelerate_kwargs = {}
+        if ema_kwargs is None:
+            ema_kwargs = {}
+
+        ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+
+        if logger == "wandb":
+            try:
+                import wandb  # noqa: F401
+            except Exception:
+                logger = None
+
+        self.accelerator = Accelerator(
+            log_with=logger if logger == "wandb" else None,
+            kwargs_handlers=[ddp_kwargs],
+            gradient_accumulation_steps=grad_accumulation_steps,
+            **accelerate_kwargs,
+        )
+
+        self.logger = logger
+        if self.logger == "wandb":
+            init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name}}
+            if exists(wandb_resume_id):
+                init_kwargs["wandb"]["id"] = wandb_resume_id
+            self.accelerator.init_trackers(
+                project_name=wandb_project,
+                init_kwargs=init_kwargs,
+                config={
+                    "epochs": epochs,
+                    "learning_rate": learning_rate,
+                    "num_warmup_updates": num_warmup_updates,
+                    "batch_size_per_gpu": batch_size_per_gpu,
+                    "batch_size_type": batch_size_type,
+                    "max_samples": max_samples,
+                    "grad_accumulation_steps": grad_accumulation_steps,
+                    "max_grad_norm": max_grad_norm,
+                    "gpus": self.accelerator.num_processes,
+                    "noise_scheduler": noise_scheduler,
+                },
+            )
+
+        self.model = model
+        self.reward_combiner = reward_combiner
+
+        if self.is_main:
+            self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
+            self.ema_model.to(self.accelerator.device)
+
+        self.epochs = epochs
+        self.num_warmup_updates = num_warmup_updates
+        self.save_per_updates = save_per_updates
+        self.keep_last_n_checkpoints = keep_last_n_checkpoints
+        self.last_per_updates = default(last_per_updates, save_per_updates)
+        self.checkpoint_path = default(checkpoint_path, "ckpts/grpo_run")
+
+        self.batch_size_per_gpu = batch_size_per_gpu
+        self.batch_size_type = batch_size_type
+        self.max_samples = max_samples
+        self.grad_accumulation_steps = grad_accumulation_steps
+        self.max_grad_norm = max_grad_norm
+        self.vocoder_name = mel_spec_type
+        self.vocoder = vocoder
+        self.repeat_count = repeat_count
+        self.mini_repeat_count = mini_repeat_count
+        self.prompt_frac_range = prompt_frac_range
+        self.steps = steps
+        self.cfg_strength = cfg_strength
+        self.sway_sampling_coef = sway_sampling_coef
+        self.kl_weight = kl_weight
+        self.allow_extra_keys = allow_extra_keys
+
+        self.noise_scheduler = noise_scheduler
+        self.duration_predictor = duration_predictor
+
+        self.optimizer = AdamW(model.parameters(), lr=learning_rate)
+        self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
+
+        self.ref_model = self._init_ref_model(ref_model, ref_model_ckpt, ref_model_use_ema)
+        self.ref_model.eval()
+        self.ref_model = self.accelerator.prepare(self.ref_model)
+
+    @property
+    def is_main(self):
+        return self.accelerator.is_main_process
+
+    def _init_ref_model(self, ref_model: CFM | None, ckpt_path: str | None, use_ema: bool) -> CFM:
+        if ref_model is not None:
+            return ref_model
+        model_copy = copy.deepcopy(self.accelerator.unwrap_model(self.model))
+        if ckpt_path:
+            from f5_tts.infer.utils_infer import load_checkpoint
+
+            model_copy = load_checkpoint(model_copy, ckpt_path, device="cpu", use_ema=use_ema)
+        for param in model_copy.parameters():
+            param.requires_grad = False
+        return model_copy
+
+    def save_checkpoint(self, update: int, last: bool = False) -> None:
+        self.accelerator.wait_for_everyone()
+        if not self.is_main:
+            return
+        checkpoint = dict(
+            model_state_dict=self.accelerator.unwrap_model(self.model).state_dict(),
+            optimizer_state_dict=self.optimizer.state_dict(),
+            ema_model_state_dict=self.ema_model.state_dict(),
+            scheduler_state_dict=self.scheduler.state_dict(),
+            update=update,
+        )
+        if not os.path.exists(self.checkpoint_path):
+            os.makedirs(self.checkpoint_path)
+        if last:
+            self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
+        else:
+            if self.keep_last_n_checkpoints == 0:
+                return
+            self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_{update}.pt")
+            if self.keep_last_n_checkpoints > 0:
+                checkpoints = [
+                    f
+                    for f in os.listdir(self.checkpoint_path)
+                    if f.startswith("model_") and f.endswith(".pt") and f != "model_last.pt"
+                ]
+                checkpoints.sort(key=lambda x: int(x.split("_")[1].split(".")[0]))
+                while len(checkpoints) > self.keep_last_n_checkpoints:
+                    oldest_checkpoint = checkpoints.pop(0)
+                    os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
+
+    def load_checkpoint(self) -> int:
+        if (
+            not exists(self.checkpoint_path)
+            or not os.path.exists(self.checkpoint_path)
+            or not any(filename.endswith((".pt", ".safetensors")) for filename in os.listdir(self.checkpoint_path))
+        ):
+            return 0
+
+        self.accelerator.wait_for_everyone()
+        if "model_last.pt" in os.listdir(self.checkpoint_path):
+            latest_checkpoint = "model_last.pt"
+        else:
+            checkpoints = [f for f in os.listdir(self.checkpoint_path) if f.startswith("model_")]
+            checkpoints.sort(key=lambda x: int("".join(filter(str.isdigit, x))))
+            latest_checkpoint = checkpoints[-1]
+
+        checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
+        output_dist = getattr(self.accelerator.unwrap_model(self.model).transformer, "output_dist", "deterministic")
+        if self.is_main:
+            load_state_dict_compat(
+                self.ema_model,
+                checkpoint["ema_model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
+
+        if "update" in checkpoint:
+            load_state_dict_compat(
+                self.accelerator.unwrap_model(self.model),
+                checkpoint["model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            if self.scheduler:
+                self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+            update = checkpoint["update"]
+        else:
+            checkpoint["model_state_dict"] = {
+                k.replace("ema_model.", ""): v
+                for k, v in checkpoint["ema_model_state_dict"].items()
+                if k not in ["initted", "step"]
+            }
+            load_state_dict_compat(
+                self.accelerator.unwrap_model(self.model),
+                checkpoint["model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
+            update = 0
+
+        del checkpoint
+        gc.collect()
+        return update
+
+    def _kl_divergence(self, gen, ref):
+        gen_mu, gen_sig = gen
+        ref_mu, ref_sig = ref
+        kl = ref_sig - gen_sig
+        kl += (torch.exp(gen_sig) ** 2 + F.mse_loss(gen_mu, ref_mu, reduction="none")) / (
+            2 * (torch.exp(ref_sig) ** 2)
+        )
+        return kl
+
+    def _get_kl(self, gen_pros, ref_pros):
+        if not gen_pros or not ref_pros:
+            return torch.tensor(0.0, device=self.model.device)
+        loss = 0
+        for gen, ref in zip(gen_pros, ref_pros):
+            loss = loss + self._kl_divergence(gen[1:3], ref[1:3])
+        return loss
+
+    def _ensure_vocoder(self):
+        if self.vocoder is None:
+            self.vocoder = load_vocoder(vocoder_name=self.vocoder_name)
+
+    def _decode_audio(self, mel: torch.Tensor) -> torch.Tensor:
+        self._ensure_vocoder()
+        mel = mel.to(torch.float32)
+        if self.vocoder_name == "vocos":
+            return self.vocoder.decode(mel)
+        audio = self.vocoder(mel)
+        if audio.dim() == 3 and audio.size(1) == 1:
+            audio = audio.squeeze(1)
+        return audio
+
+    def train(self, train_dataset: Dataset, num_workers: int = 16, resumable_with_seed: int | None = None) -> None:
+        if exists(resumable_with_seed):
+            generator = torch.Generator()
+            generator.manual_seed(resumable_with_seed)
+        else:
+            generator = None
+
+        if self.batch_size_type == "sample":
+            train_dataloader = DataLoader(
+                train_dataset,
+                collate_fn=collate_fn,
+                num_workers=num_workers,
+                pin_memory=True,
+                persistent_workers=True,
+                batch_size=self.batch_size_per_gpu,
+                shuffle=True,
+                generator=generator,
+            )
+        elif self.batch_size_type == "frame":
+            self.accelerator.even_batches = False
+            sampler = SequentialSampler(train_dataset)
+            batch_sampler = DynamicBatchSampler(
+                sampler,
+                self.batch_size_per_gpu,
+                max_samples=self.max_samples,
+                random_seed=resumable_with_seed,
+                drop_residual=False,
+                repeat_count=self.repeat_count,
+                mini_repeat_count=self.mini_repeat_count,
+            )
+            train_dataloader = DataLoader(
+                train_dataset,
+                collate_fn=collate_fn,
+                num_workers=num_workers,
+                pin_memory=True,
+                persistent_workers=True,
+                batch_sampler=batch_sampler,
+            )
+        else:
+            raise ValueError(f"batch_size_type must be 'sample' or 'frame', got {self.batch_size_type}")
+
+        warmup_updates = self.num_warmup_updates * self.accelerator.num_processes
+        total_updates = math.ceil(len(train_dataloader) / self.grad_accumulation_steps) * self.epochs
+        decay_updates = total_updates - warmup_updates
+        warmup_scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates)
+        decay_scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates)
+        self.scheduler = SequentialLR(
+            self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_updates]
+        )
+        train_dataloader, self.scheduler = self.accelerator.prepare(train_dataloader, self.scheduler)
+        start_update = self.load_checkpoint()
+        global_update = start_update
+
+        if exists(resumable_with_seed):
+            orig_epoch_step = len(train_dataloader)
+            start_step = start_update * self.grad_accumulation_steps
+            skipped_epoch = int(start_step // orig_epoch_step)
+            skipped_batch = start_step % orig_epoch_step
+            skipped_dataloader = self.accelerator.skip_first_batches(train_dataloader, num_batches=skipped_batch)
+        else:
+            skipped_epoch = 0
+
+        for epoch in range(skipped_epoch, self.epochs):
+            self.model.train()
+            if exists(resumable_with_seed) and epoch == skipped_epoch:
+                progress_bar_initial = math.ceil(skipped_batch / self.grad_accumulation_steps)
+                current_dataloader = skipped_dataloader
+            else:
+                progress_bar_initial = 0
+                current_dataloader = train_dataloader
+
+            if hasattr(train_dataloader, "batch_sampler") and hasattr(train_dataloader.batch_sampler, "set_epoch"):
+                train_dataloader.batch_sampler.set_epoch(epoch)
+
+            progress_bar = tqdm(
+                range(math.ceil(len(train_dataloader) / self.grad_accumulation_steps)),
+                desc=f"Epoch {epoch + 1}/{self.epochs}",
+                unit="update",
+                disable=not self.accelerator.is_local_main_process,
+                initial=progress_bar_initial,
+            )
+
+            for batch in current_dataloader:
+                with self.accelerator.accumulate(self.model):
+                    text_inputs = batch["text"]
+                    mel_spec = batch["mel"].permute(0, 2, 1)
+                    mel_lengths = batch["mel_lengths"]
+                    text_len = max(len(item) for item in text_inputs)
+                    if text_len > max(mel_lengths):
+                        continue
+
+                    if self.duration_predictor is not None and self.accelerator.is_local_main_process:
+                        dur_loss = self.duration_predictor(mel_spec, lens=batch.get("durations"))
+                        self.accelerator.log({"duration loss": dur_loss.item()}, step=global_update)
+
+                    frac_lengths = torch.zeros((mel_spec.size(0),), device=self.model.device)
+                    frac_lengths = frac_lengths.float().uniform_(*self.prompt_frac_range)
+                    prompt_idx, trg_idx = mask_from_frac_lengths(mel_lengths, frac_lengths)
+                    prompt_idx = prompt_idx.unsqueeze(-1).repeat(1, 1, mel_spec.size(-1))
+                    prompt_audio = mel_spec[prompt_idx].view(mel_spec.size(0), -1, mel_spec.size(-1))
+
+                    out, _, pro_result = self.model.forward_rl(
+                        cond=prompt_audio,
+                        text=text_inputs,
+                        duration=mel_lengths,
+                        steps=self.steps,
+                        cfg_strength=self.cfg_strength,
+                        sway_sampling_coef=self.sway_sampling_coef,
+                    )
+                    with torch.no_grad():
+                        _, _, ref_pro_result = self.ref_model.forward_rl(
+                            cond=prompt_audio,
+                            text=text_inputs,
+                            duration=mel_lengths,
+                            steps=self.steps,
+                            cfg_strength=self.cfg_strength,
+                            sway_sampling_coef=self.sway_sampling_coef,
+                        )
+
+                    pro_result_sample = [item[:-1] for item in pro_result if item[-1]]
+                    ref_pro_result_sample = [item[:-1] for item in ref_pro_result if item[-1]]
+
+                    gen_mel = out.to(torch.float32).permute(0, 2, 1)
+                    ref_mel = mel_spec.to(torch.float32).permute(0, 2, 1)
+                    gen_audio = self._decode_audio(gen_mel).cpu()
+                    ref_audio = self._decode_audio(ref_mel).cpu()
+
+                    reward_inputs = []
+                    for idx, text_item in enumerate(text_inputs):
+                        reward_inputs.append(
+                            RewardInput(
+                                audio=gen_audio[idx],
+                                text=text_item,
+                                speaker_ref=ref_audio[idx],
+                                sample_rate=self.model.mel_spec.target_sample_rate,
+                                meta={},
+                            )
+                        )
+                    reward_outputs = self.reward_combiner.compute(reward_inputs)
+                    rewards = torch.stack([out.total_reward for out in reward_outputs]).to(self.model.device)
+
+                    rewards_all = self.accelerator.gather_for_metrics(rewards.detach())
+                    mean = rewards_all.mean()
+                    std = rewards_all.std(unbiased=False)
+                    advantages = (rewards - mean) / (std + 1e-4)
+
+                    pro_advantages = []
+                    for x, mu, log_sig in pro_result_sample:
+                        p = torch.exp(-F.mse_loss(mu, x, reduction="none") / (2 * (torch.exp(log_sig) ** 2)))
+                        p = p / torch.exp(log_sig)
+                        pro_advantages.append(p)
+                    if pro_advantages:
+                        pro_advantages = torch.stack(pro_advantages, dim=1)
+                        advantages = advantages.view(advantages.size(0), 1, 1, 1)
+                        pro_advantages = pro_advantages * advantages
+                        trg_idx = trg_idx[:, None, :, None].repeat(
+                            1, pro_advantages.size(1), 1, pro_advantages.size(-1)
+                        )
+                        pro_advantages = pro_advantages[trg_idx]
+                        pro_advantages = pro_advantages.mean()
+                    else:
+                        pro_advantages = torch.tensor(0.0, device=self.model.device)
+
+                    loss_kl = self._get_kl(pro_result_sample, ref_pro_result_sample).mean()
+                    loss = -pro_advantages + self.kl_weight * loss_kl
+                    self.accelerator.backward(loss)
+
+                    if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
+                        self.accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
+
+                    self.optimizer.step()
+                    self.scheduler.step()
+                    self.optimizer.zero_grad()
+
+                if self.accelerator.sync_gradients:
+                    if self.is_main:
+                        self.ema_model.update()
+                    global_update += 1
+                    progress_bar.update(1)
+                    progress_bar.set_postfix(update=str(global_update), loss=loss.item())
+
+                if self.accelerator.is_local_main_process:
+                    self.accelerator.log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update)
+
+                if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
+                    self.save_checkpoint(global_update, last=True)
+
+                if global_update % self.save_per_updates == 0 and self.accelerator.sync_gradients:
+                    self.save_checkpoint(global_update)
+
+        self.save_checkpoint(global_update, last=True)
+        self.accelerator.end_training()

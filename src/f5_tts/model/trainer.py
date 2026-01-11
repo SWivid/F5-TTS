@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from f5_tts.model import CFM
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
-from f5_tts.model.utils import default, exists
+from f5_tts.model.utils import default, exists, load_state_dict_compat
 
 
 # trainer
@@ -53,6 +53,7 @@ class Trainer:
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
         model_cfg_dict: dict = dict(),  # training config
+        allow_extra_keys: bool = False,
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -131,6 +132,7 @@ class Trainer:
         self.noise_scheduler = noise_scheduler
 
         self.duration_predictor = duration_predictor
+        self.allow_extra_keys = allow_extra_keys
 
         if bnb_optimizer:
             import bitsandbytes as bnb
@@ -225,8 +227,14 @@ class Trainer:
             if key in checkpoint["ema_model_state_dict"]:
                 del checkpoint["ema_model_state_dict"][key]
 
+        output_dist = getattr(self.accelerator.unwrap_model(self.model).transformer, "output_dist", "deterministic")
         if self.is_main:
-            self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
+            load_state_dict_compat(
+                self.ema_model,
+                checkpoint["ema_model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
 
         if "update" in checkpoint or "step" in checkpoint:
             # patch for backward compatibility, with before f992c4e
@@ -241,7 +249,12 @@ class Trainer:
                 if key in checkpoint["model_state_dict"]:
                     del checkpoint["model_state_dict"][key]
 
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+            load_state_dict_compat(
+                self.accelerator.unwrap_model(self.model),
+                checkpoint["model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
@@ -252,7 +265,12 @@ class Trainer:
                 for k, v in checkpoint["ema_model_state_dict"].items()
                 if k not in ["initted", "update", "step"]
             }
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+            load_state_dict_compat(
+                self.accelerator.unwrap_model(self.model),
+                checkpoint["model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
             update = 0
 
         del checkpoint

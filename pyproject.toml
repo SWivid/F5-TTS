@@ -54,6 +54,16 @@ eval = [
     "zhconv",
     "zhon",
 ]
+rl = [
+    "funasr",
+    "wespeaker",
+]
+reward_funasr = [
+    "funasr",
+]
+reward_wespeaker = [
+    "wespeaker",
+]
 
 [project.urls]
 Homepage = "https://github.com/SWivid/F5-TTS"
@@ -63,3 +73,4 @@ Homepage = "https://github.com/SWivid/F5-TTS"
 "f5-tts_infer-gradio" = "f5_tts.infer.infer_gradio:main"
 "f5-tts_finetune-cli" = "f5_tts.train.finetune_cli:main"
 "f5-tts_finetune-gradio" = "f5_tts.train.finetune_gradio:main"
+"f5-tts_train-rl" = "f5_tts.train.train_rl:main"

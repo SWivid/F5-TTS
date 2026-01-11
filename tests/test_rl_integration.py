@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+import json
+
+import pytest
+import torch
+
+from f5_tts.model.backbones.dit import DiT
+from f5_tts.model.cfm import CFM
+from f5_tts.model.utils import load_state_dict_compat
+from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
+from f5_tts.rl.trainer_grpo import GRPOTrainer
+
+
+def _make_dit(output_dist: str = "deterministic") -> DiT:
+    return DiT(
+        dim=16,
+        depth=2,
+        heads=2,
+        ff_mult=2,
+        mel_dim=8,
+        text_num_embeds=16,
+        text_dim=8,
+        conv_layers=0,
+        output_dist=output_dist,
+    )
+
+
+def _make_cfm(output_dist: str, objective: str) -> CFM:
+    mel_spec_kwargs = dict(
+        n_fft=16,
+        hop_length=4,
+        win_length=16,
+        n_mel_channels=8,
+        target_sample_rate=24000,
+        mel_spec_type="vocos",
+    )
+    return CFM(
+        transformer=_make_dit(output_dist=output_dist),
+        mel_spec_kwargs=mel_spec_kwargs,
+        vocab_char_map=None,
+        objective=objective,
+        output_dist=output_dist,
+    )
+
+
+def test_deterministic_forward():
+    model = _make_dit(output_dist="deterministic")
+    assert not hasattr(model, "proj_out_ln_sig")
+    x = torch.randn(2, 4, 8)
+    cond = torch.randn(2, 4, 8)
+    text = torch.zeros(2, 3, dtype=torch.long)
+    time = torch.rand(2)
+    out = model(x=x, cond=cond, text=text, time=time)
+    assert out.shape == x.shape
+
+
+def test_gaussian_forward_prob():
+    model = _make_dit(output_dist="gaussian")
+    assert hasattr(model, "proj_out_ln_sig")
+    x = torch.randn(2, 4, 8)
+    cond = torch.randn(2, 4, 8)
+    text = torch.zeros(2, 3, dtype=torch.long)
+    time = torch.rand(2)
+    mu, ln_sig = model.forward_prob(x=x, cond=cond, text=text, time=time)
+    assert mu.shape == x.shape
+    assert ln_sig.shape == x.shape
+
+
+def test_soft_load_deterministic_into_gaussian():
+    det_model = _make_dit(output_dist="deterministic")
+    gauss_model = _make_dit(output_dist="gaussian")
+    load_state_dict_compat(gauss_model, det_model.state_dict(), output_dist="gaussian")
+
+
+def test_gaussian_loss_gradients():
+    model = _make_cfm(output_dist="gaussian", objective="gaussian_nll")
+    inp = torch.randn(2, 4, 8)
+    text = ["hi", "ok"]
+    loss, _, _ = model(inp, text=text)
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert model.transformer.proj_out_ln_sig.weight.grad is not None
+
+
+class DummyRewardProvider(RewardProvider):
+    name = "dummy_reward"
+
+    def compute(self, batch: list[RewardInput]) -> list[RewardOutput]:
+        outputs = []
+        for item in batch:
+            reward = item.audio.mean().to(dtype=torch.float32)
+            outputs.append(RewardOutput(total_reward=reward, components={"mean": reward}, logs={}))
+        return outputs
+
+
+class DummyVocoder:
+    def decode(self, mel: torch.Tensor) -> torch.Tensor:
+        return mel.mean(dim=1)
+
+
+class DummyDataset(torch.utils.data.Dataset):
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, idx):
+        mel = torch.randn(8, 6)
+        return {"mel_spec": mel, "text": "hi"}
+
+
+def test_grpo_single_step_updates_params(tmp_path):
+    torch.manual_seed(0)
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    before = model.transformer.proj_out.weight.detach().clone()
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+    )
+    trainer.train(DummyDataset(), num_workers=0)
+    after = model.transformer.proj_out.weight.detach()
+    assert not torch.allclose(before, after)
+
+
+def test_registry_import_path():
+    provider = RewardRegistry.create({"name": "tests.test_rl_integration:DummyRewardProvider"})
+    assert isinstance(provider, DummyRewardProvider)
+
+
+def test_rewards_import_does_not_pull_optional_deps():
+    import f5_tts.rewards  # noqa: F401
+
+    assert "funasr" not in sys.modules
+    assert "wespeaker" not in sys.modules
+
+
+@pytest.mark.integration
+def test_audio_pack_metadata():
+    pack_dir = Path(__file__).parent / "assets" / "audio_pack"
+    metadata = pack_dir / "metadata.jsonl"
+    if not metadata.exists():
+        pytest.skip("audio pack not present")
+    line = metadata.read_text(encoding="utf-8").splitlines()[0]
+    audio_name = json.loads(line).get("audio")
+    assert (pack_dir / audio_name).exists()

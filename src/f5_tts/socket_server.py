@@ -82,7 +82,13 @@ class TTSStreamingProcessor:
         )
         model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
         self.model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
-        self.model_arc = model_cfg.model.arch
+        self.model_arc = OmegaConf.to_container(model_cfg.model.arch, resolve=True)
+        self.output_dist = model_cfg.model.get("output_dist", "deterministic")
+        self.sample_from_dist = model_cfg.model.get("sample_from_dist", False)
+        if "output_dist" not in self.model_arc:
+            self.model_arc["output_dist"] = self.output_dist
+        if "use_rl_head" not in self.model_arc and "use_rl_head" in model_cfg.model:
+            self.model_arc["use_rl_head"] = model_cfg.model.use_rl_head
         self.mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
         self.sampling_rate = model_cfg.model.mel_spec.target_sample_rate
 
@@ -104,6 +110,8 @@ class TTSStreamingProcessor:
             ode_method="euler",
             use_ema=True,
             device=self.device,
+            output_dist=self.output_dist,
+            sample_from_dist=self.sample_from_dist,
         ).to(self.device, dtype=dtype)
 
     def load_vocoder_model(self):
