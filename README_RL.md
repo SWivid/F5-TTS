@@ -167,6 +167,9 @@ Prompt length modes:
 - `min` (default): keep batch prompt length equal to the minimum sampled value (matches F5R behavior).
 - `per_sample`: keep per-sample prompt lengths; prompts are padded and `lens` is passed to `forward_rl`.
 
+Reference model mode:
+- GRPO keeps the reference model in eval mode when estimating KL, avoiding dropout noise.
+
 ## W&B logging
 
 GRPO now logs useful metrics:

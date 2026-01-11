@@ -427,10 +427,12 @@ class CFM(nn.Module):
         duplicate_test=False,
         t_inter=0.1,
         edit_mask=None,
+        set_train: bool = True,
     ):
         if self.output_dist != "gaussian":
             raise RuntimeError("forward_rl requires output_dist='gaussian'")
-        self.train()
+        if set_train:
+            self.train()
 
         batch, cond_seq_len, device = cond.size(0), cond.size(1), cond.device
         if not exists(lens):

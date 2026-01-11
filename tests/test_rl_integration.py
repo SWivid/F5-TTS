@@ -176,6 +176,16 @@ def test_prompt_length_mode_behavior():
     assert start_per[0].item() != start_per[1].item()
 
 
+def test_forward_rl_preserves_eval_mode():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    model.eval()
+    cond = torch.randn(1, 2, 8)
+    text = ["hi"]
+    duration = torch.tensor([2])
+    model.forward_rl(cond=cond, text=text, duration=duration, steps=2, cfg_strength=0.0, set_train=False)
+    assert model.training is False
+
+
 def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:
     pkg_root = tmp_path / "wespeaker"
     models_dir = pkg_root / "models"

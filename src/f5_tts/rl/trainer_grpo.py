@@ -433,6 +433,7 @@ class GRPOTrainer:
                             steps=self.steps,
                             cfg_strength=self.cfg_strength,
                             sway_sampling_coef=self.sway_sampling_coef,
+                            set_train=False,
                         )
 
                     pro_result_sample = [item[:-1] for item in pro_result if item[-1]]
