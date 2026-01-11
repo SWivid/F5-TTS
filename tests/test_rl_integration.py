@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from f5_tts.model.backbones.dit import DiT
 from f5_tts.model.cfm import CFM
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
+from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
 from f5_tts.rl.trainer_grpo import GRPOTrainer, sample_prompt_spans
 
@@ -203,6 +205,7 @@ def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:
                 "class DummyModel(torch.nn.Module):",
                 "    def __init__(self, **kwargs):",
                 "        super().__init__()",
+                "        self.weight = torch.nn.Parameter(torch.ones(1))",
                 "",
                 "    def forward(self, feats):",
                 "        return torch.ones((feats.size(0), 256), device=feats.device)",
@@ -246,6 +249,34 @@ def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:
     )
     (model_dir / "config.yaml").write_text(config, encoding="utf-8")
     return model_dir
+
+
+def _install_funasr_stub(monkeypatch) -> None:
+    class DummyAutoModel:
+        def __init__(self, model, device, disable_update=True):
+            self.model = model
+            self.device = device
+
+        def inference(self, input, cache, language, use_itn, disable_pbar, batch_size):
+            return [{"text": "hello"} for _ in input]
+
+    funasr = types.ModuleType("funasr")
+    funasr.__path__ = []
+    funasr.AutoModel = DummyAutoModel
+    utils = types.ModuleType("funasr.utils")
+    utils.__path__ = []
+    post = types.ModuleType("funasr.utils.postprocess_utils")
+
+    def rich_transcription_postprocess(text: str) -> str:
+        return text
+
+    post.rich_transcription_postprocess = rich_transcription_postprocess
+    funasr.utils = utils
+    utils.postprocess_utils = post
+
+    monkeypatch.setitem(sys.modules, "funasr", funasr)
+    monkeypatch.setitem(sys.modules, "funasr.utils", utils)
+    monkeypatch.setitem(sys.modules, "funasr.utils.postprocess_utils", post)
 
 
 def test_trainer_allows_num_workers_zero(tmp_path, monkeypatch):
@@ -318,6 +349,37 @@ def test_wespeaker_fbank_stub_runs(tmp_path, monkeypatch):
     ]
     outputs = provider.compute(batch)
     assert torch.isfinite(outputs[0].total_reward)
+
+
+def test_wespeaker_respects_device(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    provider._ensure_model()
+    assert provider._model.weight.device.type == "cpu"
+
+
+def test_funasr_stub_runs_and_respects_device(monkeypatch):
+    _install_funasr_stub(monkeypatch)
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hello",
+            speaker_ref=None,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].total_reward.device.type == "cpu"
+    assert provider._model.device == "cpu"
 
 
 @pytest.mark.integration

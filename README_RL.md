@@ -165,7 +165,8 @@ Output: `ckpts/mini_rl_grpo/model_last.pt`
 
 Prompt length modes:
 - `min` (default): keep batch prompt length equal to the minimum sampled value (matches F5R behavior).
-- `per_sample`: keep per-sample prompt lengths; prompts are padded and `lens` is passed to `forward_rl`.
+- `per_sample`: keep per-sample prompt lengths; prompts are padded to the max in batch and `lens` is passed to
+  `forward_rl` so each sample uses its own prompt length. Enable with `rl.prompt_length_mode=per_sample`.
 
 Reference model mode:
 - GRPO keeps the reference model in eval mode when estimating KL, avoiding dropout noise.
