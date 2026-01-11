@@ -56,13 +56,13 @@ eval = [
 ]
 rl = [
     "funasr",
-    "wespeaker",
+    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git",
 ]
 reward_funasr = [
     "funasr",
 ]
 reward_wespeaker = [
-    "wespeaker",
+    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git",
 ]
 
 [project.urls]

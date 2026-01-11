@@ -330,7 +330,7 @@ class DiT(nn.Module):
                 x = block(x, t, mask=mask, rope=rope)
 
         if self.long_skip_connection is not None:
-                x = self.long_skip_connection(torch.cat((x, residual), dim=-1))
+            x = self.long_skip_connection(torch.cat((x, residual), dim=-1))
 
         x = self.norm_out(x, t)
 

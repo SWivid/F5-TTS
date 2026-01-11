@@ -13,6 +13,17 @@ It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
 - Reward models:
   - FunASR SenseVoiceSmall
   - WeSpeaker cnceleb_resnet34
+- Install RL extras (uses the GitHub WeSpeaker source):
+  ```bash
+  ./.venv/bin/python -m pip install -e ".[rl]"
+  ```
+- If you prefer explicit installs:
+  ```bash
+  ./.venv/bin/python -m pip install "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git" funasr
+  ./.venv/bin/python -m pip install huggingface_hub
+  ```
+- WeSpeaker reward loading is fbank-only; if your WeSpeaker config uses other frontends,
+  install the needed dependencies (e.g., `s3prl`, `whisper`, `peft`) or switch to an fbank model.
 
 ## Dataset layout
 
@@ -165,3 +176,10 @@ wandb sync .wandb/wandb
 ```
 
 Or use the run URLs printed in the console output.
+
+## Troubleshooting
+
+- `num_workers=0` is now safe; the trainer only enables `persistent_workers` when `num_workers > 0`.
+- If WeSpeaker errors during import, install via the GitHub source and use an fbank-based model.
+- If FunASR is missing, install `.[reward_funasr]` or `funasr` directly.
+- If checkpoint saves fail on a full disk, point `ckpts.save_dir` to a larger volume.

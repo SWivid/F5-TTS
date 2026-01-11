@@ -70,7 +70,7 @@ def main():
             local_dir=download_dir,
             local_dir_use_symlinks=False,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         if not args.fallback_filename:
             raise
         print(f"Primary archive '{args.filename}' not found, trying '{args.fallback_filename}'.")

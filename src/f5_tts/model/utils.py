@@ -75,8 +75,7 @@ def load_state_dict_compat(
     unexpected = incompatible.unexpected_keys if not allow_extra_keys else []
     if missing or unexpected:
         raise RuntimeError(
-            f"State dict incompatible. Missing: {missing} Unexpected: {unexpected}. "
-            f"allow_extra_keys={allow_extra_keys}"
+            f"State dict incompatible. Missing: {missing} Unexpected: {unexpected}. allow_extra_keys={allow_extra_keys}"
         )
 
 

@@ -55,8 +55,7 @@ class FunASRWERProvider(RewardProvider):
             from funasr.utils.postprocess_utils import rich_transcription_postprocess
         except Exception as exc:  # noqa: BLE001
             raise ImportError(
-                "FunASR is required for FunASRWERProvider. "
-                "Install with: pip install f5-tts[reward_funasr]"
+                "FunASR is required for FunASRWERProvider. Install with: pip install f5-tts[reward_funasr]"
             ) from exc
         self._postprocess = rich_transcription_postprocess
         self._model = AutoModel(model=self.model_id, device=self.device, disable_update=True)

@@ -81,9 +81,7 @@ class RewardCombiner:
             logs: dict[str, Any] = {}
             for provider, provider_reward, provider_output in zip(self.providers, reward_vectors, provider_outputs):
                 components[f"{provider.name}.total"] = provider_reward[i]
-                components.update(
-                    {f"{provider.name}.{k}": v for k, v in provider_output[i].components.items()}
-                )
+                components.update({f"{provider.name}.{k}": v for k, v in provider_output[i].components.items()})
                 if provider_output[i].logs:
                     logs[provider.name] = provider_output[i].logs
             outputs.append(

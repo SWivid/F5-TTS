@@ -265,9 +265,7 @@ class GRPOTrainer:
         gen_mu, gen_sig = gen
         ref_mu, ref_sig = ref
         kl = ref_sig - gen_sig
-        kl += (torch.exp(gen_sig) ** 2 + F.mse_loss(gen_mu, ref_mu, reduction="none")) / (
-            2 * (torch.exp(ref_sig) ** 2)
-        )
+        kl += (torch.exp(gen_sig) ** 2 + F.mse_loss(gen_mu, ref_mu, reduction="none")) / (2 * (torch.exp(ref_sig) ** 2))
         return kl
 
     def _get_kl(self, gen_pros, ref_pros):
@@ -337,21 +335,13 @@ class GRPOTrainer:
         total_updates = max(1, math.ceil(len(train_dataloader) / self.grad_accumulation_steps) * self.epochs)
         if warmup_updates <= 0:
             decay_updates = max(1, total_updates)
-            self.scheduler = LinearLR(
-                self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates
-            )
+            self.scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates)
         elif total_updates <= warmup_updates:
-            self.scheduler = LinearLR(
-                self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates
-            )
+            self.scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates)
         else:
             decay_updates = total_updates - warmup_updates
-            warmup_scheduler = LinearLR(
-                self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates
-            )
-            decay_scheduler = LinearLR(
-                self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates
-            )
+            warmup_scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates)
+            decay_scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates)
             self.scheduler = SequentialLR(
                 self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_updates]
             )

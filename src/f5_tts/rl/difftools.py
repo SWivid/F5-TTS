@@ -9,7 +9,9 @@ from torchdiffeq._impl.misc import Perturb, _check_inputs, _flat_to_shape, _hand
 class EulerSolver(metaclass=abc.ABCMeta):
     order = 1
 
-    def __init__(self, func, y0, step_size=None, grid_constructor=None, interp="linear", perturb=False, **unused_kwargs):
+    def __init__(
+        self, func, y0, step_size=None, grid_constructor=None, interp="linear", perturb=False, **unused_kwargs
+    ):
         self.atol = unused_kwargs.pop("atol")
         unused_kwargs.pop("rtol", None)
         unused_kwargs.pop("norm", None)
