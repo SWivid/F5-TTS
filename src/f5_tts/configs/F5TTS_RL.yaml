@@ -73,6 +73,7 @@ rl:
         config:
           model_id: FunAudioLLM/SenseVoiceSmall
           lang: auto
+          wer_mode: char
           device: auto
 
 ckpts:

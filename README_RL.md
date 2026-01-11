@@ -31,6 +31,26 @@ It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
 - `data/<dataset>_<tokenizer>/raw` (HF dataset saved via `save_to_disk`)
 - `data/<dataset>_<tokenizer>/duration.json`
 
+## Colab A100 end-to-end (dataset + stage1 + stage2)
+
+Use the helper script to build a LibriSpeech subset, warm up, and run GRPO:
+
+```bash
+# Example defaults: 512 samples, W&B logging, char-level WER
+bash src/f5_tts/scripts/run_rl_colab.sh
+```
+
+Override any parameter via env vars:
+
+```bash
+LOGGER=wandb NUM_SAMPLES=2048 STAGE1_EPOCHS=1 STAGE2_EPOCHS=1 RL_STEPS=30 \
+PROMPT_FRAC_RANGE='[0.1,0.3]' WER_MODE=char CUDA_DEVICE=0 \
+bash src/f5_tts/scripts/run_rl_colab.sh
+```
+
+Key env vars: `DATASET_NAME`, `HF_DATASET_ID`, `HF_CONFIG`, `HF_SPLIT`, `NUM_SAMPLES`,
+`WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`.
+
 If you want a tiny smoke-test dataset:
 
 ```bash
@@ -213,6 +233,7 @@ FunASR:
 ./.venv/bin/python -m f5_tts.scripts.fetch_reward_asr_model \
   --cache_dir checkpoints/funasr/SenseVoiceSmall
 ```
+`funasr_wer` supports `wer_mode: char | word` (default: `char`, matching F5R).
 
 WeSpeaker (HF archive; fallback supported):
 ```bash

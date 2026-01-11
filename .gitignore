@@ -5,6 +5,8 @@ data/
 ckpts/
 checkpoints/
 wandb/
+.wandb/
+.pre-commit-cache/
 results/
 tests/assets/audio_pack/
 

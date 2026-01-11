@@ -25,9 +25,15 @@ def _edit_distance(r: list[str], h: list[str]) -> int:
     return int(d[len(r), len(h)].item())
 
 
-def _wer(ref: str, hyp: str) -> float:
-    r = ref.split()
-    h = hyp.split()
+def _wer(ref: str, hyp: str, mode: str = "word") -> float:
+    if mode == "word":
+        r = ref.split()
+        h = hyp.split()
+    elif mode == "char":
+        r = list(ref)
+        h = list(hyp)
+    else:
+        raise ValueError(f"Unsupported WER mode '{mode}'. Expected 'word' or 'char'.")
     if not r:
         return 0.0 if not h else 1.0
     return _edit_distance(r, h) / max(1, len(r))
@@ -41,6 +47,7 @@ class FunASRWERProvider(RewardProvider):
         cfg = cfg or {}
         self.model_id = cfg.get("model_id", "FunAudioLLM/SenseVoiceSmall")
         self.lang = cfg.get("lang", "auto")
+        self.wer_mode = cfg.get("wer_mode", "char")
         self.device = resolve_device(cfg.get("device", "auto"))
         self.batch_size = cfg.get("batch_size", 8)
         self.cache = RewardCache(cfg.get("cache_dir"), enabled=cfg.get("cache_enabled", True))
@@ -150,7 +157,7 @@ class FunASRWERProvider(RewardProvider):
 
         outputs: list[RewardOutput] = []
         for ref_text, gen_text in zip(ref_texts, gen_texts):
-            wer_value = _wer(ref_text, gen_text) if ref_text else 1.0
+            wer_value = _wer(ref_text, gen_text, mode=self.wer_mode) if ref_text else 1.0
             acc = 1.0 - wer_value
             total = torch.tensor(acc, dtype=torch.float32)
             outputs.append(

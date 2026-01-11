@@ -14,7 +14,7 @@ from f5_tts.model.backbones.dit import DiT
 from f5_tts.model.cfm import CFM
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
-from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider
+from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider, _wer
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
 from f5_tts.rl.trainer_grpo import GRPOTrainer, sample_prompt_spans
 
@@ -402,6 +402,21 @@ def test_funasr_reward_values(monkeypatch):
     assert outputs[0].components["wer"].item() == 0.0
     assert outputs[0].components["acc"].item() == 1.0
     assert outputs[0].total_reward.item() == 1.0
+
+
+def test_funasr_wer_modes_punctuation_case():
+    ref = "hello world"
+    hyp = "hello, world."
+    word = _wer(ref, hyp, mode="word")
+    char = _wer(ref, hyp, mode="char")
+    assert word == 1.0
+    assert 0.0 < char < word
+
+
+def test_funasr_default_wer_mode_is_char():
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    assert provider.wer_mode == "char"
 
 
 def test_wespeaker_similarity_identical_audio(tmp_path, monkeypatch):
