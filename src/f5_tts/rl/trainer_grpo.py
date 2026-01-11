@@ -104,6 +104,7 @@ class GRPOTrainer:
             init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name}}
             if exists(wandb_resume_id):
                 init_kwargs["wandb"]["id"] = wandb_resume_id
+            reward_providers = [provider.name for provider in reward_combiner.providers]
             self.accelerator.init_trackers(
                 project_name=wandb_project,
                 init_kwargs=init_kwargs,
@@ -118,6 +119,17 @@ class GRPOTrainer:
                     "max_grad_norm": max_grad_norm,
                     "gpus": self.accelerator.num_processes,
                     "noise_scheduler": noise_scheduler,
+                    "repeat_count": repeat_count,
+                    "mini_repeat_count": mini_repeat_count,
+                    "prompt_frac_range": prompt_frac_range,
+                    "prompt_length_mode": prompt_length_mode,
+                    "steps": steps,
+                    "cfg_strength": cfg_strength,
+                    "sway_sampling_coef": sway_sampling_coef,
+                    "kl_weight": kl_weight,
+                    "reward_mode": reward_combiner.mode,
+                    "reward_weights": reward_combiner.weights,
+                    "reward_providers": reward_providers,
                 },
             )
 
@@ -394,9 +406,9 @@ class GRPOTrainer:
                     if text_len > max(mel_lengths):
                         continue
 
-                    if self.duration_predictor is not None and self.accelerator.is_local_main_process:
+                    dur_loss = None
+                    if self.duration_predictor is not None:
                         dur_loss = self.duration_predictor(mel_spec, lens=batch.get("durations"))
-                        self.accelerator.log({"duration loss": dur_loss.item()}, step=global_update)
 
                     frac_lengths = torch.zeros((mel_spec.size(0),), device=self.model.device)
                     frac_lengths = frac_lengths.float().uniform_(*self.prompt_frac_range)
@@ -500,7 +512,7 @@ class GRPOTrainer:
                     progress_bar.update(1)
                     progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
-                if self.is_main:
+                if self.is_main and self.accelerator.sync_gradients:
                     log_payload = {
                         "loss": loss.item(),
                         "lr": self.scheduler.get_last_lr()[0],
@@ -511,6 +523,8 @@ class GRPOTrainer:
                         "reward/min": rewards_all.min().item(),
                         "reward/max": rewards_all.max().item(),
                     }
+                    if dur_loss is not None:
+                        log_payload["loss/duration"] = dur_loss.item()
                     component_values: dict[str, list[torch.Tensor]] = {}
                     for output in reward_outputs:
                         for key, value in output.components.items():
