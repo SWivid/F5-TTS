@@ -1,20 +1,33 @@
 import argparse
 import os
 import tarfile
-import urllib.request
 import zipfile
-
-
-DEFAULT_URL = "https://wenet.org.cn/downloads?models=wespeaker&version=cnceleb_resnet34.zip"
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Fetch WeSpeaker model for RL rewards.")
-    parser.add_argument("--url", type=str, default=DEFAULT_URL, help="Download URL for the WeSpeaker model zip")
+    parser.add_argument(
+        "--repo_id",
+        type=str,
+        default="openspeech/wespeaker-models",
+        help="Hugging Face repo containing WeSpeaker model archives",
+    )
+    parser.add_argument(
+        "--filename",
+        type=str,
+        default="cnceleb_resnet34.zip",
+        help="Primary model archive filename to download",
+    )
+    parser.add_argument(
+        "--fallback_filename",
+        type=str,
+        default="voxceleb_resnet34.zip",
+        help="Fallback archive filename if the primary is missing",
+    )
     parser.add_argument(
         "--cache_dir",
         type=str,
-        default="checkpoints/wespeaker/chinese",
+        default="checkpoints/wespeaker/cnceleb_resnet34",
         help="Directory to store the extracted model files",
     )
     parser.add_argument("--offline", action="store_true", help="Do not download, only validate cache_dir")
@@ -42,9 +55,31 @@ def main():
         print(f"Offline mode: using cached model at {cache_dir}")
         return
 
+    try:
+        from huggingface_hub import hf_hub_download
+    except Exception as exc:  # noqa: BLE001
+        raise SystemExit("huggingface_hub is required. Install with: pip install huggingface_hub") from exc
+
     os.makedirs(cache_dir, exist_ok=True)
-    archive_path = os.path.join(cache_dir, "wespeaker_model_archive.zip")
-    urllib.request.urlretrieve(args.url, archive_path)
+    download_dir = os.path.dirname(cache_dir)
+    os.makedirs(download_dir, exist_ok=True)
+    try:
+        archive_path = hf_hub_download(
+            repo_id=args.repo_id,
+            filename=args.filename,
+            local_dir=download_dir,
+            local_dir_use_symlinks=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        if not args.fallback_filename:
+            raise
+        print(f"Primary archive '{args.filename}' not found, trying '{args.fallback_filename}'.")
+        archive_path = hf_hub_download(
+            repo_id=args.repo_id,
+            filename=args.fallback_filename,
+            local_dir=download_dir,
+            local_dir_use_symlinks=False,
+        )
     _extract_archive(archive_path, cache_dir)
     print(f"Downloaded WeSpeaker model to {cache_dir}")
 
