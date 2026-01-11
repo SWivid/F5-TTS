@@ -299,7 +299,7 @@ class GRPOTrainer:
                 collate_fn=collate_fn,
                 num_workers=num_workers,
                 pin_memory=True,
-                persistent_workers=True,
+                persistent_workers=num_workers > 0,
                 batch_size=self.batch_size_per_gpu,
                 shuffle=True,
                 generator=generator,
@@ -321,20 +321,34 @@ class GRPOTrainer:
                 collate_fn=collate_fn,
                 num_workers=num_workers,
                 pin_memory=True,
-                persistent_workers=True,
+                persistent_workers=num_workers > 0,
                 batch_sampler=batch_sampler,
             )
         else:
             raise ValueError(f"batch_size_type must be 'sample' or 'frame', got {self.batch_size_type}")
 
         warmup_updates = self.num_warmup_updates * self.accelerator.num_processes
-        total_updates = math.ceil(len(train_dataloader) / self.grad_accumulation_steps) * self.epochs
-        decay_updates = total_updates - warmup_updates
-        warmup_scheduler = LinearLR(self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates)
-        decay_scheduler = LinearLR(self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates)
-        self.scheduler = SequentialLR(
-            self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_updates]
-        )
+        total_updates = max(1, math.ceil(len(train_dataloader) / self.grad_accumulation_steps) * self.epochs)
+        if warmup_updates <= 0:
+            decay_updates = max(1, total_updates)
+            self.scheduler = LinearLR(
+                self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates
+            )
+        elif total_updates <= warmup_updates:
+            self.scheduler = LinearLR(
+                self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates
+            )
+        else:
+            decay_updates = total_updates - warmup_updates
+            warmup_scheduler = LinearLR(
+                self.optimizer, start_factor=1e-8, end_factor=1.0, total_iters=warmup_updates
+            )
+            decay_scheduler = LinearLR(
+                self.optimizer, start_factor=1.0, end_factor=1e-8, total_iters=decay_updates
+            )
+            self.scheduler = SequentialLR(
+                self.optimizer, schedulers=[warmup_scheduler, decay_scheduler], milestones=[warmup_updates]
+            )
         train_dataloader, self.scheduler = self.accelerator.prepare(train_dataloader, self.scheduler)
         start_update = self.load_checkpoint()
         global_update = start_update
