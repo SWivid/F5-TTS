@@ -50,6 +50,7 @@ class FunASRWERProvider(RewardProvider):
     def _ensure_model(self) -> None:
         if self._model is not None:
             return
+        # Treat any import/setup error as missing optional deps to keep the user-facing hint consistent.
         try:
             from funasr import AutoModel
             from funasr.utils.postprocess_utils import rich_transcription_postprocess

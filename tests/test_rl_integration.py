@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
-import json
 
 import pytest
 import torch
 
+from f5_tts.model import Trainer
 from f5_tts.model.backbones.dit import DiT
 from f5_tts.model.cfm import CFM
-from f5_tts.model import Trainer
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider

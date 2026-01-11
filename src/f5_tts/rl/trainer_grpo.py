@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import copy
 import gc
+import math
 import os
 from typing import Any
 
-import math
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -229,7 +229,7 @@ class GRPOTrainer:
             checkpoints.sort(key=lambda x: int("".join(filter(str.isdigit, x))))
             latest_checkpoint = checkpoints[-1]
 
-        checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", weights_only=True, map_location="cpu")
+        checkpoint = torch.load(f"{self.checkpoint_path}/{latest_checkpoint}", map_location="cpu")
         output_dist = getattr(self.accelerator.unwrap_model(self.model).transformer, "output_dist", "deterministic")
         if self.is_main:
             load_state_dict_compat(
@@ -463,6 +463,8 @@ class GRPOTrainer:
                     std = rewards_all.std(unbiased=False)
                     advantages = (rewards - mean) / (std + 1e-4)
 
+                    # Keep upstream F5R behavior: weight advantages by Gaussian density (not log-prob).
+                    # This preserves parity with the reference implementation and avoids unintended RL changes.
                     pro_advantages = []
                     for x, mu, log_sig in pro_result_sample:
                         p = torch.exp(-F.mse_loss(mu, x, reduction="none") / (2 * (torch.exp(log_sig) ** 2)))

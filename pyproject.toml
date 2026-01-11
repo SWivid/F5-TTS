@@ -48,21 +48,21 @@ dependencies = [
 [project.optional-dependencies]
 eval = [
     "faster_whisper==0.10.1",
-    "funasr",
+    "funasr==1.3.0",
     "jiwer",
     "modelscope",
     "zhconv",
     "zhon",
 ]
 rl = [
-    "funasr",
-    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git",
+    "funasr==1.3.0",
+    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794",
 ]
 reward_funasr = [
-    "funasr",
+    "funasr==1.3.0",
 ]
 reward_wespeaker = [
-    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git",
+    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794",
 ]
 
 [project.urls]

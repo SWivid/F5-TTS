@@ -8,7 +8,7 @@ It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
 
 ## Requirements
 
-- Use the uv venv: `/home/mithex/work/tts/.venv/bin/python`
+- Use the uv venv: `./.venv/bin/python`
 - W&B online logging (set `WANDB_DISABLE_SERVICE=1` if sockets are blocked)
 - Reward models:
   - FunASR SenseVoiceSmall
@@ -19,7 +19,7 @@ It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
   ```
 - If you prefer explicit installs:
   ```bash
-  ./.venv/bin/python -m pip install "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git" funasr
+  ./.venv/bin/python -m pip install "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794" "funasr==1.3.0"
   ./.venv/bin/python -m pip install huggingface_hub
   ```
 - WeSpeaker reward loading is fbank-only; if your WeSpeaker config uses other frontends,
@@ -184,6 +184,13 @@ wandb sync .wandb/wandb
 ```
 
 Or use the run URLs printed in the console output.
+
+## Implementation parity notes
+
+These details intentionally match the F5R reference code:
+- Gaussian loss adds `t^2 * ln_sig` to regularize variance over time.
+- GRPO uses Gaussian density weighting (not log-prob) for advantage shaping.
+- ODE integration randomly skips gradients on some steps for speed.
 
 ## Troubleshooting
 

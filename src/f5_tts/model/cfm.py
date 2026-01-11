@@ -374,6 +374,7 @@ class CFM(nn.Module):
                 drop_text=drop_text,
             )
             loss = F.mse_loss(mu, flow, reduction="none") / (2 * (torch.exp(ln_sig) ** 2) + 1e-6) + ln_sig
+            # Match F5R gaussian objective: extra t^2 * ln_sig term for timestep-scaled variance regularization.
             loss += (t * t) * ln_sig
             loss = loss[rand_span_mask]
             if not torch.isfinite(loss).all():

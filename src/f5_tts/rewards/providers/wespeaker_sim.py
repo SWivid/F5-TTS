@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
 import importlib.util
 import os
 import sys
 import types
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -50,6 +50,7 @@ class WeSpeakerSimProvider(RewardProvider):
         if self._model is not None:
             return
         self._ensure_wespeaker_package()
+        # Treat any import/setup error as missing optional deps to keep the user-facing hint consistent.
         try:
             import yaml
             from wespeaker.models.speaker_model import get_speaker_model

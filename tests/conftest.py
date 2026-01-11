@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
