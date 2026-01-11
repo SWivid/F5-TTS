@@ -75,6 +75,13 @@ def test_soft_load_deterministic_into_gaussian():
     load_state_dict_compat(gauss_model, det_model.state_dict(), output_dist="gaussian")
 
 
+def test_soft_load_warns_on_missing_ln_sig():
+    det_model = _make_dit(output_dist="deterministic")
+    gauss_model = _make_dit(output_dist="gaussian")
+    with pytest.warns(RuntimeWarning, match="proj_out_ln_sig"):
+        load_state_dict_compat(gauss_model, det_model.state_dict(), output_dist="gaussian")
+
+
 def test_gaussian_loss_gradients():
     model = _make_cfm(output_dist="gaussian", objective="gaussian_nll")
     inp = torch.randn(2, 4, 8)

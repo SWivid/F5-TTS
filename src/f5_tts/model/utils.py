@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import random
+import warnings
 from collections import defaultdict
 from importlib.resources import files
 
@@ -60,6 +61,16 @@ def load_state_dict_compat(
     if output_dist == "gaussian":
         allowed_missing.append("proj_out_ln_sig")
     incompatible = model.load_state_dict(state_dict, strict=False)
+    if output_dist == "gaussian":
+        missing_ln_sig = [key for key in incompatible.missing_keys if "proj_out_ln_sig" in key]
+        if missing_ln_sig:
+            for name, param in model.named_parameters():
+                if "proj_out_ln_sig" in name:
+                    torch.nn.init.zeros_(param)
+            warnings.warn(
+                "Checkpoint missing proj_out_ln_sig; initialized gaussian ln_sig head to zeros.",
+                RuntimeWarning,
+            )
     missing = [key for key in incompatible.missing_keys if not any(tag in key for tag in allowed_missing)]
     unexpected = incompatible.unexpected_keys if not allow_extra_keys else []
     if missing or unexpected:
