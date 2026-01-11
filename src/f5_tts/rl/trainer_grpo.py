@@ -228,7 +228,16 @@ class GRPOTrainer:
 
     def _log(self, payload: dict[str, float], step: int) -> None:
         if self.logger == "wandb":
-            self.accelerator.log(payload, step=step)
+            if self.accelerator.trackers:
+                self.accelerator.log(payload, step=step)
+                return
+            try:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb.log(payload, step=step)
+            except Exception:
+                pass
         elif self.logger == "trackio":
             self._trackio.log(payload, step=step)
 

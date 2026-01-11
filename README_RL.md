@@ -51,6 +51,107 @@ bash src/f5_tts/scripts/run_rl_colab.sh
 Key env vars: `DATASET_NAME`, `HF_DATASET_ID`, `HF_CONFIG`, `HF_SPLIT`, `NUM_SAMPLES`,
 `WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`, `REF_SOURCE`.
 
+## RL knobs (quick reference)
+
+- `rl.steps`: number of diffusion/inference steps per GRPO rollout. Higher values improve
+  audio quality and reward signal (e.g., ASR/WER), but increase compute and memory use.
+  Very low values (e.g., 1–2) often produce poor audio and flat WER rewards.
+
+## Colab A100 run notes (current)
+
+### Dataset (64 samples, integrity-checked)
+
+```bash
+./.venv/bin/python - <<'PY'
+from datasets import load_dataset, Dataset
+from pathlib import Path
+import json
+import soundfile as sf
+
+out_root = Path("data/mini_rl64_custom")
+wav_dir = out_root / "wavs"
+wav_dir.mkdir(parents=True, exist_ok=True)
+
+ds = load_dataset("librispeech_asr", "clean", split="train.100", streaming=True)
+items = []
+durations = []
+for idx, row in enumerate(ds):
+    if idx >= 64:
+        break
+    audio = row["audio"]["array"]
+    sr = row["audio"]["sampling_rate"]
+    text = row.get("text", "")
+    wav_path = wav_dir / f"sample_{idx:03d}.wav"
+    sf.write(wav_path, audio, sr)
+    duration = len(audio) / sr
+    items.append({"audio_path": str(wav_path), "text": text, "duration": duration})
+    durations.append(duration)
+
+Dataset.from_list(items).save_to_disk(str(out_root / "raw"))
+with (out_root / "duration.json").open("w", encoding="utf-8") as f:
+    json.dump({"duration": durations}, f)
+PY
+```
+
+Integrity check:
+
+```bash
+./.venv/bin/python - <<'PY'
+from pathlib import Path
+import json
+from datasets import load_from_disk
+
+root = Path("data/mini_rl64_custom")
+rows = load_from_disk(str(root / "raw"))
+durations = json.loads((root / "duration.json").read_text())["duration"]
+assert len(rows) == 64 and len(durations) == 64
+for row in rows:
+    path = Path(row["audio_path"])
+    assert path.exists() and path.stat().st_size > 0
+    assert row.get("text")
+    assert row.get("duration", 0) > 0
+print("integrity ok: 64 samples")
+PY
+```
+
+### Stage 1 (warmup, 112 updates)
+
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
+datasets.name=mini_rl64 datasets.batch_size_per_gpu=4 datasets.batch_size_type=sample datasets.num_workers=2 \
+model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
+model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
+model.arch.checkpoint_activations=false \
+optim.epochs=7 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
+ckpts.save_dir=ckpts/mini_rl64_warmup ckpts.save_per_updates=1000 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=null
+```
+
+### Stage 2 (GRPO, 224 updates, bf16 + 8-bit optimizer)
+
+```bash
+CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 PYTORCH_ALLOC_CONF=expandable_segments:True \
+WANDB_API_KEY=... \
+./.venv/bin/python -m f5_tts.train.train_rl \
+datasets.name=mini_rl64 datasets.batch_size_per_gpu=2 datasets.batch_size_type=sample datasets.num_workers=2 \
+model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
+model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=false \
+optim.epochs=7 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
+ckpts.save_dir=ckpts/mini_rl64_grpo_wandbfix2 ckpts.save_per_updates=1000 ckpts.last_per_updates=1000 \
+ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=wandb \
+rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.3]' rl.prompt_length_mode=min \
+rl.cfg_strength=2.0 rl.sway_sampling_coef=-1.0 rl.kl_weight=1.0 \
+rl.ref_model_ckpt=$PWD/ckpts/mini_rl64_warmup/model_last.pt \
+rl.rewards.providers.0.config.model_dir=$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
+rl.rewards.providers.0.config.device=cuda \
+rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall \
+rl.rewards.providers.1.config.device=cuda
+```
+
+Notes:
+- Stage 2 does not use `ckpts.log_samples`; it only applies to Stage 1.
+- If WER is flat, increase `rl.steps` (2 is intentionally tiny for memory).
+
 If you want a tiny smoke-test dataset:
 
 ```bash
