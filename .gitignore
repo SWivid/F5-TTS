@@ -3,6 +3,7 @@
 runs/
 data/
 ckpts/
+checkpoints/
 wandb/
 results/
 tests/assets/audio_pack/

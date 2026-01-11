@@ -74,6 +74,7 @@ def main(model_cfg):
         ref_model_ckpt=model_cfg.rl.ref_model_ckpt,
         ref_model_use_ema=model_cfg.rl.ref_model_use_ema,
         allow_extra_keys=model_cfg.ckpts.get("allow_extra_keys", False),
+        bnb_optimizer=model_cfg.optim.get("bnb_optimizer", False),
     )
 
     train_dataset = load_dataset(model_cfg.datasets.name, tokenizer, mel_spec_kwargs=model_cfg.model.mel_spec)

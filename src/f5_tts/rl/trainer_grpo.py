@@ -71,6 +71,7 @@ class GRPOTrainer:
         ref_model_ckpt: str | None = None,
         ref_model_use_ema: bool = True,
         allow_extra_keys: bool = False,
+        bnb_optimizer: bool = False,
     ):
         if accelerate_kwargs is None:
             accelerate_kwargs = {}
@@ -147,7 +148,12 @@ class GRPOTrainer:
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
 
-        self.optimizer = AdamW(model.parameters(), lr=learning_rate)
+        if bnb_optimizer:
+            import bitsandbytes as bnb
+
+            self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
+        else:
+            self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
         self.ref_model = self._init_ref_model(ref_model, ref_model_ckpt, ref_model_use_ema)
