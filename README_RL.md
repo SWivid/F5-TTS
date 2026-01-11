@@ -70,6 +70,106 @@ PY
 Use `datasets.name=mini_rl` with `model.tokenizer=custom` so the loader reads
 `data/mini_rl_custom`.
 
+## Tiny smoke-test run (what we used)
+
+This is the exact sequence used for the local smoke test:
+
+1) Create the dummy dataset (4 samples):
+```bash
+./.venv/bin/python - <<'PY'
+from datasets import load_dataset, Dataset
+from pathlib import Path
+import json
+import soundfile as sf
+
+out_root = Path("data/mini_rl_custom")
+wav_dir = out_root / "wavs"
+wav_dir.mkdir(parents=True, exist_ok=True)
+
+ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", split="validation")
+text_key = "text" if "text" in ds.column_names else ds.column_names[-1]
+
+items = []
+durations = []
+for idx, row in enumerate(ds):
+    if idx >= 4:
+        break
+    audio = row["audio"]["array"]
+    sr = row["audio"]["sampling_rate"]
+    text = row[text_key]
+    wav_path = wav_dir / f"sample_{idx:02d}.wav"
+    sf.write(wav_path, audio, sr)
+    duration = len(audio) / sr
+    items.append({"audio_path": str(wav_path), "text": text, "duration": duration})
+    durations.append(duration)
+
+Dataset.from_list(items).save_to_disk(str(out_root / "raw"))
+with (out_root / "duration.json").open("w", encoding="utf-8") as f:
+    json.dump({"duration": durations}, f)
+PY
+```
+
+2) Download the base checkpoint into the warmup dir:
+```bash
+./.venv/bin/python - <<'PY'
+from cached_path import cached_path
+from pathlib import Path
+import shutil
+
+ckpt = cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors")
+out_dir = Path("ckpts/mini_rl_warmup")
+out_dir.mkdir(parents=True, exist_ok=True)
+dst = out_dir / ("pretrained_" + Path(ckpt).name)
+if not dst.exists():
+    shutil.copy2(ckpt, dst)
+print(dst)
+PY
+```
+
+3) Stage 1 warmup (CPU, no W&B):
+```bash
+CUDA_VISIBLE_DEVICES= \
+./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
+datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=0 \
+model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
+model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
+model.arch.checkpoint_activations=false \
+optim.epochs=1 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
+ckpts.save_dir=ckpts/mini_rl_warmup ckpts.save_per_updates=1 ckpts.keep_last_n_checkpoints=1 ckpts.log_samples=false ckpts.logger=null
+```
+
+4) Copy warmup checkpoint into GRPO dir:
+```bash
+mkdir -p ckpts/mini_rl_grpo
+cp ckpts/mini_rl_warmup/model_last.pt ckpts/mini_rl_grpo/model_last.pt
+```
+
+5) Fetch reward models (once):
+```bash
+./.venv/bin/python -m f5_tts.scripts.fetch_reward_asr_model \
+  --cache_dir checkpoints/funasr/SenseVoiceSmall
+./.venv/bin/python -m f5_tts.scripts.fetch_reward_spk_model \
+  --cache_dir checkpoints/wespeaker/cnceleb_resnet34
+```
+
+6) Stage 2 GRPO (CPU, no W&B):
+```bash
+CUDA_VISIBLE_DEVICES= \
+./.venv/bin/python -m f5_tts.train.train_rl \
+datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=0 \
+model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
+model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=false \
+optim.epochs=1 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
+ckpts.save_dir=ckpts/mini_rl_grpo ckpts.save_per_updates=1 ckpts.keep_last_n_checkpoints=1 ckpts.log_samples=false ckpts.logger=null \
+rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.1]' rl.prompt_length_mode=min \
+rl.cfg_strength=1.0 rl.sway_sampling_coef=null rl.kl_weight=1.0 \
+rl.ref_model_ckpt=$PWD/ckpts/mini_rl_warmup/model_last.pt \
+rl.rewards.providers.0.config.model_dir=$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
+rl.rewards.providers.0.config.device=cpu \
+rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall \
+rl.rewards.providers.1.config.device=cpu
+```
+
 ## Reward models (Stage 2)
 
 FunASR:
@@ -185,6 +285,15 @@ wandb sync .wandb/wandb
 ```
 
 Or use the run URLs printed in the console output.
+
+Low-disk or restricted environments:
+- Use offline logging and a local dir you control:
+  ```bash
+  WANDB_MODE=offline WANDB_DISABLE_SERVICE=1 \
+  WANDB_DIR=$PWD/.wandb WANDB_CACHE_DIR=$PWD/.wandb_cache WANDB_CONFIG_DIR=$PWD/.wandb_config \
+  ```
+- Keep only the final checkpoint to avoid extra 5+ GB files:
+  `ckpts.keep_last_n_checkpoints=0` (still writes `model_last.pt`).
 
 ## Implementation parity notes
 
