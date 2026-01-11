@@ -14,7 +14,7 @@ from f5_tts.model import Trainer
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
-from f5_tts.rl.trainer_grpo import GRPOTrainer
+from f5_tts.rl.trainer_grpo import GRPOTrainer, sample_prompt_spans
 
 
 def _make_dit(output_dist: str = "deterministic") -> DiT:
@@ -164,6 +164,16 @@ def test_rewards_import_does_not_pull_optional_deps():
 
     assert "funasr" not in sys.modules
     assert "wespeaker" not in sys.modules
+
+
+def test_prompt_length_mode_behavior():
+    seq_len = torch.tensor([10, 10])
+    frac = torch.tensor([0.6, 0.6])
+    rand = torch.tensor([0.1, 0.9])
+    start_min, _, _ = sample_prompt_spans(seq_len, frac, mode="min", rand=rand)
+    start_per, _, _ = sample_prompt_spans(seq_len, frac, mode="per_sample", rand=rand)
+    assert start_min[0].item() == start_min[1].item()
+    assert start_per[0].item() != start_per[1].item()
 
 
 def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:

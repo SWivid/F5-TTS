@@ -23,14 +23,19 @@ from f5_tts.model.utils import default, exists, load_state_dict_compat, mask_fro
 from f5_tts.rewards import RewardCombiner, RewardInput
 
 
-def mask_from_frac_lengths(seq_len, frac_lengths):
+def sample_prompt_spans(seq_len, frac_lengths, mode: str = "min", rand: torch.Tensor | None = None):
     max_start = (frac_lengths * seq_len).long()
-    rand = torch.rand_like(frac_lengths)
+    rand = (
+        torch.rand_like(frac_lengths) if rand is None else rand.to(device=frac_lengths.device, dtype=frac_lengths.dtype)
+    )
     start = (max_start * rand).long().clamp(min=0)
-    start = torch.min(start, dim=-1, keepdim=True).values.repeat(start.size(0))
+    if mode == "min":
+        start = torch.min(start, dim=-1, keepdim=True).values.repeat(start.size(0))
+    elif mode != "per_sample":
+        raise ValueError(f"prompt_length_mode must be 'min' or 'per_sample', got {mode}")
     prompt_idx = mask_from_start_end_indices(seq_len, (0 * start).long(), start)
     trg_idx = mask_from_start_end_indices(seq_len, start, seq_len)
-    return prompt_idx, trg_idx
+    return start, prompt_idx, trg_idx
 
 
 class GRPOTrainer:
@@ -72,6 +77,7 @@ class GRPOTrainer:
         ref_model_use_ema: bool = True,
         allow_extra_keys: bool = False,
         bnb_optimizer: bool = False,
+        prompt_length_mode: str = "min",
     ):
         if accelerate_kwargs is None:
             accelerate_kwargs = {}
@@ -144,6 +150,7 @@ class GRPOTrainer:
         self.sway_sampling_coef = sway_sampling_coef
         self.kl_weight = kl_weight
         self.allow_extra_keys = allow_extra_keys
+        self.prompt_length_mode = prompt_length_mode
 
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
@@ -393,14 +400,26 @@ class GRPOTrainer:
 
                     frac_lengths = torch.zeros((mel_spec.size(0),), device=self.model.device)
                     frac_lengths = frac_lengths.float().uniform_(*self.prompt_frac_range)
-                    prompt_idx, trg_idx = mask_from_frac_lengths(mel_lengths, frac_lengths)
-                    prompt_idx = prompt_idx.unsqueeze(-1).repeat(1, 1, mel_spec.size(-1))
-                    prompt_audio = mel_spec[prompt_idx].view(mel_spec.size(0), -1, mel_spec.size(-1))
+                    prompt_lens, prompt_idx, trg_idx = sample_prompt_spans(
+                        mel_lengths, frac_lengths, mode=self.prompt_length_mode
+                    )
+                    if self.prompt_length_mode == "per_sample":
+                        max_prompt_len = int(prompt_lens.max().item())
+                        prompt_audio = mel_spec.new_zeros((mel_spec.size(0), max_prompt_len, mel_spec.size(-1)))
+                        for idx, prompt_len in enumerate(prompt_lens.tolist()):
+                            if prompt_len:
+                                prompt_audio[idx, :prompt_len, :] = mel_spec[idx, :prompt_len, :]
+                        prompt_lens_arg = prompt_lens
+                    else:
+                        prompt_idx = prompt_idx.unsqueeze(-1).repeat(1, 1, mel_spec.size(-1))
+                        prompt_audio = mel_spec[prompt_idx].view(mel_spec.size(0), -1, mel_spec.size(-1))
+                        prompt_lens_arg = None
 
                     out, _, pro_result = self.model.forward_rl(
                         cond=prompt_audio,
                         text=text_inputs,
                         duration=mel_lengths,
+                        lens=prompt_lens_arg,
                         steps=self.steps,
                         cfg_strength=self.cfg_strength,
                         sway_sampling_coef=self.sway_sampling_coef,
@@ -410,6 +429,7 @@ class GRPOTrainer:
                             cond=prompt_audio,
                             text=text_inputs,
                             duration=mel_lengths,
+                            lens=prompt_lens_arg,
                             steps=self.steps,
                             cfg_strength=self.cfg_strength,
                             sway_sampling_coef=self.sway_sampling_coef,

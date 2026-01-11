@@ -155,12 +155,17 @@ optim.epochs=1 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_ac
 optim.bnb_optimizer=true \
 ckpts.save_dir=ckpts/mini_rl_grpo ckpts.log_samples=false \
 rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.1]' \
+rl.prompt_length_mode=min \
 rl.cfg_strength=1.0 rl.sway_sampling_coef=null rl.kl_weight=1.0 \
 rl.rewards.providers.0.config.model_dir=checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
 rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall
 ```
 
 Output: `ckpts/mini_rl_grpo/model_last.pt`
+
+Prompt length modes:
+- `min` (default): keep batch prompt length equal to the minimum sampled value (matches F5R behavior).
+- `per_sample`: keep per-sample prompt lengths; prompts are padded and `lens` is passed to `forward_rl`.
 
 ## W&B logging
 
