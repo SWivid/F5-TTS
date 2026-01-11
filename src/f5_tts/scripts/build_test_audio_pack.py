@@ -16,8 +16,8 @@ def parse_args():
     parser.add_argument(
         "--hf_dataset",
         type=str,
-        default="",
-        help="HF dataset name to stream from (e.g. librispeech_asr)",
+        default="hf-internal-testing/librispeech_asr_dummy",
+        help="HF dataset name to stream from",
     )
     parser.add_argument("--hf_split", type=str, default="validation", help="HF dataset split")
     parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to export")
