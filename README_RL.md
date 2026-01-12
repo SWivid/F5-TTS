@@ -56,6 +56,10 @@ Key env vars: `DATASET_NAME`, `HF_DATASET_ID`, `HF_CONFIG`, `HF_SPLIT`, `NUM_SAM
 - `rl.steps`: number of diffusion/inference steps per GRPO rollout. Higher values improve
   audio quality and reward signal (e.g., ASR/WER), but increase compute and memory use.
   Very low values (e.g., 1–2) often produce poor audio and flat WER rewards.
+- `rl.steps_plus_one`: opt-in to use `steps + 1` integration points in `forward_rl`. Default is `false`
+  for F5R parity; set `true` if you want RL rollouts to match the non-RL step count.
+- `rl.prompt_length_mode`: `min` (F5R parity), `per_sample`, or `range`. `range` uses the sampled
+  fraction directly so the prompt length respects the lower bound in `prompt_frac_range`.
 
 ## Colab A100 run notes (current)
 

@@ -23,6 +23,7 @@ STAGE1_EPOCHS="${STAGE1_EPOCHS:-1}"
 STAGE2_EPOCHS="${STAGE2_EPOCHS:-1}"
 
 RL_STEPS="${RL_STEPS:-30}"
+STEPS_PLUS_ONE="${STEPS_PLUS_ONE:-false}"
 PROMPT_FRAC_RANGE="${PROMPT_FRAC_RANGE:-[0.1,0.3]}"
 PROMPT_LENGTH_MODE="${PROMPT_LENGTH_MODE:-min}"
 CFG_STRENGTH="${CFG_STRENGTH:-2.0}"
@@ -112,7 +113,8 @@ cp -f "${WARMUP_DIR}/model_last.pt" "${GRPO_DIR}/model_last.pt"
   model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=true \
   optim.epochs="${STAGE2_EPOCHS}" optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer="${USE_BNB}" \
   ckpts.save_dir="${GRPO_DIR}" ckpts.save_per_updates=50 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger="${LOGGER}" \
-  rl.steps="${RL_STEPS}" rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range="${PROMPT_FRAC_RANGE}" rl.prompt_length_mode="${PROMPT_LENGTH_MODE}" \
+  rl.steps="${RL_STEPS}" rl.steps_plus_one="${STEPS_PLUS_ONE}" rl.repeat_count=1 rl.mini_repeat_count=1 \
+  rl.prompt_frac_range="${PROMPT_FRAC_RANGE}" rl.prompt_length_mode="${PROMPT_LENGTH_MODE}" \
   rl.cfg_strength="${CFG_STRENGTH}" rl.sway_sampling_coef=null rl.kl_weight="${KL_WEIGHT}" \
   rl.ref_model_ckpt="${WARMUP_DIR}/model_last.pt" \
   rl.rewards.providers.0.config.model_dir="$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34" \

@@ -25,14 +25,21 @@ from f5_tts.rewards import RewardCombiner, RewardInput
 
 def sample_prompt_spans(seq_len, frac_lengths, mode: str = "min", rand: torch.Tensor | None = None):
     max_start = (frac_lengths * seq_len).long()
-    rand = (
-        torch.rand_like(frac_lengths) if rand is None else rand.to(device=frac_lengths.device, dtype=frac_lengths.dtype)
-    )
-    start = (max_start * rand).long().clamp(min=0)
-    if mode == "min":
-        start = torch.min(start, dim=-1, keepdim=True).values.repeat(start.size(0))
-    elif mode != "per_sample":
-        raise ValueError(f"prompt_length_mode must be 'min' or 'per_sample', got {mode}")
+    if mode == "range":
+        # Use the sampled fraction directly so the prompt length respects the configured lower bound.
+        start = max_start.clamp(min=0)
+    else:
+        # F5R parity: sample within [0, frac*len] and optionally collapse to batch min.
+        rand = (
+            torch.rand_like(frac_lengths)
+            if rand is None
+            else rand.to(device=frac_lengths.device, dtype=frac_lengths.dtype)
+        )
+        start = (max_start * rand).long().clamp(min=0)
+        if mode == "min":
+            start = torch.min(start, dim=-1, keepdim=True).values.repeat(start.size(0))
+        elif mode != "per_sample":
+            raise ValueError(f"prompt_length_mode must be 'min', 'per_sample', or 'range', got {mode}")
     prompt_idx = mask_from_start_end_indices(seq_len, (0 * start).long(), start)
     trg_idx = mask_from_start_end_indices(seq_len, start, seq_len)
     return start, prompt_idx, trg_idx
@@ -69,6 +76,7 @@ class GRPOTrainer:
         mini_repeat_count: int = 1,
         prompt_frac_range: tuple[float, float] = (0.1, 0.3),
         steps: int = 30,
+        steps_plus_one: bool = False,
         cfg_strength: float = 2.0,
         sway_sampling_coef: float | None = -1.0,
         kl_weight: float = 1.0,
@@ -201,6 +209,7 @@ class GRPOTrainer:
         self.mini_repeat_count = mini_repeat_count
         self.prompt_frac_range = prompt_frac_range
         self.steps = steps
+        self.steps_plus_one = steps_plus_one
         self.cfg_strength = cfg_strength
         self.sway_sampling_coef = sway_sampling_coef
         self.kl_weight = kl_weight
@@ -509,6 +518,7 @@ class GRPOTrainer:
                         duration=mel_lengths,
                         lens=prompt_lens_arg,
                         steps=self.steps,
+                        steps_plus_one=self.steps_plus_one,
                         cfg_strength=self.cfg_strength,
                         sway_sampling_coef=self.sway_sampling_coef,
                     )
@@ -519,6 +529,7 @@ class GRPOTrainer:
                             duration=mel_lengths,
                             lens=prompt_lens_arg,
                             steps=self.steps,
+                            steps_plus_one=self.steps_plus_one,
                             cfg_strength=self.cfg_strength,
                             sway_sampling_coef=self.sway_sampling_coef,
                             set_train=False,

@@ -55,6 +55,7 @@ rl:
   prompt_frac_range: [0.1, 0.3]
   prompt_length_mode: min
   steps: 30
+  steps_plus_one: false
   cfg_strength: 2.0
   sway_sampling_coef: -1.0
   kl_weight: 1.0

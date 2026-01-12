@@ -174,8 +174,10 @@ def test_prompt_length_mode_behavior():
     rand = torch.tensor([0.1, 0.9])
     start_min, _, _ = sample_prompt_spans(seq_len, frac, mode="min", rand=rand)
     start_per, _, _ = sample_prompt_spans(seq_len, frac, mode="per_sample", rand=rand)
+    start_range, _, _ = sample_prompt_spans(seq_len, frac, mode="range", rand=rand)
     assert start_min[0].item() == start_min[1].item()
     assert start_per[0].item() != start_per[1].item()
+    assert start_range[0].item() == start_range[1].item() == int(0.6 * 10)
 
 
 def test_forward_rl_preserves_eval_mode():
@@ -186,6 +188,31 @@ def test_forward_rl_preserves_eval_mode():
     duration = torch.tensor([2])
     model.forward_rl(cond=cond, text=text, duration=duration, steps=2, cfg_strength=0.0, set_train=False)
     assert model.training is False
+
+
+def test_forward_rl_steps_plus_one():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    cond = torch.randn(1, 2, 8)
+    text = ["hi"]
+    duration = torch.tensor([2])
+    _, traj_default, _ = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=2,
+        cfg_strength=0.0,
+        set_train=False,
+    )
+    _, traj_plus, _ = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=2,
+        steps_plus_one=True,
+        cfg_strength=0.0,
+        set_train=False,
+    )
+    assert traj_plus.shape[0] == traj_default.shape[0] + 1
 
 
 def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:

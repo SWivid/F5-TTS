@@ -419,6 +419,7 @@ class CFM(nn.Module):
         *,
         lens: int["b"] | None = None,
         steps=32,
+        steps_plus_one: bool = False,
         cfg_strength=1.0,
         sway_sampling_coef=None,
         seed: int | None = None,
@@ -518,7 +519,8 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
-        t = torch.linspace(t_start, 1, steps, device=self.device)
+        t_steps = steps + 1 if steps_plus_one else steps
+        t = torch.linspace(t_start, 1, t_steps, device=self.device)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
