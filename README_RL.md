@@ -194,6 +194,9 @@ Sample logging:
   audio quality and reward signal (ASR/WER), but increase compute and memory.
 - `rl.steps_plus_one`: opt-in to use `steps + 1` integration points in `forward_rl`. Default is `false`
   for F5R parity; set `true` if you want RL rollouts to match non-RL step count.
+- `rl.skip_grad_prob`: probability to skip gradient tracking per ODE step (default: `0.05`). Set `0.95`
+  for strict F5R parity.
+- `rl.max_grad_steps`: optional cap on the number of ODE steps kept for GRPO (default: `null`).
 - `rl.prompt_length_mode`: `min` (F5R parity), `per_sample`, or `range`. `range` uses the sampled
   fraction directly so prompt length respects the lower bound in `prompt_frac_range`.
 - `rl.kl_eps`: add a small epsilon to the KL denominator for extra numerical stability (default: 0.0).
@@ -201,16 +204,20 @@ Sample logging:
 - `rl.align_kl_steps`: share the ODE skip mask between policy/ref rollouts for a less noisy KL (default: `false`).
 - `rl.max_duration`: Maximum allowed mel frames (default: 4096). Samples exceeding this are skipped to prevent truncation.
 - `rl.legacy_length_check`: If `true`, enables legacy filtering where samples with `text_len > mel_len` are skipped (F5R parity). Default `false` to fix this behavior.
+- `rl.reward_ref_source`: `auto | audio_path | mel` (default: `auto`). `auto` uses dataset audio paths for the
+  speaker reference when available; `mel` forces vocoder decode for ref audio.
+- `rl.reward_ref_cache_size`: number of reference audio entries to cache in memory (default: `128`).
 - `wer_mode`: `char | word` (default: `char`, matching F5R).
 - `ref_source`: `text | audio` (default: `text`; set `audio` to match ASR-vs-ASR reward in F5R).
 
 ## Recommended opt-ins (deviations from F5R defaults)
 
-Defaults stay F5R‑parity. If you want the more robust behavior we found during integration, opt in:
+Defaults match F5R except where noted (skip-grad, ref audio source). If you want the more robust behavior we found during integration, opt in:
 - `rl.prompt_length_mode=range` (or `per_sample`) to avoid collapsing prompt lengths to the batch minimum and to honor `prompt_frac_range` lower bounds.
 - `rl.steps_plus_one=true` to align RL rollouts with the non‑RL step count (`steps + 1` integration points).
 - `rl.align_kl_steps=true` to keep KL timesteps aligned when the ODE skips gradients.
 - `rl.kl_eps=1e-6` and `rl.density_eps=1e-6` if you see NaN/inf in KL or advantage weighting (keeps defaults at parity).
+- `rl.skip_grad_prob=0.95` if you need strict F5R parity for skip‑grad frequency.
 - `rl.rewards.providers.1.config.ref_source=audio` if you want ASR‑vs‑ASR reward instead of text‑vs‑ASR.
 - `ckpts.log_samples=true` for debugging; writes sample WAVs under `ckpts/.../samples` at each save interval.
 
@@ -236,7 +243,7 @@ trackio show
 These details intentionally match the F5R reference code:
 - Gaussian loss adds `t^2 * ln_sig` to regularize variance over time.
 - GRPO uses Gaussian density weighting (not log-prob) for advantage shaping.
-- ODE integration randomly skips gradients on some steps for speed.
+- ODE integration can skip gradients on some steps for speed; tune `rl.skip_grad_prob` if needed.
 
 ## Additional implementation notes
 

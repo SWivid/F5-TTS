@@ -4,6 +4,7 @@ import copy
 import gc
 import math
 import os
+from collections import OrderedDict
 from typing import Any
 
 import torch
@@ -101,11 +102,15 @@ class GRPOTrainer:
         mel_spec_type: str = "vocos",
         vocoder: Any | None = None,
         log_samples: bool = False,
+        reward_ref_source: str = "auto",
+        reward_ref_cache_size: int = 128,
         repeat_count: int = 8,
         mini_repeat_count: int = 1,
         prompt_frac_range: tuple[float, float] = (0.1, 0.3),
         steps: int = 30,
         steps_plus_one: bool = False,
+        skip_grad_prob: float = 0.05,
+        max_grad_steps: int | None = None,
         cfg_strength: float = 2.0,
         sway_sampling_coef: float | None = -1.0,
         kl_weight: float = 1.0,
@@ -172,6 +177,8 @@ class GRPOTrainer:
                 "prompt_frac_range": prompt_frac_range,
                 "prompt_length_mode": prompt_length_mode,
                 "steps": steps,
+                "skip_grad_prob": skip_grad_prob,
+                "max_grad_steps": max_grad_steps,
                 "cfg_strength": cfg_strength,
                 "sway_sampling_coef": sway_sampling_coef,
                 "kl_weight": kl_weight,
@@ -183,6 +190,8 @@ class GRPOTrainer:
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
+                "reward_ref_source": reward_ref_source,
+                "reward_ref_cache_size": reward_ref_cache_size,
             }
             self.accelerator.init_trackers(
                 project_name=wandb_project,
@@ -207,6 +216,8 @@ class GRPOTrainer:
                 "prompt_frac_range": prompt_frac_range,
                 "prompt_length_mode": prompt_length_mode,
                 "steps": steps,
+                "skip_grad_prob": skip_grad_prob,
+                "max_grad_steps": max_grad_steps,
                 "cfg_strength": cfg_strength,
                 "sway_sampling_coef": sway_sampling_coef,
                 "kl_weight": kl_weight,
@@ -216,6 +227,8 @@ class GRPOTrainer:
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
+                "reward_ref_source": reward_ref_source,
+                "reward_ref_cache_size": reward_ref_cache_size,
             }
             self._trackio.init(
                 project=wandb_project,
@@ -254,16 +267,28 @@ class GRPOTrainer:
         self.prompt_frac_range = prompt_frac_range
         self.steps = steps
         self.steps_plus_one = steps_plus_one
+        self.skip_grad_prob = skip_grad_prob
+        self.max_grad_steps = max_grad_steps
         self.cfg_strength = cfg_strength
         self.sway_sampling_coef = sway_sampling_coef
         self.kl_weight = kl_weight
         self.allow_extra_keys = allow_extra_keys
+        self.reward_ref_source = reward_ref_source
+        self.reward_ref_cache_size = reward_ref_cache_size
+        self._ref_audio_cache = OrderedDict() if reward_ref_cache_size > 0 else None
         self.prompt_length_mode = prompt_length_mode
         self.kl_eps = kl_eps
         self.density_eps = density_eps
         self.align_kl_steps = align_kl_steps
         self.max_duration = max_duration
         self.legacy_length_check = legacy_length_check
+
+        if not 0.0 <= self.skip_grad_prob <= 1.0:
+            raise ValueError(f"skip_grad_prob must be between 0 and 1, got {self.skip_grad_prob}")
+        if self.reward_ref_source not in {"auto", "audio_path", "mel"}:
+            raise ValueError(
+                f"reward_ref_source must be 'auto', 'audio_path', or 'mel', got {self.reward_ref_source}"
+            )
 
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
@@ -439,7 +464,16 @@ class GRPOTrainer:
         intervals = max(t_steps - 1, 0)
         if intervals == 0:
             return torch.zeros(0, dtype=torch.bool)
-        return torch.rand(intervals) > 0.05
+        skip_mask = torch.rand(intervals) < self.skip_grad_prob
+        if self.max_grad_steps is not None and self.max_grad_steps > 0:
+            keep_indices = torch.nonzero(~skip_mask).flatten()
+            if keep_indices.numel() > self.max_grad_steps:
+                perm = torch.randperm(keep_indices.numel())
+                keep_indices = keep_indices[perm[: self.max_grad_steps]]
+                new_keep = torch.zeros(intervals, dtype=torch.bool)
+                new_keep[keep_indices] = True
+                skip_mask = ~new_keep
+        return skip_mask
 
     def _get_kl(self, gen_pros, ref_pros):
         if not gen_pros or not ref_pros:
@@ -461,6 +495,27 @@ class GRPOTrainer:
         audio = self.vocoder(mel)
         if audio.dim() == 3 and audio.size(1) == 1:
             audio = audio.squeeze(1)
+        return audio
+
+    def _load_ref_audio(self, audio_path: str | None, target_sample_rate: int) -> torch.Tensor | None:
+        if not audio_path:
+            return None
+        if self._ref_audio_cache is not None:
+            cached = self._ref_audio_cache.get(audio_path)
+            if cached is not None:
+                self._ref_audio_cache.move_to_end(audio_path)
+                return cached
+        audio, source_sample_rate = torchaudio.load(audio_path)
+        if audio.shape[0] > 1:
+            audio = audio.mean(dim=0, keepdim=True)
+        if source_sample_rate != target_sample_rate:
+            resampler = torchaudio.transforms.Resample(source_sample_rate, target_sample_rate)
+            audio = resampler(audio)
+        audio = audio.squeeze(0).cpu()
+        if self._ref_audio_cache is not None:
+            self._ref_audio_cache[audio_path] = audio
+            if len(self._ref_audio_cache) > self.reward_ref_cache_size:
+                self._ref_audio_cache.popitem(last=False)
         return audio
 
     def train(self, train_dataset: Dataset, num_workers: int = 16, resumable_with_seed: int | None = None) -> None:
@@ -581,9 +636,11 @@ class GRPOTrainer:
                         mel_spec, prompt_lens, prompt_idx, self.prompt_length_mode
                     )
 
-                    skip_grad_mask = (
-                        self._build_skip_grad_mask(self.steps, self.steps_plus_one) if self.align_kl_steps else None
-                    )
+                    skip_grad_mask = self._build_skip_grad_mask(self.steps, self.steps_plus_one)
+                    if self.align_kl_steps:
+                        ref_skip_grad_mask = skip_grad_mask
+                    else:
+                        ref_skip_grad_mask = self._build_skip_grad_mask(self.steps, self.steps_plus_one)
                     out, _, pro_result = self.model.forward_rl(
                         cond=prompt_audio,
                         text=text_inputs,
@@ -605,7 +662,7 @@ class GRPOTrainer:
                             steps_plus_one=self.steps_plus_one,
                             cfg_strength=self.cfg_strength,
                             sway_sampling_coef=self.sway_sampling_coef,
-                            skip_grad_mask=skip_grad_mask,
+                            skip_grad_mask=ref_skip_grad_mask,
                             set_train=False,
                         )
 
@@ -613,9 +670,20 @@ class GRPOTrainer:
                     ref_pro_result_sample = [item[:-1] for item in ref_pro_result if item[-1]]
 
                     gen_mel = out.to(torch.float32).permute(0, 2, 1)
-                    ref_mel = mel_spec.to(torch.float32).permute(0, 2, 1)
                     gen_audio = self._decode_audio(gen_mel).cpu()
-                    ref_audio = self._decode_audio(ref_mel).cpu()
+                    target_sample_rate = self.model.mel_spec.target_sample_rate
+                    audio_paths = batch.get("audio_paths") or []
+                    use_audio_paths = self.reward_ref_source in ("auto", "audio_path") and any(audio_paths)
+                    ref_audio_list = None
+                    if use_audio_paths:
+                        ref_audio_list = [
+                            self._load_ref_audio(path, target_sample_rate) if path else None for path in audio_paths
+                        ]
+                    needs_decode = not use_audio_paths or any(item is None for item in (ref_audio_list or []))
+                    ref_audio_fallback = None
+                    if needs_decode:
+                        ref_mel = mel_spec.to(torch.float32).permute(0, 2, 1)
+                        ref_audio_fallback = self._decode_audio(ref_mel).cpu()
 
                     reward_inputs = []
                     for idx, text_item in enumerate(text_inputs):
@@ -623,11 +691,19 @@ class GRPOTrainer:
                             RewardInput(
                                 audio=gen_audio[idx],
                                 text=text_item,
-                                speaker_ref=ref_audio[idx],
-                                sample_rate=self.model.mel_spec.target_sample_rate,
+                                speaker_ref=(
+                                    ref_audio_list[idx] if ref_audio_list and ref_audio_list[idx] is not None else None
+                                )
+                                if use_audio_paths
+                                else None,
+                                sample_rate=target_sample_rate,
                                 meta={},
                             )
                         )
+                    if needs_decode:
+                        for idx, reward_input in enumerate(reward_inputs):
+                            if reward_input.speaker_ref is None:
+                                reward_input.speaker_ref = ref_audio_fallback[idx]
                     reward_outputs = self.reward_combiner.compute(reward_inputs)
                     rewards = torch.stack([out.total_reward for out in reward_outputs]).to(self.model.device)
 
@@ -661,9 +737,10 @@ class GRPOTrainer:
                     if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
                         self.accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
-                    self.optimizer.step()
-                    self.scheduler.step()
-                    self.optimizer.zero_grad()
+                    if self.accelerator.sync_gradients:
+                        self.optimizer.step()
+                        self.scheduler.step()
+                        self.optimizer.zero_grad()
 
                 if self.accelerator.sync_gradients:
                     if self.is_main:
@@ -701,7 +778,12 @@ class GRPOTrainer:
                     self.save_checkpoint(global_update)
                     if self.log_samples and self.accelerator.is_local_main_process:
                         gen_sample = gen_audio[0]
-                        ref_sample = ref_audio[0]
+                        if ref_audio_list and ref_audio_list[0] is not None:
+                            ref_sample = ref_audio_list[0]
+                        elif ref_audio_fallback is not None:
+                            ref_sample = ref_audio_fallback[0]
+                        else:
+                            ref_sample = gen_sample
                         if gen_sample.dim() == 1:
                             gen_sample = gen_sample.unsqueeze(0)
                         if ref_sample.dim() == 1:

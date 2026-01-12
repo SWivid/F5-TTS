@@ -70,6 +70,8 @@ def main(model_cfg):
         prompt_frac_range=tuple(model_cfg.rl.prompt_frac_range),
         steps=model_cfg.rl.steps,
         steps_plus_one=model_cfg.rl.get("steps_plus_one", False),
+        skip_grad_prob=model_cfg.rl.get("skip_grad_prob", 0.05),
+        max_grad_steps=model_cfg.rl.get("max_grad_steps"),
         cfg_strength=model_cfg.rl.cfg_strength,
         sway_sampling_coef=model_cfg.rl.sway_sampling_coef,
         kl_weight=model_cfg.rl.kl_weight,
@@ -83,6 +85,8 @@ def main(model_cfg):
         prompt_length_mode=model_cfg.rl.get("prompt_length_mode", "min"),
         max_duration=model_cfg.rl.get("max_duration", 4096),
         legacy_length_check=model_cfg.rl.get("legacy_length_check", False),
+        reward_ref_source=model_cfg.rl.get("reward_ref_source", "auto"),
+        reward_ref_cache_size=model_cfg.rl.get("reward_ref_cache_size", 128),
     )
 
     train_dataset = load_dataset(model_cfg.datasets.name, tokenizer, mel_spec_kwargs=model_cfg.model.mel_spec)

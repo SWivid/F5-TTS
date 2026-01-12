@@ -90,12 +90,12 @@ class EulerSolver(metaclass=abc.ABCMeta):
                     skip_grad = False
                 self._skip_grad_index += 1
             else:
-                skip_grad = random.uniform(0, 1) > 0.05
+                skip_grad = random.uniform(0, 1) < 0.05
             if skip_grad and len(pro_result) > 1:
                 with torch.no_grad():
                     dy, f0, mu, log_sig = self._step_func(self.func, t0, dt, t1, y0)
                     y1 = y0 + dy
-                pro_result.append([f0, mu, log_sig, False])
+                pro_result.append([None, None, None, False])
             else:
                 dy, f0, mu, log_sig = self._step_func(self.func, t0, dt, t1, y0)
                 y1 = y0 + dy

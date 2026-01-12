@@ -159,6 +159,7 @@ class CustomDataset(Dataset):
         return {
             "mel_spec": mel_spec,
             "text": text,
+            "audio_path": audio_path,
         }
 
 
@@ -342,10 +343,12 @@ def collate_fn(batch):
 
     text = [item["text"] for item in batch]
     text_lengths = torch.LongTensor([len(item) for item in text])
+    audio_paths = [item.get("audio_path") for item in batch]
 
     return dict(
         mel=mel_specs,
         mel_lengths=mel_lengths,  # records for padding mask
         text=text,
         text_lengths=text_lengths,
+        audio_paths=audio_paths,
     )

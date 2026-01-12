@@ -56,11 +56,15 @@ rl:
   prompt_length_mode: min  # min | per_sample | range
   steps: 30
   steps_plus_one: false  # true to use steps + 1 integration points in forward_rl
+  skip_grad_prob: 0.05  # probability to skip gradient tracking per ODE step
+  max_grad_steps: null  # cap the number of kept ODE steps per trajectory
   cfg_strength: 2.0
   sway_sampling_coef: -1.0
   kl_weight: 1.0
   kl_eps: 0.0  # set > 0 for numerical stability in KL denominator
   density_eps: 0.0  # set > 0 for stability in Gaussian density weighting
+  reward_ref_source: auto  # auto | audio_path | mel
+  reward_ref_cache_size: 128
   align_kl_steps: false  # share ODE skip mask between policy/ref for stable KL
   max_duration: 4096
   legacy_length_check: False  # Set to True to replicate behavior of filtering samples where text_len > mel_len
