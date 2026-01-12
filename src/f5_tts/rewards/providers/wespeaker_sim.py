@@ -21,9 +21,11 @@ class WeSpeakerSimProvider(RewardProvider):
 
     def setup(self, cfg: dict[str, Any] | None = None) -> None:
         cfg = cfg or {}
-        self.model_dir = cfg.get("model_dir", "src/rl/wespeaker/chinese")
+        self.model_dir = cfg.get("model_dir", "checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34")
         self.device = resolve_device(cfg.get("device", "auto"))
-        self.cache = RewardCache(cfg.get("cache_dir"), enabled=cfg.get("cache_enabled", True))
+        cache_enabled = cfg.get("cache_enabled", True)
+        cache_dir = cfg.get("cache_dir") if cache_enabled else None
+        self.cache = RewardCache(cache_dir, enabled=cache_enabled)
         self._model = None
         self._resample_rate = 16000
         self._fbank_args = {

@@ -189,6 +189,7 @@ class Trainer:
                 if wandb.run is not None:
                     wandb.log(payload, step=step)
             except Exception:
+                # Avoid breaking training if wandb is unavailable or misconfigured.
                 pass
         elif self.logger == "trackio":
             self._trackio.log(payload, step=step)

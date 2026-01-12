@@ -53,7 +53,9 @@ class FunASRWERProvider(RewardProvider):
             raise ValueError(f"Unsupported ref_source '{self.ref_source}'. Expected 'text' or 'audio'.")
         self.device = resolve_device(cfg.get("device", "auto"))
         self.batch_size = cfg.get("batch_size", 8)
-        self.cache = RewardCache(cfg.get("cache_dir"), enabled=cfg.get("cache_enabled", True))
+        cache_enabled = cfg.get("cache_enabled", True)
+        cache_dir = cfg.get("cache_dir") if cache_enabled else None
+        self.cache = RewardCache(cache_dir, enabled=cache_enabled)
         self._model = None
         self._postprocess = None
 

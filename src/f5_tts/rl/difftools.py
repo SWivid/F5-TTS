@@ -73,8 +73,8 @@ class EulerSolver(metaclass=abc.ABCMeta):
             dt = t1 - t0
             self.func.callback_step(t0, y0, dt)
             # Upstream F5R behavior: randomly skip gradient tracking on some steps for speed.
-            if_no_grad = random.uniform(0, 1)
-            if if_no_grad > 0.05 and len(pro_result) > 1:
+            skip_grad_prob = random.uniform(0, 1)
+            if skip_grad_prob > 0.05 and len(pro_result) > 1:
                 with torch.no_grad():
                     dy, f0, mu, log_sig = self._step_func(self.func, t0, dt, t1, y0)
                     y1 = y0 + dy
