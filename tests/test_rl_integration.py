@@ -13,7 +13,7 @@ from torch.utils.data import SequentialSampler
 from f5_tts.model import Trainer
 from f5_tts.model.backbones.dit import DiT
 from f5_tts.model.cfm import CFM
-from f5_tts.model.dataset import DynamicBatchSampler
+from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
 from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider, _wer
@@ -235,6 +235,219 @@ def test_grpo_align_kl_steps_mask_length(tmp_path):
     )
     mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
     assert mask.numel() == 4
+
+
+def test_grpo_skip_grad_mask_extremes(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=0.0,
+    )
+    mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert mask.numel() == 4
+    assert not mask.any()
+
+    trainer_high = GRPOTrainer(
+        _make_cfm(output_dist="gaussian", objective="grpo"),
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=1.0,
+    )
+    mask_high = trainer_high._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert mask_high.all()
+
+
+def test_grpo_skip_grad_mask_capped(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=0.0,
+        max_grad_steps=1,
+    )
+    mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert (~mask).sum().item() <= 1
+
+
+def test_grpo_invalid_reward_ref_source(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    with pytest.raises(ValueError, match="reward_ref_source"):
+        GRPOTrainer(
+            model,
+            reward_combiner=combiner,
+            epochs=1,
+            learning_rate=1e-3,
+            num_warmup_updates=1,
+            save_per_updates=1000,
+            keep_last_n_checkpoints=0,
+            checkpoint_path=str(tmp_path),
+            batch_size_per_gpu=2,
+            batch_size_type="sample",
+            max_samples=2,
+            grad_accumulation_steps=1,
+            max_grad_norm=1.0,
+            logger=None,
+            mel_spec_type="vocos",
+            vocoder=DummyVocoder(),
+            repeat_count=1,
+            mini_repeat_count=1,
+            prompt_frac_range=(0.5, 0.5),
+            steps=3,
+            cfg_strength=1.0,
+            sway_sampling_coef=None,
+            reward_ref_source="invalid",
+        )
+
+
+def test_grpo_ref_audio_cache_roundtrip(tmp_path):
+    import soundfile as sf
+
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        reward_ref_cache_size=4,
+    )
+    wav_path = tmp_path / "ref.wav"
+    samples = torch.randn(1600).numpy()
+    sf.write(wav_path, samples, 16000)
+    audio_first = trainer._load_ref_audio(str(wav_path), target_sample_rate=16000)
+    audio_second = trainer._load_ref_audio(str(wav_path), target_sample_rate=16000)
+    assert audio_first is audio_second
+
+
+def test_grpo_grad_accumulation_respected(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=2,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=2,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=0.0,
+    )
+    step_calls = {"count": 0}
+    original_step = trainer.optimizer.step
+
+    def _counted_step(self, *args, **kwargs):
+        step_calls["count"] += 1
+        return original_step(*args, **kwargs)
+
+    trainer.optimizer.step = types.MethodType(_counted_step, trainer.optimizer)
+    trainer.save_checkpoint = lambda *args, **kwargs: None
+    trainer.train(DummyDataset(), num_workers=0)
+    assert step_calls["count"] == 1
+
+
+def test_collate_includes_audio_paths():
+    batch = [
+        {"mel_spec": torch.randn(8, 5), "text": "hi", "audio_path": "a.wav"},
+        {"mel_spec": torch.randn(8, 6), "text": "yo", "audio_path": "b.wav"},
+    ]
+    out = collate_fn(batch)
+    assert out["audio_paths"] == ["a.wav", "b.wav"]
 
 
 def test_registry_import_path():
