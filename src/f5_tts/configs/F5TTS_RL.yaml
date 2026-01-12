@@ -59,6 +59,8 @@ rl:
   cfg_strength: 2.0
   sway_sampling_coef: -1.0
   kl_weight: 1.0
+  kl_eps: 0.0  # set > 0 for numerical stability in KL denominator
+  density_eps: 0.0  # set > 0 for stability in Gaussian density weighting
   ref_model_ckpt: null
   ref_model_use_ema: True
   rewards:

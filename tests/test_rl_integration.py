@@ -8,15 +8,17 @@ from pathlib import Path
 
 import pytest
 import torch
+from torch.utils.data import SequentialSampler
 
 from f5_tts.model import Trainer
 from f5_tts.model.backbones.dit import DiT
 from f5_tts.model.cfm import CFM
+from f5_tts.model.dataset import DynamicBatchSampler
 from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
 from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider, _wer
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
-from f5_tts.rl.trainer_grpo import GRPOTrainer, _build_prompt_audio, sample_prompt_spans
+from f5_tts.rl.trainer_grpo import GRPOTrainer, _build_prompt_audio, _gaussian_density_weight, sample_prompt_spans
 
 
 def _make_dit(output_dist: str = "deterministic") -> DiT:
@@ -122,6 +124,17 @@ class DummyDataset(torch.utils.data.Dataset):
         return {"mel_spec": mel, "text": "hi"}
 
 
+class DummyFrameDataset(torch.utils.data.Dataset):
+    def __len__(self):
+        return 3
+
+    def __getitem__(self, idx):
+        return idx
+
+    def get_frame_len(self, idx):
+        return 1
+
+
 def test_grpo_single_step_updates_params(tmp_path):
     torch.manual_seed(0)
     model = _make_cfm(output_dist="gaussian", objective="grpo")
@@ -154,6 +167,42 @@ def test_grpo_single_step_updates_params(tmp_path):
     trainer.train(DummyDataset(), num_workers=0)
     after = model.transformer.proj_out.weight.detach()
     assert not torch.equal(before, after)
+
+
+def test_grpo_kl_eps_stability(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        kl_eps=1e-6,
+    )
+    gen_mu = torch.zeros(1, 1, 1)
+    gen_sig = torch.full_like(gen_mu, -1000.0)
+    ref_mu = torch.zeros_like(gen_mu)
+    ref_sig = torch.full_like(gen_mu, -1000.0)
+    kl = trainer._kl_divergence((gen_mu, gen_sig), (ref_mu, ref_sig))
+    assert torch.isfinite(kl).all()
 
 
 def test_registry_import_path():
@@ -193,6 +242,32 @@ def test_range_prompt_audio_uses_per_sample_lengths():
     expected[1, :4, 0] = torch.tensor([10.0, 11.0, 12.0, 13.0])
     assert torch.equal(prompt_audio, expected)
     assert torch.equal(prompt_lens_arg, prompt_lens)
+
+
+def test_gaussian_density_weight_eps_stability():
+    x = torch.zeros(1, 1, 1)
+    mu = torch.zeros_like(x)
+    log_sig = torch.full_like(x, -1000.0)
+    weight = _gaussian_density_weight(x, mu, log_sig, eps=1e-6)
+    assert torch.isfinite(weight).all()
+
+
+def test_dynamic_batch_sampler_repeats_without_materializing():
+    dataset = DummyFrameDataset()
+    sampler = SequentialSampler(dataset)
+    batch_sampler = DynamicBatchSampler(
+        sampler,
+        frames_threshold=10,
+        max_samples=0,
+        random_seed=0,
+        drop_residual=False,
+        repeat_count=2,
+        mini_repeat_count=2,
+    )
+    batches = list(iter(batch_sampler))
+    assert len(batches) == 2
+    assert batches[0] == [0, 0, 1, 1, 2, 2]
+    assert len(batch_sampler) == 2
 
 
 def test_forward_rl_preserves_eval_mode():

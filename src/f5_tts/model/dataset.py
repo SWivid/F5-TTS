@@ -242,15 +242,17 @@ class DynamicBatchSampler(Sampler[list[int]]):
             batches = self.base_batches
         if self.repeat_count == 1 and self.mini_repeat_count == 1:
             return iter(batches)
-        repeated = []
-        for chunk in batches:
-            for _ in range(self.repeat_count):
-                batch_sub = []
-                for index in chunk:
-                    for _ in range(self.mini_repeat_count):
-                        batch_sub.append(index)
-                repeated.append(batch_sub)
-        return iter(repeated)
+
+        def _repeated_gen():
+            for chunk in batches:
+                for _ in range(self.repeat_count):
+                    batch_sub = []
+                    for index in chunk:
+                        for _ in range(self.mini_repeat_count):
+                            batch_sub.append(index)
+                    yield batch_sub
+
+        return _repeated_gen()
 
     def __len__(self):
         return len(self.base_batches) * self.repeat_count

@@ -73,6 +73,8 @@ def main(model_cfg):
         cfg_strength=model_cfg.rl.cfg_strength,
         sway_sampling_coef=model_cfg.rl.sway_sampling_coef,
         kl_weight=model_cfg.rl.kl_weight,
+        kl_eps=model_cfg.rl.get("kl_eps", 0.0),
+        density_eps=model_cfg.rl.get("density_eps", 0.0),
         ref_model_ckpt=model_cfg.rl.ref_model_ckpt,
         ref_model_use_ema=model_cfg.rl.ref_model_use_ema,
         allow_extra_keys=model_cfg.ckpts.get("allow_extra_keys", False),

@@ -61,6 +61,18 @@ def _build_prompt_audio(
     return prompt_audio, None
 
 
+def _gaussian_density_weight(x: torch.Tensor, mu: torch.Tensor, log_sig: torch.Tensor, eps: float) -> torch.Tensor:
+    denom = torch.exp(log_sig) ** 2
+    if eps > 0:
+        denom = denom + eps
+    p = torch.exp(-F.mse_loss(mu, x, reduction="none") / (2 * denom))
+    if eps > 0:
+        p = p / (torch.exp(log_sig) + eps)
+    else:
+        p = p / torch.exp(log_sig)
+    return p
+
+
 class GRPOTrainer:
     def __init__(
         self,
@@ -103,6 +115,8 @@ class GRPOTrainer:
         allow_extra_keys: bool = False,
         bnb_optimizer: bool = False,
         prompt_length_mode: str = "min",
+        kl_eps: float = 0.0,
+        density_eps: float = 0.0,
     ):
         if accelerate_kwargs is None:
             accelerate_kwargs = {}
@@ -158,6 +172,8 @@ class GRPOTrainer:
                 "cfg_strength": cfg_strength,
                 "sway_sampling_coef": sway_sampling_coef,
                 "kl_weight": kl_weight,
+                "kl_eps": kl_eps,
+                "density_eps": density_eps,
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
@@ -188,6 +204,8 @@ class GRPOTrainer:
                 "cfg_strength": cfg_strength,
                 "sway_sampling_coef": sway_sampling_coef,
                 "kl_weight": kl_weight,
+                "kl_eps": kl_eps,
+                "density_eps": density_eps,
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
@@ -234,6 +252,8 @@ class GRPOTrainer:
         self.kl_weight = kl_weight
         self.allow_extra_keys = allow_extra_keys
         self.prompt_length_mode = prompt_length_mode
+        self.kl_eps = kl_eps
+        self.density_eps = density_eps
 
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
@@ -398,7 +418,10 @@ class GRPOTrainer:
         gen_mu, gen_sig = gen
         ref_mu, ref_sig = ref
         kl = ref_sig - gen_sig
-        kl += (torch.exp(gen_sig) ** 2 + F.mse_loss(gen_mu, ref_mu, reduction="none")) / (2 * (torch.exp(ref_sig) ** 2))
+        denom = torch.exp(ref_sig) ** 2
+        if self.kl_eps > 0:
+            denom = denom + self.kl_eps
+        kl += (torch.exp(gen_sig) ** 2 + F.mse_loss(gen_mu, ref_mu, reduction="none")) / (2 * denom)
         return kl
 
     def _get_kl(self, gen_pros, ref_pros):
@@ -591,8 +614,7 @@ class GRPOTrainer:
                     # This preserves parity with the reference implementation and avoids unintended RL changes.
                     pro_advantages = []
                     for x, mu, log_sig in pro_result_sample:
-                        p = torch.exp(-F.mse_loss(mu, x, reduction="none") / (2 * (torch.exp(log_sig) ** 2)))
-                        p = p / torch.exp(log_sig)
+                        p = _gaussian_density_weight(x, mu, log_sig, self.density_eps)
                         pro_advantages.append(p)
                     if pro_advantages:
                         pro_advantages = torch.stack(pro_advantages, dim=1)

@@ -196,6 +196,8 @@ Sample logging:
   for F5R parity; set `true` if you want RL rollouts to match non-RL step count.
 - `rl.prompt_length_mode`: `min` (F5R parity), `per_sample`, or `range`. `range` uses the sampled
   fraction directly so prompt length respects the lower bound in `prompt_frac_range`.
+- `rl.kl_eps`: add a small epsilon to the KL denominator for extra numerical stability (default: 0.0).
+- `rl.density_eps`: add a small epsilon to Gaussian density weighting for stability (default: 0.0).
 - `wer_mode`: `char | word` (default: `char`, matching F5R).
 - `ref_source`: `text | audio` (default: `text`; set `audio` to match ASR-vs-ASR reward in F5R).
 
@@ -204,6 +206,7 @@ Sample logging:
 Defaults stay F5R‑parity. If you want the more robust behavior we found during integration, opt in:
 - `rl.prompt_length_mode=range` (or `per_sample`) to avoid collapsing prompt lengths to the batch minimum and to honor `prompt_frac_range` lower bounds.
 - `rl.steps_plus_one=true` to align RL rollouts with the non‑RL step count (`steps + 1` integration points).
+- `rl.kl_eps=1e-6` and `rl.density_eps=1e-6` if you see NaN/inf in KL or advantage weighting (keeps defaults at parity).
 - `rl.rewards.providers.1.config.ref_source=audio` if you want ASR‑vs‑ASR reward instead of text‑vs‑ASR.
 - `ckpts.log_samples=true` for debugging; writes sample WAVs under `ckpts/.../samples` at each save interval.
 
