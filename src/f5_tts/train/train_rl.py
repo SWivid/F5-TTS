@@ -81,6 +81,8 @@ def main(model_cfg):
         allow_extra_keys=model_cfg.ckpts.get("allow_extra_keys", False),
         bnb_optimizer=model_cfg.optim.get("bnb_optimizer", False),
         prompt_length_mode=model_cfg.rl.get("prompt_length_mode", "min"),
+        max_duration=model_cfg.rl.get("max_duration", 4096),
+        legacy_length_check=model_cfg.rl.get("legacy_length_check", False),
     )
 
     train_dataset = load_dataset(model_cfg.datasets.name, tokenizer, mel_spec_kwargs=model_cfg.model.mel_spec)

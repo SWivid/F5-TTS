@@ -62,6 +62,8 @@ rl:
   kl_eps: 0.0  # set > 0 for numerical stability in KL denominator
   density_eps: 0.0  # set > 0 for stability in Gaussian density weighting
   align_kl_steps: false  # share ODE skip mask between policy/ref for stable KL
+  max_duration: 4096
+  legacy_length_check: False  # Set to True to replicate behavior of filtering samples where text_len > mel_len
   ref_model_ckpt: null
   ref_model_use_ema: True
   rewards:

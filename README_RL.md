@@ -199,6 +199,8 @@ Sample logging:
 - `rl.kl_eps`: add a small epsilon to the KL denominator for extra numerical stability (default: 0.0).
 - `rl.density_eps`: add a small epsilon to Gaussian density weighting for stability (default: 0.0).
 - `rl.align_kl_steps`: share the ODE skip mask between policy/ref rollouts for a less noisy KL (default: `false`).
+- `rl.max_duration`: Maximum allowed mel frames (default: 4096). Samples exceeding this are skipped to prevent truncation.
+- `rl.legacy_length_check`: If `true`, enables legacy filtering where samples with `text_len > mel_len` are skipped (F5R parity). Default `false` to fix this behavior.
 - `wer_mode`: `char | word` (default: `char`, matching F5R).
 - `ref_source`: `text | audio` (default: `text`; set `audio` to match ASR-vs-ASR reward in F5R).
 

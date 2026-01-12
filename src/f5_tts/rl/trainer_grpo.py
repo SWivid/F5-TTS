@@ -118,6 +118,8 @@ class GRPOTrainer:
         kl_eps: float = 0.0,
         density_eps: float = 0.0,
         align_kl_steps: bool = False,
+        max_duration: int = 4096,
+        legacy_length_check: bool = False,
     ):
         if accelerate_kwargs is None:
             accelerate_kwargs = {}
@@ -176,6 +178,8 @@ class GRPOTrainer:
                 "kl_eps": kl_eps,
                 "density_eps": density_eps,
                 "align_kl_steps": align_kl_steps,
+                "max_duration": max_duration,
+                "legacy_length_check": legacy_length_check,
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
@@ -258,6 +262,8 @@ class GRPOTrainer:
         self.kl_eps = kl_eps
         self.density_eps = density_eps
         self.align_kl_steps = align_kl_steps
+        self.max_duration = max_duration
+        self.legacy_length_check = legacy_length_check
 
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
@@ -554,8 +560,12 @@ class GRPOTrainer:
                     text_inputs = batch["text"]
                     mel_spec = batch["mel"].permute(0, 2, 1)
                     mel_lengths = batch["mel_lengths"]
-                    text_len = max(len(item) for item in text_inputs)
-                    if text_len > max(mel_lengths):
+
+                    if self.legacy_length_check:
+                        text_len = max(len(item) for item in text_inputs)
+                        if text_len > max(mel_lengths):
+                            continue
+                    elif max(mel_lengths) > self.max_duration:
                         continue
 
                     dur_loss = None
