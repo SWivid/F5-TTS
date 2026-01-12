@@ -10,6 +10,7 @@ d - dimension
 
 from __future__ import annotations
 
+import math
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -167,6 +168,7 @@ class DiT(nn.Module):
         checkpoint_activations=False,
         output_dist: str = "deterministic",
         use_rl_head: bool | None = None,
+        ln_sig_init: float = 1.0,
     ):
         super().__init__()
 
@@ -213,6 +215,9 @@ class DiT(nn.Module):
         if output_dist not in ("deterministic", "gaussian"):
             raise ValueError(f"output_dist must be 'deterministic' or 'gaussian', got {output_dist}")
         self.output_dist = output_dist
+        if ln_sig_init <= 0:
+            raise ValueError(f"ln_sig_init must be > 0, got {ln_sig_init}")
+        self.ln_sig_init = ln_sig_init
         if self.output_dist == "gaussian":
             self.proj_out_ln_sig = nn.Linear(dim, mel_dim)
 
@@ -231,6 +236,9 @@ class DiT(nn.Module):
         nn.init.constant_(self.norm_out.linear.bias, 0)
         nn.init.constant_(self.proj_out.weight, 0)
         nn.init.constant_(self.proj_out.bias, 0)
+        if hasattr(self, "proj_out_ln_sig"):
+            nn.init.constant_(self.proj_out_ln_sig.weight, 0)
+            nn.init.constant_(self.proj_out_ln_sig.bias, math.log(self.ln_sig_init))
 
     def ckpt_wrapper(self, module):
         # https://github.com/chuanyangjin/fast-DiT/blob/main/models.py

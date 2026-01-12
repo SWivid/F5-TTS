@@ -76,6 +76,31 @@ def test_gaussian_forward_prob():
     assert ln_sig.shape == x.shape
 
 
+def test_gaussian_ln_sig_initialized():
+    model = _make_dit(output_dist="gaussian")
+    ln_sig = model.proj_out_ln_sig
+    assert torch.allclose(ln_sig.weight, torch.zeros_like(ln_sig.weight))
+    assert torch.allclose(ln_sig.bias, torch.zeros_like(ln_sig.bias))
+
+
+def test_gaussian_ln_sig_custom_init():
+    model = DiT(
+        dim=16,
+        depth=2,
+        heads=2,
+        ff_mult=2,
+        mel_dim=8,
+        text_num_embeds=256,
+        text_dim=8,
+        conv_layers=0,
+        output_dist="gaussian",
+        ln_sig_init=0.5,
+    )
+    ln_sig = model.proj_out_ln_sig
+    expected = torch.full_like(ln_sig.bias, float(torch.log(torch.tensor(0.5))))
+    assert torch.allclose(ln_sig.bias, expected)
+
+
 def test_soft_load_deterministic_into_gaussian():
     det_model = _make_dit(output_dist="deterministic")
     gauss_model = _make_dit(output_dist="gaussian")
@@ -398,6 +423,76 @@ def test_grpo_ref_audio_cache_roundtrip(tmp_path):
     audio_first = trainer._load_ref_audio(str(wav_path), target_sample_rate=16000)
     audio_second = trainer._load_ref_audio(str(wav_path), target_sample_rate=16000)
     assert audio_first is audio_second
+
+
+def test_grpo_ref_audio_skips_vocoder_decode(tmp_path):
+    class AudioPathDataset(torch.utils.data.Dataset):
+        def __len__(self):
+            return 1
+
+        def __getitem__(self, idx):
+            return {
+                "mel_spec": torch.randn(8, 6),
+                "text": "hi",
+                "audio_path": "dummy.wav",
+            }
+
+    class AssertSpeakerRefProvider(RewardProvider):
+        name = "assert_ref"
+
+        def compute(self, batch: list[RewardInput]) -> list[RewardOutput]:
+            assert all(item.speaker_ref is not None for item in batch)
+            outputs = []
+            for _ in batch:
+                outputs.append(RewardOutput(total_reward=torch.tensor(0.0), components={}, logs={}))
+            return outputs
+
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([AssertSpeakerRefProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=2,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        reward_ref_source="audio_path",
+        reward_ref_cache_size=2,
+        skip_grad_prob=0.0,
+    )
+    decode_calls = {"count": 0}
+    load_calls = {"count": 0}
+
+    def _count_decode(mel: torch.Tensor) -> torch.Tensor:
+        decode_calls["count"] += 1
+        return mel.mean(dim=1)
+
+    def _count_load(path: str | None, target_sample_rate: int):
+        load_calls["count"] += 1
+        return torch.zeros(160, dtype=torch.float32)
+
+    trainer._decode_audio = _count_decode
+    trainer._load_ref_audio = _count_load
+    trainer.save_checkpoint = lambda *args, **kwargs: None
+    trainer.train(AudioPathDataset(), num_workers=0)
+    assert decode_calls["count"] == 1
+    assert load_calls["count"] == 1
 
 
 def test_grpo_grad_accumulation_respected(tmp_path):
