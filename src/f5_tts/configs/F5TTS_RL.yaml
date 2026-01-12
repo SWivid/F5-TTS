@@ -53,9 +53,9 @@ rl:
   repeat_count: 8
   mini_repeat_count: 1
   prompt_frac_range: [0.1, 0.3]
-  prompt_length_mode: min
+  prompt_length_mode: min  # min | per_sample | range
   steps: 30
-  steps_plus_one: false
+  steps_plus_one: false  # true to use steps + 1 integration points in forward_rl
   cfg_strength: 2.0
   sway_sampling_coef: -1.0
   kl_weight: 1.0
@@ -67,15 +67,15 @@ rl:
       - name: wespeaker_sim
         weight: 1.0
         config:
-          model_dir: checkpoints/wespeaker/chinese
+          model_dir: checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34
           device: auto
       - name: funasr_wer
         weight: 3.0
         config:
           model_id: FunAudioLLM/SenseVoiceSmall
           lang: auto
-          wer_mode: char
-          ref_source: audio
+          wer_mode: char  # char | word
+          ref_source: audio  # audio | text
           device: auto
 
 ckpts:

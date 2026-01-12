@@ -6,6 +6,16 @@ This guide documents the two-stage RL workflow:
 
 It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
 
+## Latest branch changes
+
+- Added probabilistic gaussian heads plus `gaussian_nll` pretrain and GRPO objectives.
+- Added GRPO trainer utilities (`prompt_length_mode`, `steps_plus_one`) with parity-safe defaults.
+- Added reward plugin system with FunASR WER + WeSpeaker similarity providers.
+- Added reward config options (`wer_mode`, `ref_source`) and aligned WeSpeaker default path with fetch scripts.
+- Added Trackio logging support and richer reward metric logging.
+- Added Colab automation script for dataset build + Stage 1 + Stage 2.
+- Added integration tests for RL behavior, reward providers, and checkpoint compatibility.
+
 ## Requirements
 
 - Use the uv venv: `./.venv/bin/python`
@@ -49,7 +59,8 @@ bash src/f5_tts/scripts/run_rl_colab.sh
 ```
 
 Key env vars: `DATASET_NAME`, `HF_DATASET_ID`, `HF_CONFIG`, `HF_SPLIT`, `NUM_SAMPLES`,
-`WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`, `REF_SOURCE`.
+`WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`, `REF_SOURCE`,
+`PROMPT_LENGTH_MODE`, `STEPS_PLUS_ONE`.
 
 ## RL knobs (quick reference)
 
