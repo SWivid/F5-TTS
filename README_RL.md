@@ -1,39 +1,25 @@
-# RL Two-Stage Guide (Warmup + GRPO)
+# RL Two-Stage Training (Warmup + GRPO)
 
-This guide documents the two-stage RL workflow:
-1) Stage 1 warmup (gaussian_nll pretrain)
-2) Stage 2 GRPO fine-tune with rewards
+This guide covers the RL workflow for F5-TTS:
+- Stage 1: Gaussian NLL warmup (probabilistic head pretrain)
+- Stage 2: GRPO fine-tune with reward models
 
-It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
-
-## Latest branch changes
-
-- Added probabilistic gaussian heads plus `gaussian_nll` pretrain and GRPO objectives.
-- Added GRPO trainer utilities (`prompt_length_mode`, `steps_plus_one`) with parity-safe defaults.
-- Added reward plugin system with FunASR WER + WeSpeaker similarity providers.
-- Added reward config options (`wer_mode`, `ref_source`) and aligned WeSpeaker default path with fetch scripts.
-- Added Trackio logging support and richer reward metric logging.
-- Added Colab automation script for dataset build + Stage 1 + Stage 2.
-- Added integration tests for RL behavior, reward providers, and checkpoint compatibility.
+It includes dataset layout, reward model setup, and minimal launch commands.
 
 ## Requirements
 
-- Use the uv venv: `./.venv/bin/python`
-- W&B online logging (set `WANDB_DISABLE_SERVICE=1` if sockets are blocked)
-- Reward models:
-  - FunASR SenseVoiceSmall
-  - WeSpeaker cnceleb_resnet34
-- Install RL extras (uses the GitHub WeSpeaker source):
+- Use your uv venv (examples use `./.venv/bin/python`; adjust if your venv lives elsewhere).
+- Install RL extras:
   ```bash
   ./.venv/bin/python -m pip install -e ".[rl]"
   ```
-- If you prefer explicit installs:
+- Optional trackers:
   ```bash
-  ./.venv/bin/python -m pip install "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794" "funasr==1.3.0"
-  ./.venv/bin/python -m pip install huggingface_hub
+  ./.venv/bin/python -m pip install -e ".[trackio]"
   ```
-- WeSpeaker reward loading is fbank-only; if your WeSpeaker config uses other frontends,
-  install the needed dependencies (e.g., `s3prl`, `whisper`, `peft`) or switch to an fbank model.
+- Reward models:
+  - FunASR SenseVoiceSmall
+  - WeSpeaker cnceleb_resnet34 (fbank frontend)
 
 ## Dataset layout
 
@@ -41,133 +27,7 @@ It includes checkpoint naming/handling, minimal commands, and W&B logging tips.
 - `data/<dataset>_<tokenizer>/raw` (HF dataset saved via `save_to_disk`)
 - `data/<dataset>_<tokenizer>/duration.json`
 
-## Colab A100 end-to-end (dataset + stage1 + stage2)
-
-Use the helper script to build a LibriSpeech subset, warm up, and run GRPO:
-
-```bash
-# Example defaults: 512 samples, W&B logging, char-level WER
-bash src/f5_tts/scripts/run_rl_colab.sh
-```
-
-Override any parameter via env vars:
-
-```bash
-LOGGER=wandb NUM_SAMPLES=2048 STAGE1_EPOCHS=1 STAGE2_EPOCHS=1 RL_STEPS=30 \
-PROMPT_FRAC_RANGE='[0.1,0.3]' WER_MODE=char REF_SOURCE=audio CUDA_DEVICE=0 \
-bash src/f5_tts/scripts/run_rl_colab.sh
-```
-
-Key env vars: `DATASET_NAME`, `HF_DATASET_ID`, `HF_CONFIG`, `HF_SPLIT`, `NUM_SAMPLES`,
-`WARMUP_DIR`, `GRPO_DIR`, `USE_BNB`, `LOGGER`, `WER_MODE`, `REF_SOURCE`,
-`PROMPT_LENGTH_MODE`, `STEPS_PLUS_ONE`.
-
-## RL knobs (quick reference)
-
-- `rl.steps`: number of diffusion/inference steps per GRPO rollout. Higher values improve
-  audio quality and reward signal (e.g., ASR/WER), but increase compute and memory use.
-  Very low values (e.g., 1–2) often produce poor audio and flat WER rewards.
-- `rl.steps_plus_one`: opt-in to use `steps + 1` integration points in `forward_rl`. Default is `false`
-  for F5R parity; set `true` if you want RL rollouts to match the non-RL step count.
-- `rl.prompt_length_mode`: `min` (F5R parity), `per_sample`, or `range`. `range` uses the sampled
-  fraction directly so the prompt length respects the lower bound in `prompt_frac_range`.
-
-## Colab A100 run notes (current)
-
-### Dataset (64 samples, integrity-checked)
-
-```bash
-./.venv/bin/python - <<'PY'
-from datasets import load_dataset, Dataset
-from pathlib import Path
-import json
-import soundfile as sf
-
-out_root = Path("data/mini_rl64_custom")
-wav_dir = out_root / "wavs"
-wav_dir.mkdir(parents=True, exist_ok=True)
-
-ds = load_dataset("librispeech_asr", "clean", split="train.100", streaming=True)
-items = []
-durations = []
-for idx, row in enumerate(ds):
-    if idx >= 64:
-        break
-    audio = row["audio"]["array"]
-    sr = row["audio"]["sampling_rate"]
-    text = row.get("text", "")
-    wav_path = wav_dir / f"sample_{idx:03d}.wav"
-    sf.write(wav_path, audio, sr)
-    duration = len(audio) / sr
-    items.append({"audio_path": str(wav_path), "text": text, "duration": duration})
-    durations.append(duration)
-
-Dataset.from_list(items).save_to_disk(str(out_root / "raw"))
-with (out_root / "duration.json").open("w", encoding="utf-8") as f:
-    json.dump({"duration": durations}, f)
-PY
-```
-
-Integrity check:
-
-```bash
-./.venv/bin/python - <<'PY'
-from pathlib import Path
-import json
-from datasets import load_from_disk
-
-root = Path("data/mini_rl64_custom")
-rows = load_from_disk(str(root / "raw"))
-durations = json.loads((root / "duration.json").read_text())["duration"]
-assert len(rows) == 64 and len(durations) == 64
-for row in rows:
-    path = Path(row["audio_path"])
-    assert path.exists() and path.stat().st_size > 0
-    assert row.get("text")
-    assert row.get("duration", 0) > 0
-print("integrity ok: 64 samples")
-PY
-```
-
-### Stage 1 (warmup, 112 updates)
-
-```bash
-CUDA_VISIBLE_DEVICES=0 \
-./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
-datasets.name=mini_rl64 datasets.batch_size_per_gpu=4 datasets.batch_size_type=sample datasets.num_workers=2 \
-model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
-model.arch.checkpoint_activations=false \
-optim.epochs=7 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
-ckpts.save_dir=ckpts/mini_rl64_warmup ckpts.save_per_updates=1000 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=null
-```
-
-### Stage 2 (GRPO, 224 updates, bf16 + 8-bit optimizer)
-
-```bash
-CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 PYTORCH_ALLOC_CONF=expandable_segments:True \
-WANDB_API_KEY=... \
-./.venv/bin/python -m f5_tts.train.train_rl \
-datasets.name=mini_rl64 datasets.batch_size_per_gpu=2 datasets.batch_size_type=sample datasets.num_workers=2 \
-model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=false \
-optim.epochs=7 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
-ckpts.save_dir=ckpts/mini_rl64_grpo_wandbfix2 ckpts.save_per_updates=1000 ckpts.last_per_updates=1000 \
-ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=wandb \
-rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.3]' rl.prompt_length_mode=min \
-rl.cfg_strength=2.0 rl.sway_sampling_coef=-1.0 rl.kl_weight=1.0 \
-rl.ref_model_ckpt=$PWD/ckpts/mini_rl64_warmup/model_last.pt \
-rl.rewards.providers.0.config.model_dir=$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
-rl.rewards.providers.0.config.device=cuda \
-rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall \
-rl.rewards.providers.1.config.device=cuda
-```
-
-Notes:
-- Stage 2 does not use `ckpts.log_samples`; it only applies to Stage 1.
-- If WER is flat, increase `rl.steps` (2 is intentionally tiny for memory).
-
-If you want a tiny smoke-test dataset:
+### Option A: quick dummy dataset (HF internal)
 
 ```bash
 ./.venv/bin/python - <<'PY'
@@ -206,9 +66,7 @@ PY
 Use `datasets.name=mini_rl` with `model.tokenizer=custom` so the loader reads
 `data/mini_rl_custom`.
 
-### Better small dataset (LibriSpeech streaming)
-
-For a more realistic ASR signal without a huge download, stream a small subset:
+### Option B: small LibriSpeech subset (streaming)
 
 ```bash
 ./.venv/bin/python - <<'PY'
@@ -242,136 +100,29 @@ with (out_root / "duration.json").open("w", encoding="utf-8") as f:
 PY
 ```
 
-## Tiny smoke-test run (what we used)
-
-This is the exact sequence used for the local smoke test:
-
-1) Create the dummy dataset (4 samples):
-```bash
-./.venv/bin/python - <<'PY'
-from datasets import load_dataset, Dataset
-from pathlib import Path
-import json
-import soundfile as sf
-
-out_root = Path("data/mini_rl_custom")
-wav_dir = out_root / "wavs"
-wav_dir.mkdir(parents=True, exist_ok=True)
-
-ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", split="validation")
-text_key = "text" if "text" in ds.column_names else ds.column_names[-1]
-
-items = []
-durations = []
-for idx, row in enumerate(ds):
-    if idx >= 4:
-        break
-    audio = row["audio"]["array"]
-    sr = row["audio"]["sampling_rate"]
-    text = row[text_key]
-    wav_path = wav_dir / f"sample_{idx:02d}.wav"
-    sf.write(wav_path, audio, sr)
-    duration = len(audio) / sr
-    items.append({"audio_path": str(wav_path), "text": text, "duration": duration})
-    durations.append(duration)
-
-Dataset.from_list(items).save_to_disk(str(out_root / "raw"))
-with (out_root / "duration.json").open("w", encoding="utf-8") as f:
-    json.dump({"duration": durations}, f)
-PY
-```
-
-2) Download the base checkpoint into the warmup dir:
-```bash
-./.venv/bin/python - <<'PY'
-from cached_path import cached_path
-from pathlib import Path
-import shutil
-
-ckpt = cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors")
-out_dir = Path("ckpts/mini_rl_warmup")
-out_dir.mkdir(parents=True, exist_ok=True)
-dst = out_dir / ("pretrained_" + Path(ckpt).name)
-if not dst.exists():
-    shutil.copy2(ckpt, dst)
-print(dst)
-PY
-```
-
-3) Stage 1 warmup (CPU, no W&B):
-```bash
-CUDA_VISIBLE_DEVICES= \
-./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
-datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=0 \
-model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
-model.arch.checkpoint_activations=false \
-optim.epochs=1 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
-ckpts.save_dir=ckpts/mini_rl_warmup ckpts.save_per_updates=1 ckpts.keep_last_n_checkpoints=1 ckpts.log_samples=false ckpts.logger=null
-```
-
-4) Copy warmup checkpoint into GRPO dir:
-```bash
-mkdir -p ckpts/mini_rl_grpo
-cp ckpts/mini_rl_warmup/model_last.pt ckpts/mini_rl_grpo/model_last.pt
-```
-
-5) Fetch reward models (once):
-```bash
-./.venv/bin/python -m f5_tts.scripts.fetch_reward_asr_model \
-  --cache_dir checkpoints/funasr/SenseVoiceSmall
-./.venv/bin/python -m f5_tts.scripts.fetch_reward_spk_model \
-  --cache_dir checkpoints/wespeaker/cnceleb_resnet34
-```
-
-6) Stage 2 GRPO (CPU, no W&B):
-```bash
-CUDA_VISIBLE_DEVICES= \
-./.venv/bin/python -m f5_tts.train.train_rl \
-datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=0 \
-model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=false \
-optim.epochs=1 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
-ckpts.save_dir=ckpts/mini_rl_grpo ckpts.save_per_updates=1 ckpts.keep_last_n_checkpoints=1 ckpts.log_samples=false ckpts.logger=null \
-rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.1]' rl.prompt_length_mode=min \
-rl.cfg_strength=1.0 rl.sway_sampling_coef=null rl.kl_weight=1.0 \
-rl.ref_model_ckpt=$PWD/ckpts/mini_rl_warmup/model_last.pt \
-rl.rewards.providers.0.config.model_dir=$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
-rl.rewards.providers.0.config.device=cpu \
-rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall \
-rl.rewards.providers.1.config.device=cpu
-```
-
-## Reward models (Stage 2)
+## Reward model assets
 
 FunASR:
 ```bash
 ./.venv/bin/python -m f5_tts.scripts.fetch_reward_asr_model \
   --cache_dir checkpoints/funasr/SenseVoiceSmall
 ```
-`funasr_wer` supports:
-- `wer_mode: char | word` (default: `char`, matching F5R).
-- `ref_source: text | audio` (default: `text`, set `audio` to match F5R's ASR-vs-ASR comparison).
 
-WeSpeaker (HF archive; fallback supported):
+WeSpeaker (HF archive; fbank frontend):
 ```bash
 ./.venv/bin/python -m f5_tts.scripts.fetch_reward_spk_model \
   --cache_dir checkpoints/wespeaker/cnceleb_resnet34
 ```
 
-Set WeSpeaker model_dir to:
+WeSpeaker `model_dir` should point to:
 ```
 checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34
 ```
 
 ## Stage 1: Warmup (gaussian_nll)
 
-Checkpoint naming/handling:
-- Trainer loads `pretrained_*.pt` or `pretrained_*.safetensors` in the save dir
-  if no `model_*.pt` exists.
-- It writes `model_last.pt` and `model_<update>.pt`.
+Download a pretrained base checkpoint and place it in the warmup dir:
 
-Download a pretrained base checkpoint and place it in the warmup save dir:
 ```bash
 ./.venv/bin/python - <<'PY'
 from cached_path import cached_path
@@ -388,86 +139,44 @@ print(dst)
 PY
 ```
 
-Warmup command (8GB GPU friendly):
+Warmup command:
+
 ```bash
-WANDB_MODE=online WANDB_DISABLE_SERVICE=1 \
-WANDB_DIR=$PWD/.wandb WANDB_CACHE_DIR=$PWD/.wandb_cache WANDB_CONFIG_DIR=$PWD/.wandb_config \
-CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 PYTORCH_ALLOC_CONF=expandable_segments:True \
+CUDA_VISIBLE_DEVICES=0 \
 ./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
-datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.num_workers=1 \
+datasets.name=mini_rl datasets.batch_size_per_gpu=2 datasets.batch_size_type=sample datasets.num_workers=2 \
 model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
 model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
-model.arch.checkpoint_activations=true \
-optim.epochs=1 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 \
-optim.bnb_optimizer=true \
-ckpts.save_dir=ckpts/mini_rl_warmup ckpts.log_samples=false
+model.arch.checkpoint_activations=false \
+optim.epochs=1 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
+ckpts.save_dir=ckpts/mini_rl_warmup ckpts.save_per_updates=1000 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=null
 ```
 
-Output: `ckpts/mini_rl_warmup/model_last.pt`
+Checkpoint behavior:
+- If no `model_*.pt` exists, the trainer loads `pretrained_*.safetensors` from the save dir.
+- It writes `model_last.pt` and `model_<update>.pt`.
 
 ## Stage 2: GRPO
 
-Checkpoint naming/handling:
-- GRPOTrainer only loads `model_last.pt` / `model_*.pt` from its save dir.
-- It does not load `pretrained_*` by default.
+Copy the warmup checkpoint into the GRPO directory:
 
-To start from the warmup model, copy it into the GRPO save dir:
 ```bash
 mkdir -p ckpts/mini_rl_grpo
 cp ckpts/mini_rl_warmup/model_last.pt ckpts/mini_rl_grpo/model_last.pt
 ```
 
-GRPO command (bnb8bit supported):
+GRPO command:
+
 ```bash
-WANDB_MODE=online WANDB_DISABLE_SERVICE=1 \
-WANDB_DIR=$PWD/.wandb WANDB_CACHE_DIR=$PWD/.wandb_cache WANDB_CONFIG_DIR=$PWD/.wandb_config \
 CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 PYTORCH_ALLOC_CONF=expandable_segments:True \
 ./.venv/bin/python -m f5_tts.train.train_rl \
-datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.num_workers=1 \
+datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.num_workers=2 \
 model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=true \
-optim.epochs=1 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 \
-optim.bnb_optimizer=true \
-ckpts.save_dir=ckpts/mini_rl_grpo ckpts.log_samples=false \
-rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.1]' \
-rl.prompt_length_mode=min \
-rl.cfg_strength=1.0 rl.sway_sampling_coef=null rl.kl_weight=1.0 \
-rl.rewards.providers.0.config.model_dir=checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
-rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall
-```
-
-Output: `ckpts/mini_rl_grpo/model_last.pt`
-
-### Longer GPU run (model on GPU, rewards on CPU)
-
-Suggested knobs for a longer run on an 8 GB GPU:
-- Use AMP: `ACCELERATE_MIXED_PRECISION=bf16`
-- Use 8-bit optimizer: `optim.bnb_optimizer=true`
-- Keep only `model_last.pt`: `ckpts.keep_last_n_checkpoints=0`
-
-Stage 1 warmup (8 epochs ≈ 64 * 8 = 512 updates):
-```bash
-CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 \
-./.venv/bin/python -m f5_tts.train.train -cn F5TTS_v1_Base \
-datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=2 \
-model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
-model.arch.checkpoint_activations=true \
-optim.epochs=8 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
-ckpts.save_dir=ckpts/mini_rl_warmup ckpts.save_per_updates=50 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=null
-```
-
-Stage 2 GRPO (GPU model, CPU rewards):
-```bash
-CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 \
-./.venv/bin/python -m f5_tts.train.train_rl \
-datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.max_samples=1 datasets.num_workers=2 \
-model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
-model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=true \
-optim.epochs=8 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
-ckpts.save_dir=ckpts/mini_rl_grpo ckpts.save_per_updates=50 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=trackio \
-rl.steps=2 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.1]' rl.prompt_length_mode=min \
-rl.cfg_strength=1.0 rl.sway_sampling_coef=null rl.kl_weight=1.0 \
+model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=false \
+optim.epochs=1 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
+ckpts.save_dir=ckpts/mini_rl_grpo ckpts.save_per_updates=1000 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=wandb \
+rl.steps=30 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.3]' rl.prompt_length_mode=min \
+rl.cfg_strength=2.0 rl.sway_sampling_coef=-1.0 rl.kl_weight=1.0 \
 rl.ref_model_ckpt=$PWD/ckpts/mini_rl_warmup/model_last.pt \
 rl.rewards.providers.0.config.model_dir=$PWD/checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34 \
 rl.rewards.providers.0.config.device=cpu \
@@ -475,60 +184,37 @@ rl.rewards.providers.1.config.model_id=$PWD/checkpoints/funasr/SenseVoiceSmall \
 rl.rewards.providers.1.config.device=cpu
 ```
 
-Prompt length modes:
-- `min` (default): keep batch prompt length equal to the minimum sampled value (matches F5R behavior).
-- `per_sample`: keep per-sample prompt lengths; prompts are padded to the max in batch and `lens` is passed to
-  `forward_rl` so each sample uses its own prompt length. Enable with `rl.prompt_length_mode=per_sample`.
+Sample logging:
+- Set `ckpts.log_samples=true` to save `update_*_gen.wav` / `update_*_ref.wav` under `ckpts/.../samples`
+  at each `ckpts.save_per_updates` interval.
 
-Reference model mode:
-- GRPO keeps the reference model in eval mode when estimating KL, avoiding dropout noise.
+## RL knobs (quick reference)
 
-## W&B logging
+- `rl.steps`: number of diffusion/inference steps per GRPO rollout. Higher values improve
+  audio quality and reward signal (ASR/WER), but increase compute and memory.
+- `rl.steps_plus_one`: opt-in to use `steps + 1` integration points in `forward_rl`. Default is `false`
+  for F5R parity; set `true` if you want RL rollouts to match non-RL step count.
+- `rl.prompt_length_mode`: `min` (F5R parity), `per_sample`, or `range`. `range` uses the sampled
+  fraction directly so prompt length respects the lower bound in `prompt_frac_range`.
+- `wer_mode`: `char | word` (default: `char`, matching F5R).
+- `ref_source`: `text | audio` (default: `text`; set `audio` to match ASR-vs-ASR reward in F5R).
 
-GRPO now logs useful metrics:
+## Logging
+
+W&B logs include:
 - `loss`, `loss/kl`, `loss/pro_adv`
 - `reward/mean`, `reward/std`, `reward/min`, `reward/max`
-- `reward/<provider>/<metric>` per provider (e.g., `reward/speaker_similarity/cosine`,
-  `reward/asr/word_error_rate`, `reward/asr/accuracy`)
+- `reward/speaker_similarity/cosine`
+- `reward/asr/char_error_rate` or `reward/asr/word_error_rate` (depends on `wer_mode`)
 
-To visualize:
-```bash
-wandb login
-wandb sync .wandb/wandb
-```
-
-Or use the run URLs printed in the console output.
-
-Low-disk or restricted environments:
-- Use offline logging and a local dir you control:
-  ```bash
-  WANDB_MODE=offline WANDB_DISABLE_SERVICE=1 \
-  WANDB_DIR=$PWD/.wandb WANDB_CACHE_DIR=$PWD/.wandb_cache WANDB_CONFIG_DIR=$PWD/.wandb_config \
-  ```
-- Keep only the final checkpoint to avoid extra 5+ GB files:
-  `ckpts.keep_last_n_checkpoints=0` (still writes `model_last.pt`).
-
-### Trackio (drop-in alternative)
-
-Trackio is a lightweight, local-first tracker that is API-compatible with W&B.
-To use it:
-
+Trackio (drop-in alternative):
 ```bash
 ./.venv/bin/python -m pip install -e ".[trackio]"
 ```
-
-Then set:
-```
-ckpts.logger=trackio
-```
-
-To view logs locally:
+Then set `ckpts.logger=trackio` and view logs locally with:
 ```bash
 trackio show
 ```
-
-If local ports are restricted, set `TRACKIO_SPACE_ID` to log to a Space, or
-pick a custom port range with `GRADIO_SERVER_PORT`.
 
 ## Implementation parity notes
 
@@ -539,7 +225,8 @@ These details intentionally match the F5R reference code:
 
 ## Troubleshooting
 
-- `num_workers=0` is now safe; the trainer only enables `persistent_workers` when `num_workers > 0`.
-- If WeSpeaker errors during import, install via the GitHub source and use an fbank-based model.
-- If FunASR is missing, install `.[reward_funasr]` or `funasr` directly.
-- If checkpoint saves fail on a full disk, point `ckpts.save_dir` to a larger volume.
+- `num_workers=0` is supported; `persistent_workers` is only enabled when `num_workers > 0`.
+- If WeSpeaker fails to import, install the GitHub source and use an fbank model.
+- If FunASR is missing, install `.[reward_funasr]` or `funasr==1.3.0`.
+- If WER is flat, increase `rl.steps` (very low values often produce poor audio).
+- On low disk, keep only the final checkpoint: `ckpts.keep_last_n_checkpoints=0`.

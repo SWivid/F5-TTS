@@ -8,6 +8,7 @@ from typing import Any
 
 import torch
 import torch.nn.functional as F
+import torchaudio
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 from ema_pytorch import EMA
@@ -72,6 +73,7 @@ class GRPOTrainer:
         ema_kwargs: dict | None = None,
         mel_spec_type: str = "vocos",
         vocoder: Any | None = None,
+        log_samples: bool = False,
         repeat_count: int = 8,
         mini_repeat_count: int = 1,
         prompt_frac_range: tuple[float, float] = (0.1, 0.3),
@@ -186,6 +188,7 @@ class GRPOTrainer:
 
         self.model = model
         self.reward_combiner = reward_combiner
+        self._reward_providers_by_name = {provider.name: provider for provider in reward_combiner.providers}
 
         if self.is_main:
             self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
@@ -205,6 +208,7 @@ class GRPOTrainer:
         self.max_grad_norm = max_grad_norm
         self.vocoder_name = mel_spec_type
         self.vocoder = vocoder
+        self.log_samples = log_samples
         self.repeat_count = repeat_count
         self.mini_repeat_count = mini_repeat_count
         self.prompt_frac_range = prompt_frac_range
@@ -256,17 +260,26 @@ class GRPOTrainer:
             provider, metric = key.split(".", 1)
         else:
             provider, metric = "reward", key
+        provider_obj = self._reward_providers_by_name.get(provider)
         provider_label = {
             "wespeaker_sim": "speaker_similarity",
             "funasr_wer": "asr",
         }.get(provider, provider)
-        metric_label = {
-            ("wespeaker_sim", "sim"): "cosine",
-            ("wespeaker_sim", "total"): "total",
-            ("funasr_wer", "wer"): "word_error_rate",
-            ("funasr_wer", "acc"): "accuracy",
-            ("funasr_wer", "total"): "total",
-        }.get((provider, metric), metric)
+        if provider == "funasr_wer" and metric == "wer":
+            wer_mode = getattr(provider_obj, "wer_mode", None)
+            if wer_mode == "char":
+                metric_label = "char_error_rate"
+            elif wer_mode == "word":
+                metric_label = "word_error_rate"
+            else:
+                metric_label = "error_rate"
+        else:
+            metric_label = {
+                ("wespeaker_sim", "sim"): "cosine",
+                ("wespeaker_sim", "total"): "total",
+                ("funasr_wer", "acc"): "accuracy",
+                ("funasr_wer", "total"): "total",
+            }.get((provider, metric), metric)
         return f"reward/{provider_label}/{metric_label}"
 
     def _init_ref_model(self, ref_model: CFM | None, ckpt_path: str | None, use_ema: bool) -> CFM:
@@ -401,6 +414,10 @@ class GRPOTrainer:
             generator.manual_seed(resumable_with_seed)
         else:
             generator = None
+        if self.log_samples:
+            target_sample_rate = self.accelerator.unwrap_model(self.model).mel_spec.target_sample_rate
+            log_samples_path = f"{self.checkpoint_path}/samples"
+            os.makedirs(log_samples_path, exist_ok=True)
 
         if self.batch_size_type == "sample":
             train_dataloader = DataLoader(
@@ -627,6 +644,23 @@ class GRPOTrainer:
 
                 if global_update % self.save_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update)
+                    if self.log_samples and self.accelerator.is_local_main_process:
+                        gen_sample = gen_audio[0]
+                        ref_sample = ref_audio[0]
+                        if gen_sample.dim() == 1:
+                            gen_sample = gen_sample.unsqueeze(0)
+                        if ref_sample.dim() == 1:
+                            ref_sample = ref_sample.unsqueeze(0)
+                        torchaudio.save(
+                            f"{log_samples_path}/update_{global_update}_gen.wav",
+                            gen_sample,
+                            target_sample_rate,
+                        )
+                        torchaudio.save(
+                            f"{log_samples_path}/update_{global_update}_ref.wav",
+                            ref_sample,
+                            target_sample_rate,
+                        )
 
         self.save_checkpoint(global_update, last=True)
         self.accelerator.end_training()
