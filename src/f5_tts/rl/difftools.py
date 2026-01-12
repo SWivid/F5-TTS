@@ -10,7 +10,15 @@ class EulerSolver(metaclass=abc.ABCMeta):
     order = 1
 
     def __init__(
-        self, func, y0, step_size=None, grid_constructor=None, interp="linear", perturb=False, **unused_kwargs
+        self,
+        func,
+        y0,
+        step_size=None,
+        grid_constructor=None,
+        interp="linear",
+        perturb=False,
+        skip_grad_mask=None,
+        **unused_kwargs,
     ):
         self.atol = unused_kwargs.pop("atol")
         unused_kwargs.pop("rtol", None)
@@ -25,6 +33,8 @@ class EulerSolver(metaclass=abc.ABCMeta):
         self.step_size = step_size
         self.interp = interp
         self.perturb = perturb
+        self.skip_grad_mask = skip_grad_mask
+        self._skip_grad_index = 0
 
         if step_size is None:
             if grid_constructor is None:
@@ -73,8 +83,15 @@ class EulerSolver(metaclass=abc.ABCMeta):
             dt = t1 - t0
             self.func.callback_step(t0, y0, dt)
             # Upstream F5R behavior: randomly skip gradient tracking on some steps for speed.
-            skip_grad_prob = random.uniform(0, 1)
-            if skip_grad_prob > 0.05 and len(pro_result) > 1:
+            if self.skip_grad_mask is not None:
+                if self._skip_grad_index < len(self.skip_grad_mask):
+                    skip_grad = bool(self.skip_grad_mask[self._skip_grad_index])
+                else:
+                    skip_grad = False
+                self._skip_grad_index += 1
+            else:
+                skip_grad = random.uniform(0, 1) > 0.05
+            if skip_grad and len(pro_result) > 1:
                 with torch.no_grad():
                     dy, f0, mu, log_sig = self._step_func(self.func, t0, dt, t1, y0)
                     y1 = y0 + dy

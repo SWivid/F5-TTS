@@ -75,6 +75,7 @@ def main(model_cfg):
         kl_weight=model_cfg.rl.kl_weight,
         kl_eps=model_cfg.rl.get("kl_eps", 0.0),
         density_eps=model_cfg.rl.get("density_eps", 0.0),
+        align_kl_steps=model_cfg.rl.get("align_kl_steps", False),
         ref_model_ckpt=model_cfg.rl.ref_model_ckpt,
         ref_model_use_ema=model_cfg.rl.ref_model_use_ema,
         allow_extra_keys=model_cfg.ckpts.get("allow_extra_keys", False),

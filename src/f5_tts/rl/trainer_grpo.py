@@ -117,6 +117,7 @@ class GRPOTrainer:
         prompt_length_mode: str = "min",
         kl_eps: float = 0.0,
         density_eps: float = 0.0,
+        align_kl_steps: bool = False,
     ):
         if accelerate_kwargs is None:
             accelerate_kwargs = {}
@@ -174,6 +175,7 @@ class GRPOTrainer:
                 "kl_weight": kl_weight,
                 "kl_eps": kl_eps,
                 "density_eps": density_eps,
+                "align_kl_steps": align_kl_steps,
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
@@ -206,6 +208,7 @@ class GRPOTrainer:
                 "kl_weight": kl_weight,
                 "kl_eps": kl_eps,
                 "density_eps": density_eps,
+                "align_kl_steps": align_kl_steps,
                 "reward_mode": reward_combiner.mode,
                 "reward_weights": reward_combiner.weights,
                 "reward_providers": reward_providers,
@@ -254,6 +257,7 @@ class GRPOTrainer:
         self.prompt_length_mode = prompt_length_mode
         self.kl_eps = kl_eps
         self.density_eps = density_eps
+        self.align_kl_steps = align_kl_steps
 
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
@@ -424,6 +428,13 @@ class GRPOTrainer:
         kl += (torch.exp(gen_sig) ** 2 + F.mse_loss(gen_mu, ref_mu, reduction="none")) / (2 * denom)
         return kl
 
+    def _build_skip_grad_mask(self, steps: int, steps_plus_one: bool) -> torch.Tensor:
+        t_steps = steps + 1 if steps_plus_one else steps
+        intervals = max(t_steps - 1, 0)
+        if intervals == 0:
+            return torch.zeros(0, dtype=torch.bool)
+        return torch.rand(intervals) > 0.05
+
     def _get_kl(self, gen_pros, ref_pros):
         if not gen_pros or not ref_pros:
             return torch.tensor(0.0, device=self.model.device)
@@ -560,6 +571,9 @@ class GRPOTrainer:
                         mel_spec, prompt_lens, prompt_idx, self.prompt_length_mode
                     )
 
+                    skip_grad_mask = (
+                        self._build_skip_grad_mask(self.steps, self.steps_plus_one) if self.align_kl_steps else None
+                    )
                     out, _, pro_result = self.model.forward_rl(
                         cond=prompt_audio,
                         text=text_inputs,
@@ -569,6 +583,7 @@ class GRPOTrainer:
                         steps_plus_one=self.steps_plus_one,
                         cfg_strength=self.cfg_strength,
                         sway_sampling_coef=self.sway_sampling_coef,
+                        skip_grad_mask=skip_grad_mask,
                     )
                     with torch.no_grad():
                         _, _, ref_pro_result = self.ref_model.forward_rl(
@@ -580,6 +595,7 @@ class GRPOTrainer:
                             steps_plus_one=self.steps_plus_one,
                             cfg_strength=self.cfg_strength,
                             sway_sampling_coef=self.sway_sampling_coef,
+                            skip_grad_mask=skip_grad_mask,
                             set_train=False,
                         )
 

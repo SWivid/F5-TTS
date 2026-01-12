@@ -430,6 +430,8 @@ class CFM(nn.Module):
         t_inter=0.1,
         edit_mask=None,
         set_train: bool = True,
+        skip_grad_mask: torch.Tensor | None = None,
+        strict_no_ref_audio: bool = False,
     ):
         if self.output_dist != "gaussian":
             raise RuntimeError("forward_rl requires output_dist='gaussian'")
@@ -466,6 +468,8 @@ class CFM(nn.Module):
         if duplicate_test:
             test_cond = F.pad(cond, (0, 0, cond_seq_len, max_duration - 2 * cond_seq_len), value=0.0)
 
+        if no_ref_audio and strict_no_ref_audio:
+            cond = torch.zeros_like(cond)
         cond = F.pad(cond, (0, 0, 0, max_duration - cond_seq_len), value=0.0)
         cond_mask = F.pad(cond_mask, (0, max_duration - cond_mask.shape[-1]), value=False)
         cond_mask = cond_mask.unsqueeze(-1)
@@ -476,7 +480,7 @@ class CFM(nn.Module):
         else:
             mask = None
 
-        if no_ref_audio:
+        if no_ref_audio and not strict_no_ref_audio:
             cond = torch.zeros_like(cond)
 
         def fn(t, x):
@@ -524,7 +528,12 @@ class CFM(nn.Module):
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
-        trajectory, pro_result = odeint_rl(fn, y0, t, **self.odeint_kwargs)
+        odeint_kwargs = dict(self.odeint_kwargs)
+        if skip_grad_mask is not None:
+            options = dict(odeint_kwargs.get("options") or {})
+            options["skip_grad_mask"] = skip_grad_mask
+            odeint_kwargs["options"] = options
+        trajectory, pro_result = odeint_rl(fn, y0, t, **odeint_kwargs)
         if hasattr(self.transformer, "clear_cache"):
             self.transformer.clear_cache()
 

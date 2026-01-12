@@ -205,6 +205,38 @@ def test_grpo_kl_eps_stability(tmp_path):
     assert torch.isfinite(kl).all()
 
 
+def test_grpo_align_kl_steps_mask_length(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        align_kl_steps=True,
+    )
+    mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert mask.numel() == 4
+
+
 def test_registry_import_path():
     provider = RewardRegistry.create({"name": f"{__name__}:DummyRewardProvider"})
     assert isinstance(provider, DummyRewardProvider)
@@ -242,6 +274,55 @@ def test_range_prompt_audio_uses_per_sample_lengths():
     expected[1, :4, 0] = torch.tensor([10.0, 11.0, 12.0, 13.0])
     assert torch.equal(prompt_audio, expected)
     assert torch.equal(prompt_lens_arg, prompt_lens)
+
+
+def test_forward_rl_skip_mask_respected():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    cond = torch.randn(1, 3, 8)
+    text = ["hi"]
+    duration = torch.tensor([3])
+    skip_mask = torch.tensor([True, True, True, True])
+    _, _, pro_result = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=5,
+        cfg_strength=0.0,
+        set_train=False,
+        skip_grad_mask=skip_mask,
+    )
+    flags = [item[-1] for item in pro_result]
+    assert flags[:2] == [True, True]
+    assert all(flag is False for flag in flags[2:])
+
+
+def test_forward_rl_strict_no_ref_audio():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    cond = torch.randn(1, 3, 8)
+    text = ["hi"]
+    duration = torch.tensor([3])
+    torch.manual_seed(0)
+    out_strict, _, _ = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=3,
+        cfg_strength=0.0,
+        set_train=False,
+        no_ref_audio=True,
+        strict_no_ref_audio=True,
+    )
+    torch.manual_seed(0)
+    out_zero, _, _ = model.forward_rl(
+        cond=torch.zeros_like(cond),
+        text=text,
+        duration=duration,
+        steps=3,
+        cfg_strength=0.0,
+        set_train=False,
+        no_ref_audio=False,
+    )
+    assert torch.allclose(out_strict, out_zero)
 
 
 def test_gaussian_density_weight_eps_stability():
