@@ -16,7 +16,7 @@ from f5_tts.model.utils import load_state_dict_compat
 from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
 from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider, _wer
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
-from f5_tts.rl.trainer_grpo import GRPOTrainer, sample_prompt_spans
+from f5_tts.rl.trainer_grpo import GRPOTrainer, _build_prompt_audio, sample_prompt_spans
 
 
 def _make_dit(output_dist: str = "deterministic") -> DiT:
@@ -178,6 +178,21 @@ def test_prompt_length_mode_behavior():
     assert start_min[0].item() == start_min[1].item()
     assert start_per[0].item() != start_per[1].item()
     assert start_range[0].item() == start_range[1].item() == int(0.6 * 10)
+
+
+def test_range_prompt_audio_uses_per_sample_lengths():
+    mel_spec = torch.stack(
+        [torch.arange(8, dtype=torch.float32), torch.arange(10, 18, dtype=torch.float32)], dim=0
+    ).unsqueeze(-1)
+    mel_lengths = torch.tensor([8, 8])
+    frac = torch.tensor([0.25, 0.5])
+    prompt_lens, prompt_idx, _ = sample_prompt_spans(mel_lengths, frac, mode="range")
+    prompt_audio, prompt_lens_arg = _build_prompt_audio(mel_spec, prompt_lens, prompt_idx, mode="range")
+    expected = torch.zeros_like(prompt_audio)
+    expected[0, :2, 0] = torch.tensor([0.0, 1.0])
+    expected[1, :4, 0] = torch.tensor([10.0, 11.0, 12.0, 13.0])
+    assert torch.equal(prompt_audio, expected)
+    assert torch.equal(prompt_lens_arg, prompt_lens)
 
 
 def test_forward_rl_preserves_eval_mode():

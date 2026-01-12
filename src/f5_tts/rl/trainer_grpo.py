@@ -46,6 +46,21 @@ def sample_prompt_spans(seq_len, frac_lengths, mode: str = "min", rand: torch.Te
     return start, prompt_idx, trg_idx
 
 
+def _build_prompt_audio(
+    mel_spec: torch.Tensor, prompt_lens: torch.Tensor, prompt_idx: torch.Tensor, mode: str
+) -> tuple[torch.Tensor, torch.Tensor | None]:
+    if mode in ("per_sample", "range"):
+        max_prompt_len = int(prompt_lens.max().item()) if prompt_lens.numel() else 0
+        prompt_audio = mel_spec.new_zeros((mel_spec.size(0), max_prompt_len, mel_spec.size(-1)))
+        for idx, prompt_len in enumerate(prompt_lens.tolist()):
+            if prompt_len:
+                prompt_audio[idx, :prompt_len, :] = mel_spec[idx, :prompt_len, :]
+        return prompt_audio, prompt_lens
+    prompt_idx = prompt_idx.unsqueeze(-1).repeat(1, 1, mel_spec.size(-1))
+    prompt_audio = mel_spec[prompt_idx].view(mel_spec.size(0), -1, mel_spec.size(-1))
+    return prompt_audio, None
+
+
 class GRPOTrainer:
     def __init__(
         self,
@@ -518,17 +533,9 @@ class GRPOTrainer:
                     prompt_lens, prompt_idx, trg_idx = sample_prompt_spans(
                         mel_lengths, frac_lengths, mode=self.prompt_length_mode
                     )
-                    if self.prompt_length_mode == "per_sample":
-                        max_prompt_len = int(prompt_lens.max().item())
-                        prompt_audio = mel_spec.new_zeros((mel_spec.size(0), max_prompt_len, mel_spec.size(-1)))
-                        for idx, prompt_len in enumerate(prompt_lens.tolist()):
-                            if prompt_len:
-                                prompt_audio[idx, :prompt_len, :] = mel_spec[idx, :prompt_len, :]
-                        prompt_lens_arg = prompt_lens
-                    else:
-                        prompt_idx = prompt_idx.unsqueeze(-1).repeat(1, 1, mel_spec.size(-1))
-                        prompt_audio = mel_spec[prompt_idx].view(mel_spec.size(0), -1, mel_spec.size(-1))
-                        prompt_lens_arg = None
+                    prompt_audio, prompt_lens_arg = _build_prompt_audio(
+                        mel_spec, prompt_lens, prompt_idx, self.prompt_length_mode
+                    )
 
                     out, _, pro_result = self.model.forward_rl(
                         cond=prompt_audio,
