@@ -234,6 +234,12 @@ These details intentionally match the F5R reference code:
 - GRPO uses Gaussian density weighting (not log-prob) for advantage shaping.
 - ODE integration randomly skips gradients on some steps for speed.
 
+## Additional implementation notes
+
+- DynamicBatchSampler now yields repeated batches via a generator to avoid large
+  in‑memory lists when `repeat_count`/`mini_repeat_count` are large; this is compatible
+  with Accelerate’s batch sharding and keeps deterministic epoch shuffling intact.
+
 ## Troubleshooting
 
 - `num_workers=0` is supported; `persistent_workers` is only enabled when `num_workers > 0`.
