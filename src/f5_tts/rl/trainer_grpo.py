@@ -288,9 +288,7 @@ class GRPOTrainer:
         if not 0.0 <= self.skip_grad_prob <= 1.0:
             raise ValueError(f"skip_grad_prob must be between 0 and 1, got {self.skip_grad_prob}")
         if self.reward_ref_source not in {"auto", "audio_path", "mel"}:
-            raise ValueError(
-                f"reward_ref_source must be 'auto', 'audio_path', or 'mel', got {self.reward_ref_source}"
-            )
+            raise ValueError(f"reward_ref_source must be 'auto', 'audio_path', or 'mel', got {self.reward_ref_source}")
 
         self.noise_scheduler = noise_scheduler
         self.duration_predictor = duration_predictor
