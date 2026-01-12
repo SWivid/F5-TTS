@@ -199,6 +199,14 @@ Sample logging:
 - `wer_mode`: `char | word` (default: `char`, matching F5R).
 - `ref_source`: `text | audio` (default: `text`; set `audio` to match ASR-vs-ASR reward in F5R).
 
+## Recommended opt-ins (deviations from F5R defaults)
+
+Defaults stay F5R‑parity. If you want the more robust behavior we found during integration, opt in:
+- `rl.prompt_length_mode=range` (or `per_sample`) to avoid collapsing prompt lengths to the batch minimum and to honor `prompt_frac_range` lower bounds.
+- `rl.steps_plus_one=true` to align RL rollouts with the non‑RL step count (`steps + 1` integration points).
+- `rl.rewards.providers.1.config.ref_source=audio` if you want ASR‑vs‑ASR reward instead of text‑vs‑ASR.
+- `ckpts.log_samples=true` for debugging; writes sample WAVs under `ckpts/.../samples` at each save interval.
+
 ## Logging
 
 W&B logs include:
