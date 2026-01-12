@@ -15,7 +15,9 @@ optim:
   num_warmup_updates: 100
   grad_accumulation_steps: 8
   max_grad_norm: 1.0
-  bnb_optimizer: False
+  bnb_optimizer: True
+  mixed_precision: auto
+  tf32: true
 
 model:
   name: F5TTS_Base
@@ -94,4 +96,5 @@ ckpts:
   keep_last_n_checkpoints: -1
   last_per_updates: 100
   allow_extra_keys: False
+  init_from: null
   save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}_rl

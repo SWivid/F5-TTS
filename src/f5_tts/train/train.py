@@ -9,6 +9,7 @@ from omegaconf import OmegaConf
 from f5_tts.model import CFM, Trainer
 from f5_tts.model.dataset import load_dataset
 from f5_tts.model.utils import get_tokenizer
+from f5_tts.train.utils import apply_tf32, resolve_mixed_precision
 
 
 os.chdir(str(files("f5_tts").joinpath("../..")))  # change working directory to root of project (local editable)
@@ -46,6 +47,12 @@ def main(model_cfg):
         sample_from_dist=model_cfg.model.get("sample_from_dist", False),
     )
 
+    accelerate_kwargs = OmegaConf.to_container(model_cfg.optim.get("accelerate_kwargs", {}), resolve=True) or {}
+    mixed_precision = resolve_mixed_precision(model_cfg.optim.get("mixed_precision"))
+    if mixed_precision is not None:
+        accelerate_kwargs["mixed_precision"] = mixed_precision
+    apply_tf32(bool(model_cfg.optim.get("tf32", False)))
+
     # init trainer
     trainer = Trainer(
         model,
@@ -72,6 +79,7 @@ def main(model_cfg):
         local_vocoder_path=model_cfg.model.vocoder.local_path,
         model_cfg_dict=OmegaConf.to_container(model_cfg, resolve=True),
         allow_extra_keys=model_cfg.ckpts.get("allow_extra_keys", False),
+        accelerate_kwargs=accelerate_kwargs,
     )
 
     train_dataset = load_dataset(model_cfg.datasets.name, tokenizer, mel_spec_kwargs=model_cfg.model.mel_spec)

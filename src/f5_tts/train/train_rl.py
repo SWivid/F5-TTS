@@ -9,6 +9,7 @@ from f5_tts.model.dataset import load_dataset
 from f5_tts.model.utils import get_tokenizer
 from f5_tts.rewards import RewardCombiner
 from f5_tts.rl.trainer_grpo import GRPOTrainer
+from f5_tts.train.utils import apply_tf32, resolve_mixed_precision
 
 
 os.chdir(str(files("f5_tts").joinpath("../..")))  # change working directory to root of project (local editable)
@@ -44,6 +45,12 @@ def main(model_cfg):
     )
 
     reward_combiner = RewardCombiner.from_config(model_cfg.rl.rewards)
+
+    accelerate_kwargs = OmegaConf.to_container(model_cfg.optim.get("accelerate_kwargs", {}), resolve=True) or {}
+    mixed_precision = resolve_mixed_precision(model_cfg.optim.get("mixed_precision"))
+    if mixed_precision is not None:
+        accelerate_kwargs["mixed_precision"] = mixed_precision
+    apply_tf32(bool(model_cfg.optim.get("tf32", False)))
 
     trainer = GRPOTrainer(
         model,
@@ -81,7 +88,9 @@ def main(model_cfg):
         ref_model_ckpt=model_cfg.rl.ref_model_ckpt,
         ref_model_use_ema=model_cfg.rl.ref_model_use_ema,
         allow_extra_keys=model_cfg.ckpts.get("allow_extra_keys", False),
+        init_model_ckpt=model_cfg.ckpts.get("init_from"),
         bnb_optimizer=model_cfg.optim.get("bnb_optimizer", False),
+        accelerate_kwargs=accelerate_kwargs,
         prompt_length_mode=model_cfg.rl.get("prompt_length_mode", "min"),
         max_duration=model_cfg.rl.get("max_duration", 4096),
         legacy_length_check=model_cfg.rl.get("legacy_length_check", False),

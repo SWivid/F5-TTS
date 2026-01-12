@@ -118,6 +118,7 @@ class GRPOTrainer:
         ref_model_ckpt: str | None = None,
         ref_model_use_ema: bool = True,
         allow_extra_keys: bool = False,
+        init_model_ckpt: str | None = None,
         bnb_optimizer: bool = False,
         prompt_length_mode: str = "min",
         kl_eps: float = 0.0,
@@ -273,6 +274,7 @@ class GRPOTrainer:
         self.sway_sampling_coef = sway_sampling_coef
         self.kl_weight = kl_weight
         self.allow_extra_keys = allow_extra_keys
+        self.init_model_ckpt = init_model_ckpt
         self.reward_ref_source = reward_ref_source
         self.reward_ref_cache_size = reward_ref_cache_size
         self._ref_audio_cache = OrderedDict() if reward_ref_cache_size > 0 else None
@@ -294,8 +296,12 @@ class GRPOTrainer:
         self.duration_predictor = duration_predictor
 
         if bnb_optimizer:
-            import bitsandbytes as bnb
-
+            try:
+                import bitsandbytes as bnb
+            except Exception as exc:  # noqa: BLE001
+                raise ImportError(
+                    "bitsandbytes is required for bnb_optimizer. Install with: pip install bitsandbytes"
+                ) from exc
             self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
         else:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -394,12 +400,69 @@ class GRPOTrainer:
                     oldest_checkpoint = checkpoints.pop(0)
                     os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
 
+    def _resolve_checkpoint_path(self, ckpt_path: str) -> str:
+        if os.path.isdir(ckpt_path):
+            if "model_last.pt" in os.listdir(ckpt_path):
+                return os.path.join(ckpt_path, "model_last.pt")
+            checkpoints = [
+                f for f in os.listdir(ckpt_path) if f.startswith("model_") and f.endswith((".pt", ".safetensors"))
+            ]
+            if not checkpoints:
+                raise FileNotFoundError(f"No checkpoints found under {ckpt_path}")
+            checkpoints.sort(key=lambda x: int("".join(filter(str.isdigit, x))))
+            return os.path.join(ckpt_path, checkpoints[-1])
+        return ckpt_path
+
+    def _load_init_checkpoint(self, ckpt_path: str) -> None:
+        resolved_path = self._resolve_checkpoint_path(ckpt_path)
+        if not os.path.exists(resolved_path):
+            raise FileNotFoundError(f"init_model_ckpt not found: {resolved_path}")
+
+        if resolved_path.endswith(".safetensors"):
+            from safetensors.torch import load_file
+
+            checkpoint = {"model_state_dict": load_file(resolved_path, device="cpu")}
+        else:
+            checkpoint = torch.load(resolved_path, map_location="cpu", weights_only=True)
+
+        output_dist = getattr(self.accelerator.unwrap_model(self.model).transformer, "output_dist", "deterministic")
+        model_state = checkpoint.get("model_state_dict")
+        if model_state is None and "ema_model_state_dict" in checkpoint:
+            model_state = {
+                k.replace("ema_model.", ""): v
+                for k, v in checkpoint["ema_model_state_dict"].items()
+                if k not in ["initted", "step"]
+            }
+        if model_state is None:
+            model_state = checkpoint
+        load_state_dict_compat(
+            self.accelerator.unwrap_model(self.model),
+            model_state,
+            allow_extra_keys=self.allow_extra_keys,
+            output_dist=output_dist,
+        )
+        if self.is_main:
+            if "ema_model_state_dict" in checkpoint:
+                load_state_dict_compat(
+                    self.ema_model,
+                    checkpoint["ema_model_state_dict"],
+                    allow_extra_keys=self.allow_extra_keys,
+                    output_dist=output_dist,
+                )
+            else:
+                self.ema_model.copy_params_from_model_to_ema()
+
+        del checkpoint
+        gc.collect()
+
     def load_checkpoint(self) -> int:
         if (
             not exists(self.checkpoint_path)
             or not os.path.exists(self.checkpoint_path)
             or not any(filename.endswith((".pt", ".safetensors")) for filename in os.listdir(self.checkpoint_path))
         ):
+            if self.init_model_ckpt:
+                self._load_init_checkpoint(self.init_model_ckpt)
             return 0
 
         self.accelerator.wait_for_everyone()
@@ -750,6 +813,8 @@ class GRPOTrainer:
                     progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
                 if self.is_main and self.accelerator.sync_gradients:
+                    intervals = int(skip_grad_mask.numel())
+                    kept_steps = len(pro_result_sample)
                     log_payload = {
                         "loss": loss.item(),
                         "lr": self.scheduler.get_last_lr()[0],
@@ -759,7 +824,11 @@ class GRPOTrainer:
                         "reward/std": std.item(),
                         "reward/min": rewards_all.min().item(),
                         "reward/max": rewards_all.max().item(),
+                        "stats/kept_steps": float(kept_steps),
                     }
+                    if intervals > 0:
+                        log_payload["stats/skip_ratio"] = 1.0 - (kept_steps / intervals)
+                        log_payload["stats/kept_ratio"] = kept_steps / intervals
                     if dur_loss is not None:
                         log_payload["loss/duration"] = dur_loss.item()
                     component_values: dict[str, list[torch.Tensor]] = {}
@@ -798,6 +867,22 @@ class GRPOTrainer:
                             ref_sample,
                             target_sample_rate,
                         )
+                        if self.logger == "wandb":
+                            try:
+                                import wandb
+
+                                if wandb.run is not None:
+                                    gen_np = gen_sample.squeeze().cpu().numpy()
+                                    ref_np = ref_sample.squeeze().cpu().numpy()
+                                    wandb.log(
+                                        {
+                                            "samples/gen": wandb.Audio(gen_np, sample_rate=target_sample_rate),
+                                            "samples/ref": wandb.Audio(ref_np, sample_rate=target_sample_rate),
+                                        },
+                                        step=global_update,
+                                    )
+                            except Exception:
+                                pass
 
         self.save_checkpoint(global_update, last=True)
         self.accelerator.end_training()

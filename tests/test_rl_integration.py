@@ -19,6 +19,7 @@ from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProv
 from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider, _wer
 from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
 from f5_tts.rl.trainer_grpo import GRPOTrainer, _build_prompt_audio, _gaussian_density_weight, sample_prompt_spans
+from f5_tts.train.utils import resolve_mixed_precision
 
 
 def _make_dit(output_dist: str = "deterministic") -> DiT:
@@ -124,6 +125,16 @@ def test_gaussian_loss_gradients():
     assert model.transformer.proj_out_ln_sig.weight.grad is not None
 
 
+def test_resolve_mixed_precision_auto_cpu(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    assert resolve_mixed_precision("auto") == "no"
+
+
+def test_resolve_mixed_precision_invalid():
+    with pytest.raises(ValueError, match="mixed_precision"):
+        resolve_mixed_precision("fp32")
+
+
 class DummyRewardProvider(RewardProvider):
     name = "dummy_reward"
 
@@ -192,6 +203,44 @@ def test_grpo_single_step_updates_params(tmp_path):
     trainer.train(DummyDataset(), num_workers=0)
     after = model.transformer.proj_out.weight.detach()
     assert not torch.equal(before.to(after.device), after)
+
+
+def test_grpo_init_checkpoint_loads_weights(tmp_path):
+    base_model = _make_cfm(output_dist="gaussian", objective="grpo")
+    with torch.no_grad():
+        base_model.transformer.proj_out.weight.fill_(0.1234)
+    init_ckpt = tmp_path / "init.pt"
+    torch.save({"model_state_dict": base_model.state_dict()}, init_ckpt)
+
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path / "empty"),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        init_model_ckpt=str(init_ckpt),
+    )
+    trainer.load_checkpoint()
+    assert torch.allclose(model.transformer.proj_out.weight, base_model.transformer.proj_out.weight)
 
 
 def test_grpo_kl_eps_stability(tmp_path):
@@ -808,6 +857,38 @@ def test_trainer_allows_num_workers_zero(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(trainer, "save_checkpoint", lambda *args, **kwargs: None)
     trainer.train(DummyDataset(), num_workers=0)
+
+
+def test_trainer_grad_accumulation_respected(tmp_path):
+    model = _make_cfm(output_dist="deterministic", objective="mse")
+    trainer = Trainer(
+        model,
+        epochs=1,
+        learning_rate=1e-4,
+        num_warmup_updates=0,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=2,
+        max_grad_norm=1.0,
+        logger=None,
+        log_samples=False,
+        mel_spec_type="vocos",
+    )
+    step_calls = {"count": 0}
+    original_step = trainer.optimizer.step
+
+    def _counted_step(self, *args, **kwargs):
+        step_calls["count"] += 1
+        return original_step(*args, **kwargs)
+
+    trainer.optimizer.step = types.MethodType(_counted_step, trainer.optimizer)
+    trainer.save_checkpoint = lambda *args, **kwargs: None
+    trainer.train(DummyDataset(), num_workers=0)
+    assert step_calls["count"] == 1
 
 
 def test_wespeaker_requires_package(monkeypatch):

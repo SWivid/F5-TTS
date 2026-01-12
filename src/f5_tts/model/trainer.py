@@ -167,8 +167,12 @@ class Trainer:
         self.allow_extra_keys = allow_extra_keys
 
         if bnb_optimizer:
-            import bitsandbytes as bnb
-
+            try:
+                import bitsandbytes as bnb
+            except Exception as exc:  # noqa: BLE001
+                raise ImportError(
+                    "bitsandbytes is required for bnb_optimizer. Install with: pip install bitsandbytes"
+                ) from exc
             self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
         else:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -445,9 +449,10 @@ class Trainer:
                     if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
                         self.accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
-                    self.optimizer.step()
-                    self.scheduler.step()
-                    self.optimizer.zero_grad()
+                    if self.accelerator.sync_gradients:
+                        self.optimizer.step()
+                        self.scheduler.step()
+                        self.optimizer.zero_grad()
 
                 if self.accelerator.sync_gradients:
                     if self.is_main:
@@ -457,7 +462,7 @@ class Trainer:
                     progress_bar.update(1)
                     progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
-                if self.accelerator.is_local_main_process:
+                if self.accelerator.is_local_main_process and self.accelerator.sync_gradients:
                     self._log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
@@ -496,6 +501,16 @@ class Trainer:
                         torchaudio.save(
                             f"{log_samples_path}/update_{global_update}_ref.wav", ref_audio, target_sample_rate
                         )
+                        if self.logger == "wandb" and wandb.run is not None:
+                            gen_np = gen_audio.squeeze().cpu().numpy()
+                            ref_np = ref_audio.squeeze().cpu().numpy()
+                            wandb.log(
+                                {
+                                    "samples/gen": wandb.Audio(gen_np, sample_rate=target_sample_rate),
+                                    "samples/ref": wandb.Audio(ref_np, sample_rate=target_sample_rate),
+                                },
+                                step=global_update,
+                            )
                         self.model.train()
 
         self.save_checkpoint(global_update, last=True)

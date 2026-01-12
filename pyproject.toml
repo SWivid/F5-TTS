@@ -56,6 +56,7 @@ eval = [
 ]
 rl = [
     "funasr==1.3.0",
+    "huggingface_hub>=0.23.0",
     # WeSpeaker pinned for compatibility/reproducibility; update hash if upstream changes or tags a release.
     "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794",
 ]

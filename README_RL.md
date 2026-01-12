@@ -13,6 +13,7 @@ It includes dataset layout, reward model setup, and minimal launch commands.
   ```bash
   ./.venv/bin/python -m pip install -e ".[rl]"
   ```
+  This includes `huggingface_hub` for the fetch scripts.
 - Optional trackers:
   ```bash
   ./.venv/bin/python -m pip install -e ".[trackio]"
@@ -118,6 +119,7 @@ WeSpeaker `model_dir` should point to:
 ```
 checkpoints/wespeaker/cnceleb_resnet34/cnceleb_resnet34
 ```
+Alternatively, set `WESPEAKER_HOME` to the model folder and omit `model_dir` in the config.
 
 ## Stage 1: Warmup (gaussian_nll)
 
@@ -148,7 +150,8 @@ datasets.name=mini_rl datasets.batch_size_per_gpu=2 datasets.batch_size_type=sam
 model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
 model.output_dist=gaussian model.objective=gaussian_nll model.sample_from_dist=false model.use_rl_head=true \
 model.arch.checkpoint_activations=false \
-optim.epochs=1 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=false \
+optim.epochs=1 optim.learning_rate=1e-5 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
+optim.mixed_precision=auto optim.tf32=true \
 ckpts.save_dir=ckpts/mini_rl_warmup ckpts.save_per_updates=1000 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=null
 ```
 
@@ -165,15 +168,22 @@ mkdir -p ckpts/mini_rl_grpo
 cp ckpts/mini_rl_warmup/model_last.pt ckpts/mini_rl_grpo/model_last.pt
 ```
 
+Or, skip the copy and point GRPO directly at the warmup checkpoint:
+
+```bash
+ckpts.init_from=$PWD/ckpts/mini_rl_warmup/model_last.pt
+```
+
 GRPO command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 ACCELERATE_MIXED_PRECISION=bf16 PYTORCH_ALLOC_CONF=expandable_segments:True \
+CUDA_VISIBLE_DEVICES=0 PYTORCH_ALLOC_CONF=expandable_segments:True \
 ./.venv/bin/python -m f5_tts.train.train_rl \
 datasets.name=mini_rl datasets.batch_size_per_gpu=1 datasets.batch_size_type=sample datasets.num_workers=2 \
 model.tokenizer=custom model.tokenizer_path=$PWD/data/Emilia_ZH_EN_pinyin/vocab.txt \
 model.output_dist=gaussian model.objective=grpo model.use_rl_head=true model.arch.checkpoint_activations=false \
 optim.epochs=1 optim.learning_rate=1e-6 optim.num_warmup_updates=0 optim.grad_accumulation_steps=1 optim.bnb_optimizer=true \
+optim.mixed_precision=auto optim.tf32=true \
 ckpts.save_dir=ckpts/mini_rl_grpo ckpts.save_per_updates=1000 ckpts.keep_last_n_checkpoints=0 ckpts.log_samples=false ckpts.logger=wandb \
 rl.steps=30 rl.repeat_count=1 rl.mini_repeat_count=1 rl.prompt_frac_range='[0.1,0.3]' rl.prompt_length_mode=min \
 rl.cfg_strength=2.0 rl.sway_sampling_coef=-1.0 rl.kl_weight=1.0 \
@@ -228,6 +238,8 @@ W&B logs include:
 - `reward/mean`, `reward/std`, `reward/min`, `reward/max`
 - `reward/speaker_similarity/cosine`
 - `reward/asr/char_error_rate` or `reward/asr/word_error_rate` (depends on `wer_mode`)
+- `stats/skip_ratio`, `stats/kept_steps`
+- Sample audio when `ckpts.log_samples=true` (`samples/gen`, `samples/ref`)
 
 Trackio (drop-in alternative):
 ```bash
