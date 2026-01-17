@@ -66,9 +66,9 @@ DEFAULT_TTS_MODEL_CFG = [
 ]
 
 F5TTS_BASE_CFG = [
-    "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt",
+    "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
     "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
-    json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
+    json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
 ]
 
 # Shared community models from SHARED.md
