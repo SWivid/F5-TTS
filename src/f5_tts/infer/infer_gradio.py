@@ -35,6 +35,7 @@ def gpu_decorator(func):
         return func
 
 
+from f5_tts.api import F5TTS
 from f5_tts.infer.utils_infer import (
     infer_process,
     load_model,
@@ -46,13 +47,27 @@ from f5_tts.infer.utils_infer import (
 )
 from f5_tts.model import DiT, UNetT
 
+# Mapping from UI model names to API model names
+MODEL_NAME_MAP = {
+    "F5-TTS_v1": "F5TTS_v1_Base",
+    "F5-TTS": "F5TTS_Base",
+    "E2-TTS": "E2TTS_Base",
+}
+
 
 DEFAULT_TTS_MODEL = "F5-TTS_v1"
 tts_model_choice = DEFAULT_TTS_MODEL
+custom_model_enabled = False
 
 DEFAULT_TTS_MODEL_CFG = [
     "hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors",
     "hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt",
+    json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
+]
+
+F5TTS_BASE_CFG = [
+    "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt",
+    "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
     json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
 ]
 
@@ -65,6 +80,12 @@ vocoder = load_vocoder()
 def load_f5tts():
     ckpt_path = str(cached_path(DEFAULT_TTS_MODEL_CFG[0]))
     F5TTS_model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
+    return load_model(DiT, F5TTS_model_cfg, ckpt_path)
+
+
+def load_f5tts_base():
+    ckpt_path = str(cached_path(F5TTS_BASE_CFG[0]))
+    F5TTS_model_cfg = json.loads(F5TTS_BASE_CFG[2])
     return load_model(DiT, F5TTS_model_cfg, ckpt_path)
 
 
@@ -88,6 +109,7 @@ def load_custom(ckpt_path: str, vocab_path="", model_cfg=None):
 
 
 F5TTS_ema_model = load_f5tts()
+F5TTS_base_ema_model = None
 E2TTS_ema_model = load_e2tts() if USING_SPACES else None
 custom_ema_model, pre_custom_path = None, ""
 
@@ -159,22 +181,40 @@ def infer(
 
     ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=show_info)
 
-    if model == DEFAULT_TTS_MODEL:
+    # Handle custom model - model can be a tuple (base_model, ckpt_path, vocab_path, model_cfg)
+    if isinstance(model, tuple):
+        assert not USING_SPACES, "Only official checkpoints allowed in Spaces."
+        base_model, ckpt_path, vocab_path, model_cfg = model
+        global custom_ema_model, pre_custom_path
+        # Cache key includes base_model to reload if model type changes
+        cache_key = (base_model, ckpt_path, vocab_path)
+        if pre_custom_path != cache_key:
+            # Map UI model name to API model name
+            api_model_name = MODEL_NAME_MAP.get(base_model, "F5TTS_v1_Base")
+            show_info(f"Loading Custom TTS model (base: {api_model_name})...")
+            # Use F5TTS API for proper model loading (same as finetune_gradio.py and CLI)
+            custom_tts_api = F5TTS(
+                model=api_model_name,
+                ckpt_file=ckpt_path,
+                vocab_file=vocab_path if vocab_path else "",
+            )
+            custom_ema_model = custom_tts_api.ema_model
+            pre_custom_path = cache_key
+        ema_model = custom_ema_model
+    elif model == DEFAULT_TTS_MODEL:
         ema_model = F5TTS_ema_model
+    elif model == "F5-TTS":
+        global F5TTS_base_ema_model
+        if F5TTS_base_ema_model is None:
+            show_info("Loading F5-TTS model...")
+            F5TTS_base_ema_model = load_f5tts_base()
+        ema_model = F5TTS_base_ema_model
     elif model == "E2-TTS":
         global E2TTS_ema_model
         if E2TTS_ema_model is None:
             show_info("Loading E2-TTS model...")
             E2TTS_ema_model = load_e2tts()
         ema_model = E2TTS_ema_model
-    elif isinstance(model, tuple) and model[0] == "Custom":
-        assert not USING_SPACES, "Only official checkpoints allowed in Spaces."
-        global custom_ema_model, pre_custom_path
-        if pre_custom_path != model[1]:
-            show_info("Loading Custom TTS model...")
-            custom_ema_model = load_custom(model[1], vocab_path=model[2], model_cfg=model[3])
-            pre_custom_path = model[1]
-        ema_model = custom_ema_model
 
     final_wave, final_sample_rate, combined_spectrogram = infer_process(
         ref_audio,
@@ -221,7 +261,7 @@ with gr.Blocks() as app_tts:
         )
         gen_text_file = gr.File(label="Load Text to Generate from File (.txt)", file_types=[".txt"], scale=1)
     generate_btn = gr.Button("Synthesize", variant="primary")
-    with gr.Accordion("Advanced Settings", open=True) as adv_settn:
+    with gr.Accordion("Advanced Settings", open=False):
         with gr.Row():
             ref_text_input = gr.Textbox(
                 label="Reference Text",
@@ -268,17 +308,6 @@ with gr.Blocks() as app_tts:
             step=0.01,
             info="Set the duration of the cross-fade between audio clips.",
         )
-
-    def collapse_accordion():
-        return gr.Accordion(open=False)
-
-    # Workaround for https://github.com/SWivid/F5-TTS/issues/1239#issuecomment-3677987413
-    # i.e. to set gr.Accordion(open=True) by default, then collapse manually Blocks loaded
-    app_tts.load(
-        fn=collapse_accordion,
-        inputs=None,
-        outputs=adv_settn,
-    )
 
     audio_output = gr.Audio(label="Synthesized Audio")
     spectrogram_output = gr.Image(label="Spectrogram")
@@ -588,7 +617,7 @@ with gr.Blocks() as app_multistyle:
         label="Cherry-pick Interface",
         lines=10,
         max_lines=40,
-        buttons=["copy"],  # show_copy_button=True if gradio<6.0
+        show_copy_button=True,
         interactive=False,
         visible=False,
     )
@@ -827,9 +856,7 @@ Have a conversation with an AI using your reference voice!
                         lines=2,
                     )
 
-        chatbot_interface = gr.Chatbot(
-            label="Conversation"
-        )  # type="messages" hard-coded and no need to pass in since gradio 6.0
+        chatbot_interface = gr.Chatbot(label="Conversation", type="messages")
 
         with gr.Row():
             with gr.Column():
@@ -866,10 +893,6 @@ Have a conversation with an AI using your reference voice!
         @gpu_decorator
         def generate_text_response(conv_state, system_prompt):
             """Generate text response from AI"""
-            for single_state in conv_state:
-                if isinstance(single_state["content"], list):
-                    assert len(single_state["content"]) == 1 and single_state["content"][0]["type"] == "text"
-                    single_state["content"] = single_state["content"][0]["text"]
 
             system_prompt_state = [{"role": "system", "content": system_prompt}]
             response = chat_model_inference(system_prompt_state + conv_state, chat_model_state, chat_tokenizer_state)
@@ -883,7 +906,7 @@ Have a conversation with an AI using your reference voice!
             if not conv_state or not ref_audio:
                 return None, ref_text, seed_input
 
-            last_ai_response = conv_state[-1]["content"][0]["text"]
+            last_ai_response = conv_state[-1]["content"]
             if not last_ai_response or conv_state[-1]["role"] != "assistant":
                 return None, ref_text, seed_input
 
@@ -988,35 +1011,51 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             last_used_custom.parent.mkdir(parents=True, exist_ok=True)
             return DEFAULT_TTS_MODEL_CFG
 
-    def switch_tts_model(new_choice):
-        global tts_model_choice
-        if new_choice == "Custom":  # override in case webpage is refreshed
-            custom_ckpt_path, custom_vocab_path, custom_model_cfg = load_last_used_custom()
-            tts_model_choice = ("Custom", custom_ckpt_path, custom_vocab_path, custom_model_cfg)
-            return (
-                gr.update(visible=True, value=custom_ckpt_path),
-                gr.update(visible=True, value=custom_vocab_path),
-                gr.update(visible=True, value=custom_model_cfg),
-            )
+    def switch_tts_model(new_choice, use_custom, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+        global tts_model_choice, custom_model_enabled
+        custom_model_enabled = use_custom
+        if use_custom and custom_ckpt_path:
+            tts_model_choice = (new_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
         else:
             tts_model_choice = new_choice
+        return None  # no UI updates needed
+
+    def toggle_custom_model(use_custom, model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+        global tts_model_choice, custom_model_enabled
+        custom_model_enabled = use_custom
+        if use_custom:
+            last_custom = load_last_used_custom()
+            if use_custom and custom_ckpt_path:
+                tts_model_choice = (model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
+            else:
+                tts_model_choice = (model_choice, last_custom[0], last_custom[1], last_custom[2])
+            return (
+                gr.update(visible=True, value=last_custom[0]),
+                gr.update(visible=True, value=last_custom[1]),
+                gr.update(visible=True, value=last_custom[2]),
+            )
+        else:
+            tts_model_choice = model_choice
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
 
-    def set_custom_model(custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+    def set_custom_model(model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice
-        tts_model_choice = ("Custom", custom_ckpt_path, custom_vocab_path, custom_model_cfg)
+        tts_model_choice = (model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
         with open(last_used_custom, "w", encoding="utf-8") as f:
             f.write(custom_ckpt_path + "\n" + custom_vocab_path + "\n" + custom_model_cfg + "\n")
 
     with gr.Row():
+        choose_tts_model = gr.Radio(
+            choices=[DEFAULT_TTS_MODEL, "F5-TTS", "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+        )
         if not USING_SPACES:
-            choose_tts_model = gr.Radio(
-                choices=[DEFAULT_TTS_MODEL, "E2-TTS", "Custom"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+            use_custom_model = gr.Checkbox(
+                label="Use Custom Model",
+                value=False,
+                info="Load a custom checkpoint with the selected base model architecture",
             )
         else:
-            choose_tts_model = gr.Radio(
-                choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
-            )
+            use_custom_model = gr.Checkbox(label="Use Custom Model", value=False, visible=False)
         custom_ckpt_path = gr.Dropdown(
             choices=[DEFAULT_TTS_MODEL_CFG[0]],
             value=load_last_used_custom()[0],
@@ -1033,7 +1072,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
         )
         custom_model_cfg = gr.Dropdown(
             choices=[
-                DEFAULT_TTS_MODEL_CFG[2],
+                DEFAULT_TTS_MODEL_CFG[2],  # F5-TTS v1 Base
                 json.dumps(
                     dict(
                         dim=1024,
@@ -1045,7 +1084,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
                         conv_layers=4,
                         pe_attn_head=1,
                     )
-                ),
+                ),  # F5-TTS v1 with extra params
                 json.dumps(
                     dict(
                         dim=768,
@@ -1057,33 +1096,49 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
                         conv_layers=4,
                         pe_attn_head=1,
                     )
-                ),
+                ),  # F5-TTS Small
+                json.dumps(
+                    dict(
+                        dim=1024,
+                        depth=24,
+                        heads=16,
+                        ff_mult=4,
+                        text_mask_padding=False,
+                        pe_attn_head=1,
+                    )
+                ),  # E2-TTS Base
             ],
             value=load_last_used_custom()[2],
             allow_custom_value=True,
-            label="Config: in a dictionary form",
+            label="Config (optional, uses base model config if empty)",
             visible=False,
         )
 
     choose_tts_model.change(
         switch_tts_model,
-        inputs=[choose_tts_model],
+        inputs=[choose_tts_model, use_custom_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        outputs=None,
+        show_progress="hidden",
+    )
+    use_custom_model.change(
+        toggle_custom_model,
+        inputs=[use_custom_model, choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         outputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_ckpt_path.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_vocab_path.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_model_cfg.change(
         set_custom_model,
-        inputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
 
@@ -1125,6 +1180,7 @@ def main(port, host, share, api, root_path, inbrowser):
         server_name=host,
         server_port=port,
         share=share,
+        show_api=api,
         root_path=root_path,
         inbrowser=inbrowser,
     )
