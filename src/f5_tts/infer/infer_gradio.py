@@ -71,6 +71,71 @@ F5TTS_BASE_CFG = [
     json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
 ]
 
+# Shared community models from SHARED.md
+# Format: "Display Name": [model_path, vocab_path, config_json, base_model]
+SHARED_MODELS = {
+    "F5-TTS v1 Base (zh & en)": [
+        "hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors",
+        "hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
+        "F5-TTS_v1",
+    ],
+    "F5-TTS Base (zh & en)": [
+        "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
+        "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS Finnish": [
+        "hf://AsmoKoskinen/F5-TTS_Finnish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors",
+        "hf://AsmoKoskinen/F5-TTS_Finnish_Model/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS French": [
+        "hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_last_reduced.pt",
+        "hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS German": [
+        "hf://hvoss-techfak/F5-TTS-German/model_f5tts_german.pt",
+        "hf://hvoss-techfak/F5-TTS-German/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS Hindi (Small)": [
+        "hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors",
+        "hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt",
+        json.dumps(dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS Italian": [
+        "hf://alien79/F5-TTS-italian/model_159600.safetensors",
+        "hf://alien79/F5-TTS-italian/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS Japanese": [
+        "hf://Jmica/F5TTS/JA_21999120/model_21999120.pt",
+        "hf://Jmica/F5TTS/JA_21999120/vocab_japanese.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS Russian": [
+        "hf://hotstone228/F5-TTS-Russian/model_last.safetensors",
+        "hf://hotstone228/F5-TTS-Russian/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+    "F5-TTS Latvian": [
+        "hf://RaivisDejus/F5-TTS-Latvian/model.safetensors",
+        "hf://RaivisDejus/F5-TTS-Latvian/vocab.txt",
+        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        "F5-TTS",
+    ],
+}
+
 
 # load models
 
@@ -192,11 +257,14 @@ def infer(
             # Map UI model name to API model name
             api_model_name = MODEL_NAME_MAP.get(base_model, "F5TTS_v1_Base")
             show_info(f"Loading Custom TTS model (base: {api_model_name})...")
+            # Resolve hf:// paths to local cache
+            resolved_ckpt = str(cached_path(ckpt_path)) if ckpt_path.startswith("hf://") else ckpt_path
+            resolved_vocab = str(cached_path(vocab_path)) if vocab_path and vocab_path.startswith("hf://") else vocab_path
             # Use F5TTS API for proper model loading (same as finetune_gradio.py and CLI)
             custom_tts_api = F5TTS(
                 model=api_model_name,
-                ckpt_file=ckpt_path,
-                vocab_file=vocab_path if vocab_path else "",
+                ckpt_file=resolved_ckpt,
+                vocab_file=resolved_vocab if resolved_vocab else "",
             )
             custom_ema_model = custom_tts_api.ema_model
             pre_custom_path = cache_key
@@ -1025,18 +1093,14 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
         custom_model_enabled = use_custom
         if use_custom:
             last_custom = load_last_used_custom()
-            if use_custom and custom_ckpt_path:
+            if custom_ckpt_path:
                 tts_model_choice = (model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
             else:
                 tts_model_choice = (model_choice, last_custom[0], last_custom[1], last_custom[2])
-            return (
-                gr.update(visible=True, value=last_custom[0]),
-                gr.update(visible=True, value=last_custom[1]),
-                gr.update(visible=True, value=last_custom[2]),
-            )
+            return gr.update(visible=True)
         else:
             tts_model_choice = model_choice
-            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+            return gr.update(visible=False)
 
     def set_custom_model(model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice
@@ -1056,63 +1120,59 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             )
         else:
             use_custom_model = gr.Checkbox(label="Use Custom Model", value=False, visible=False)
+    # Build dropdown choices from shared models
+    shared_model_choices = [cfg[0] for cfg in SHARED_MODELS.values()]
+    shared_vocab_choices = list(set(cfg[1] for cfg in SHARED_MODELS.values()))
+    shared_config_choices = list(set(cfg[2] for cfg in SHARED_MODELS.values()))
+
+    with gr.Row(visible=False) as custom_model_row:
+        custom_model_select = gr.Dropdown(
+            choices=list(SHARED_MODELS.keys()),
+            value=None,
+            allow_custom_value=False,
+            label="Shared Models (auto-fills paths below)",
+            scale=2,
+        )
         custom_ckpt_path = gr.Dropdown(
-            choices=[DEFAULT_TTS_MODEL_CFG[0]],
+            choices=shared_model_choices,
             value=load_last_used_custom()[0],
             allow_custom_value=True,
-            label="Model: local_path | hf://user_id/repo_id/model_ckpt",
-            visible=False,
+            label="Model: local_path | hf://...",
+            scale=3,
         )
         custom_vocab_path = gr.Dropdown(
-            choices=[DEFAULT_TTS_MODEL_CFG[1]],
+            choices=shared_vocab_choices,
             value=load_last_used_custom()[1],
             allow_custom_value=True,
-            label="Vocab: local_path | hf://user_id/repo_id/vocab_file",
-            visible=False,
+            label="Vocab: local_path | hf://...",
+            scale=2,
         )
         custom_model_cfg = gr.Dropdown(
-            choices=[
-                DEFAULT_TTS_MODEL_CFG[2],  # F5-TTS v1 Base
-                json.dumps(
-                    dict(
-                        dim=1024,
-                        depth=22,
-                        heads=16,
-                        ff_mult=2,
-                        text_dim=512,
-                        text_mask_padding=False,
-                        conv_layers=4,
-                        pe_attn_head=1,
-                    )
-                ),  # F5-TTS v1 with extra params
-                json.dumps(
-                    dict(
-                        dim=768,
-                        depth=18,
-                        heads=12,
-                        ff_mult=2,
-                        text_dim=512,
-                        text_mask_padding=False,
-                        conv_layers=4,
-                        pe_attn_head=1,
-                    )
-                ),  # F5-TTS Small
-                json.dumps(
-                    dict(
-                        dim=1024,
-                        depth=24,
-                        heads=16,
-                        ff_mult=4,
-                        text_mask_padding=False,
-                        pe_attn_head=1,
-                    )
-                ),  # E2-TTS Base
-            ],
+            choices=shared_config_choices,
             value=load_last_used_custom()[2],
             allow_custom_value=True,
-            label="Config (optional, uses base model config if empty)",
-            visible=False,
+            label="Config (optional)",
+            scale=2,
         )
+
+    def on_shared_model_select(model_name):
+        if model_name and model_name in SHARED_MODELS:
+            cfg = SHARED_MODELS[model_name]
+            # cfg = [model_path, vocab_path, config_json, base_model]
+            return (
+                gr.update(value=cfg[3]),  # Update radio button to correct base model
+                gr.update(value=cfg[0]),  # Model path
+                gr.update(value=cfg[1]),  # Vocab path
+                gr.update(value=cfg[2]),  # Config
+            )
+        return gr.update(), gr.update(), gr.update(), gr.update()
+
+    custom_model_select.change(
+        on_shared_model_select,
+        inputs=[custom_model_select],
+        outputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        show_progress="hidden",
+    )
 
     choose_tts_model.change(
         switch_tts_model,
@@ -1123,7 +1183,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     use_custom_model.change(
         toggle_custom_model,
         inputs=[use_custom_model, choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
-        outputs=[custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        outputs=[custom_model_row],
         show_progress="hidden",
     )
     custom_ckpt_path.change(
