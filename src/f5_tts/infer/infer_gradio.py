@@ -47,6 +47,7 @@ from f5_tts.infer.utils_infer import (
 )
 from f5_tts.model import DiT, UNetT
 
+
 # Mapping from UI model names to API model names
 MODEL_NAME_MAP = {
     "F5-TTS_v1": "F5TTS_v1_Base",
@@ -68,7 +69,18 @@ DEFAULT_TTS_MODEL_CFG = [
 F5TTS_BASE_CFG = [
     "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
     "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
-    json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+    json.dumps(
+        dict(
+            dim=1024,
+            depth=22,
+            heads=16,
+            ff_mult=2,
+            text_dim=512,
+            text_mask_padding=False,
+            conv_layers=4,
+            pe_attn_head=1,
+        )
+    ),
 ]
 
 # Shared community models from SHARED.md
@@ -83,55 +95,154 @@ SHARED_MODELS = {
     "F5-TTS Base (zh & en)": [
         "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",
         "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS Finnish": [
         "hf://AsmoKoskinen/F5-TTS_Finnish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors",
         "hf://AsmoKoskinen/F5-TTS_Finnish_Model/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS French": [
         "hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_last_reduced.pt",
         "hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS German": [
         "hf://hvoss-techfak/F5-TTS-German/model_f5tts_german.pt",
         "hf://hvoss-techfak/F5-TTS-German/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS Hindi (Small)": [
         "hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors",
         "hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt",
-        json.dumps(dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=768,
+                depth=18,
+                heads=12,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS Italian": [
         "hf://alien79/F5-TTS-italian/model_159600.safetensors",
         "hf://alien79/F5-TTS-italian/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS Japanese": [
         "hf://Jmica/F5TTS/JA_21999120/model_21999120.pt",
         "hf://Jmica/F5TTS/JA_21999120/vocab_japanese.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS Russian": [
         "hf://hotstone228/F5-TTS-Russian/model_last.safetensors",
         "hf://hotstone228/F5-TTS-Russian/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
     "F5-TTS Latvian": [
         "hf://RaivisDejus/F5-TTS-Latvian/model.safetensors",
         "hf://RaivisDejus/F5-TTS-Latvian/vocab.txt",
-        json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, text_mask_padding=False, conv_layers=4, pe_attn_head=1)),
+        json.dumps(
+            dict(
+                dim=1024,
+                depth=22,
+                heads=16,
+                ff_mult=2,
+                text_dim=512,
+                text_mask_padding=False,
+                conv_layers=4,
+                pe_attn_head=1,
+            )
+        ),
         "F5-TTS",
     ],
 }
@@ -259,7 +370,9 @@ def infer(
             show_info(f"Loading Custom TTS model (base: {api_model_name})...")
             # Resolve hf:// paths to local cache
             resolved_ckpt = str(cached_path(ckpt_path)) if ckpt_path.startswith("hf://") else ckpt_path
-            resolved_vocab = str(cached_path(vocab_path)) if vocab_path and vocab_path.startswith("hf://") else vocab_path
+            resolved_vocab = (
+                str(cached_path(vocab_path)) if vocab_path and vocab_path.startswith("hf://") else vocab_path
+            )
             # Use F5TTS API for proper model loading (same as finetune_gradio.py and CLI)
             custom_tts_api = F5TTS(
                 model=api_model_name,
@@ -1088,7 +1201,9 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             tts_model_choice = new_choice
         return None  # no UI updates needed
 
-    def toggle_custom_model(use_custom, model_choice, custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+    def toggle_custom_model(
+        use_custom, model_choice, custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg
+    ):
         global tts_model_choice, custom_model_enabled
         custom_model_enabled = use_custom
         if use_custom:
@@ -1183,13 +1298,27 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
 
     choose_tts_model.change(
         switch_tts_model,
-        inputs=[choose_tts_model, use_custom_model, custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[
+            choose_tts_model,
+            use_custom_model,
+            custom_base_model,
+            custom_ckpt_path,
+            custom_vocab_path,
+            custom_model_cfg,
+        ],
         outputs=None,
         show_progress="hidden",
     )
     use_custom_model.change(
         toggle_custom_model,
-        inputs=[use_custom_model, choose_tts_model, custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[
+            use_custom_model,
+            choose_tts_model,
+            custom_base_model,
+            custom_ckpt_path,
+            custom_vocab_path,
+            custom_model_cfg,
+        ],
         outputs=[custom_model_row],
         show_progress="hidden",
     )
