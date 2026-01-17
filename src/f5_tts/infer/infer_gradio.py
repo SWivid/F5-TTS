@@ -1079,38 +1079,38 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             last_used_custom.parent.mkdir(parents=True, exist_ok=True)
             return DEFAULT_TTS_MODEL_CFG
 
-    def switch_tts_model(new_choice, use_custom, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+    def switch_tts_model(new_choice, use_custom, custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice, custom_model_enabled
         custom_model_enabled = use_custom
         if use_custom and custom_ckpt_path:
-            tts_model_choice = (new_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
+            tts_model_choice = (custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
         else:
             tts_model_choice = new_choice
         return None  # no UI updates needed
 
-    def toggle_custom_model(use_custom, model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+    def toggle_custom_model(use_custom, model_choice, custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice, custom_model_enabled
         custom_model_enabled = use_custom
         if use_custom:
             last_custom = load_last_used_custom()
             if custom_ckpt_path:
-                tts_model_choice = (model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
+                tts_model_choice = (custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
             else:
-                tts_model_choice = (model_choice, last_custom[0], last_custom[1], last_custom[2])
+                tts_model_choice = (custom_base, last_custom[0], last_custom[1], last_custom[2])
             return gr.update(visible=True)
         else:
             tts_model_choice = model_choice
             return gr.update(visible=False)
 
-    def set_custom_model(model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
+    def set_custom_model(custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg):
         global tts_model_choice
-        tts_model_choice = (model_choice, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
+        tts_model_choice = (custom_base, custom_ckpt_path, custom_vocab_path, custom_model_cfg)
         with open(last_used_custom, "w", encoding="utf-8") as f:
             f.write(custom_ckpt_path + "\n" + custom_vocab_path + "\n" + custom_model_cfg + "\n")
 
     with gr.Row():
         choose_tts_model = gr.Radio(
-            choices=[DEFAULT_TTS_MODEL, "F5-TTS", "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
+            choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
         )
         if not USING_SPACES:
             use_custom_model = gr.Checkbox(
@@ -1132,6 +1132,13 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             allow_custom_value=False,
             label="Shared Models (auto-fills paths below)",
             scale=2,
+        )
+        custom_base_model = gr.Dropdown(
+            choices=["F5-TTS_v1", "F5-TTS"],
+            value="F5-TTS_v1",
+            allow_custom_value=False,
+            label="Base Model",
+            scale=1,
         )
         custom_ckpt_path = gr.Dropdown(
             choices=shared_model_choices,
@@ -1160,7 +1167,7 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
             cfg = SHARED_MODELS[model_name]
             # cfg = [model_path, vocab_path, config_json, base_model]
             return (
-                gr.update(value=cfg[3]),  # Update radio button to correct base model
+                gr.update(value=cfg[3]),  # Update base model dropdown
                 gr.update(value=cfg[0]),  # Model path
                 gr.update(value=cfg[1]),  # Vocab path
                 gr.update(value=cfg[2]),  # Config
@@ -1170,35 +1177,40 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
     custom_model_select.change(
         on_shared_model_select,
         inputs=[custom_model_select],
-        outputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        outputs=[custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
 
     choose_tts_model.change(
         switch_tts_model,
-        inputs=[choose_tts_model, use_custom_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[choose_tts_model, use_custom_model, custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         outputs=None,
         show_progress="hidden",
     )
     use_custom_model.change(
         toggle_custom_model,
-        inputs=[use_custom_model, choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[use_custom_model, choose_tts_model, custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         outputs=[custom_model_row],
+        show_progress="hidden",
+    )
+    custom_base_model.change(
+        set_custom_model,
+        inputs=[custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_ckpt_path.change(
         set_custom_model,
-        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_vocab_path.change(
         set_custom_model,
-        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
     custom_model_cfg.change(
         set_custom_model,
-        inputs=[choose_tts_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
+        inputs=[custom_base_model, custom_ckpt_path, custom_vocab_path, custom_model_cfg],
         show_progress="hidden",
     )
 
