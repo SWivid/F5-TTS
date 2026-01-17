@@ -30,6 +30,8 @@
     - [F5-TTS Base @ it @ alien79](#f5-tts-base--it--alien79)
 - [Japanese](#japanese)
     - [F5-TTS Base @ ja @ Jmica](#f5-tts-base--ja--jmica)
+- [Latvian](#latvian)
+    - [F5-TTS Base @ lv @ RaivisDejus](#f5-tts-base--lv--raivisdejus)
 - [Mandarin](#mandarin)
 - [Russian](#russian)
     - [F5-TTS Base @ ru @ HotDro4illa](#f5-tts-base--ru--hotdro4illa)
@@ -160,6 +162,20 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 ```bash
 Model: hf://Jmica/F5TTS/JA_21999120/model_21999120.pt
 Vocab: hf://Jmica/F5TTS/JA_21999120/vocab_japanese.txt
+Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "text_mask_padding": False, "conv_layers": 4, "pe_attn_head": 1}
+```
+
+
+## Latvian
+
+#### F5-TTS Base @ lv @ RaivisDejus
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/RaivisDejus/F5-TTS-Latvian)|[Common voice](https://datacollective.mozillafoundation.org/datasets/cmj8u3pec00flnxxbntvfb4as)|cc0-1.0|
+
+```bash
+Model: hf://RaivisDejus/F5-TTS-Latvian/model.safetensors
+Vocab: hf://RaivisDejus/F5-TTS-Latvian/vocab.txt
 Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "text_mask_padding": False, "conv_layers": 4, "pe_attn_head": 1}
 ```
 
