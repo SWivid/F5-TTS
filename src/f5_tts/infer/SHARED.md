@@ -30,13 +30,14 @@
     - [F5-TTS Base @ it @ alien79](#f5-tts-base--it--alien79)
 - [Japanese](#japanese)
     - [F5-TTS Base @ ja @ Jmica](#f5-tts-base--ja--jmica)
+- [Latvian](#latvian)
+    - [F5-TTS Base @ lv @ RaivisDejus](#f5-tts-base--lv--raivisdejus)
 - [Mandarin](#mandarin)
 - [Russian](#russian)
     - [F5-TTS Base @ ru @ HotDro4illa](#f5-tts-base--ru--hotdro4illa)
 - [Spanish](#spanish)
     - [F5-TTS Base @ es @ jpgallegoar](#f5-tts-base--es--jpgallegoar)
-- [Latvian](#latvian)
-    - [F5-TTS Base @ lv @ RaivisDejus](#f5-tts-base--lv--raivisdejus)
+
 
 ## Multilingual
 
@@ -165,6 +166,20 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 ```
 
 
+## Latvian
+
+#### F5-TTS Base @ lv @ RaivisDejus
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Base|[ckpt & vocab](https://huggingface.co/RaivisDejus/F5-TTS-Latvian)|[Common voice](https://datacollective.mozillafoundation.org/datasets/cmj8u3pec00flnxxbntvfb4as)|cc0-1.0|
+
+```bash
+Model: hf://RaivisDejus/F5-TTS-Latvian/model.safetensors
+Vocab: hf://RaivisDejus/F5-TTS-Latvian/vocab.txt
+Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "text_mask_padding": False, "conv_layers": 4, "pe_attn_head": 1}
+```
+
+
 ## Mandarin
 
 
@@ -192,16 +207,3 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 |F5-TTS Base|[ckpt & vocab](https://huggingface.co/jpgallegoar/F5-Spanish)|[Voxpopuli](https://huggingface.co/datasets/facebook/voxpopuli) & Crowdsourced & TEDx, 218 hours|cc0-1.0|
 
 - @jpgallegoar [GitHub repo](https://github.com/jpgallegoar/Spanish-F5), Jupyter Notebook and Gradio usage for Spanish model.
-
-## Latvian
-
-#### F5-TTS Base @ lv @ RaivisDejus
-|Model|🤗Hugging Face|Data (Hours)|Model License|
-|:---:|:------------:|:-----------:|:-------------:|
-|F5-TTS Base|[ckpt & vocab](https://huggingface.co/RaivisDejus/F5-TTS-Latvian)|[Common voice](https://datacollective.mozillafoundation.org/datasets/cmj8u3pec00flnxxbntvfb4as)|cc0-1.0|
-
-```bash
-Model: hf://RaivisDejus/F5-TTS-Latvian/model.safetensors
-Vocab: hf://RaivisDejus/F5-TTS-Latvian/vocab.txt
-Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "text_mask_padding": False, "conv_layers": 4, "pe_attn_head": 1}
-```
