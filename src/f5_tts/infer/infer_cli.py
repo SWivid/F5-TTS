@@ -289,6 +289,11 @@ elif model == "E2TTS_Base":
 
 if not ckpt_file:
     ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{model}/model_{ckpt_step}.{ckpt_type}"))
+elif ckpt_file.startswith("hf://"):
+    ckpt_file = str(cached_path(ckpt_file))
+
+if vocab_file.startswith("hf://"):
+    vocab_file = str(cached_path(vocab_file))
 
 print(f"Using {model}...")
 ema_model = load_model(
