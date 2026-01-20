@@ -135,6 +135,21 @@ class InputEmbedding(nn.Module):
         if drop_audio_cond:  # cfg for cond audio
             cond = torch.zeros_like(cond)
 
+        # --- FIX START ---
+        # Force text_embed to match x length (duration) via nearest interpolation.
+        # This handles cases where text has extra tokens (like '+') that shouldn't affect duration.
+        if text_embed.shape[1] != x.shape[1]:
+            text_embed = text_embed.permute(0, 2, 1)
+            text_embed = F.interpolate(text_embed, size=x.shape[1], mode='nearest')
+            text_embed = text_embed.permute(0, 2, 1)
+        
+        # Ensure cond matches x length as well (safety net)
+        if cond.shape[1] != x.shape[1]:
+            cond = cond.permute(0, 2, 1)
+            cond = F.interpolate(cond, size=x.shape[1], mode='nearest')
+            cond = cond.permute(0, 2, 1)
+        # --- FIX END ---
+
         x = self.proj(torch.cat((x, cond, text_embed), dim=-1))
         x = self.conv_pos_embed(x, mask=audio_mask) + x
         return x
