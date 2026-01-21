@@ -48,11 +48,27 @@ dependencies = [
 [project.optional-dependencies]
 eval = [
     "faster_whisper==0.10.1",
-    "funasr",
+    "funasr==1.3.0",
     "jiwer",
     "modelscope",
     "zhconv",
     "zhon",
+]
+rl = [
+    "funasr==1.3.0",
+    "huggingface_hub>=0.23.0",
+    # WeSpeaker pinned for compatibility/reproducibility; update hash if upstream changes or tags a release.
+    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794",
+]
+reward_funasr = [
+    "funasr==1.3.0",
+]
+reward_wespeaker = [
+    # Keep the WeSpeaker commit in sync with the `rl` extra.
+    "wespeaker @ git+https://github.com/wenet-e2e/wespeaker.git@8f53b6485d9f88a207bd17e7f8dba899495ec794",
+]
+trackio = [
+    "trackio",
 ]
 
 [project.urls]
@@ -63,3 +79,4 @@ Homepage = "https://github.com/SWivid/F5-TTS"
 "f5-tts_infer-gradio" = "f5_tts.infer.infer_gradio:main"
 "f5-tts_finetune-cli" = "f5_tts.train.finetune_cli:main"
 "f5-tts_finetune-gradio" = "f5_tts.train.finetune_gradio:main"
+"f5-tts_train-rl" = "f5_tts.train.train_rl:main"

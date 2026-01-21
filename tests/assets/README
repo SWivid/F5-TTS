@@ -1,0 +1,4 @@
+Audio pack assets for integration tests.
+
+Place small test samples under tests/assets/audio_pack and include metadata.jsonl.
+If you use HF datasets, ensure the dataset license and attribution are respected.

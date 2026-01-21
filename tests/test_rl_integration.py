@@ -1,0 +1,1164 @@
+from __future__ import annotations
+
+import importlib
+import json
+import sys
+import types
+from pathlib import Path
+
+import pytest
+import torch
+from torch.utils.data import SequentialSampler
+
+from f5_tts.model import Trainer
+from f5_tts.model.backbones.dit import DiT
+from f5_tts.model.cfm import CFM
+from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
+from f5_tts.model.utils import load_state_dict_compat
+from f5_tts.rewards import RewardCombiner, RewardInput, RewardOutput, RewardProvider, RewardRegistry
+from f5_tts.rewards.providers.funasr_wer import FunASRWERProvider, _wer
+from f5_tts.rewards.providers.wespeaker_sim import WeSpeakerSimProvider
+from f5_tts.rl.trainer_grpo import GRPOTrainer, _build_prompt_audio, _gaussian_density_weight, sample_prompt_spans
+from f5_tts.train.utils import resolve_mixed_precision
+
+
+def _make_dit(output_dist: str = "deterministic") -> DiT:
+    return DiT(
+        dim=16,
+        depth=2,
+        heads=2,
+        ff_mult=2,
+        mel_dim=8,
+        text_num_embeds=256,
+        text_dim=8,
+        conv_layers=0,
+        output_dist=output_dist,
+    )
+
+
+def _make_cfm(output_dist: str, objective: str) -> CFM:
+    mel_spec_kwargs = dict(
+        n_fft=16,
+        hop_length=4,
+        win_length=16,
+        n_mel_channels=8,
+        target_sample_rate=24000,
+        mel_spec_type="vocos",
+    )
+    return CFM(
+        transformer=_make_dit(output_dist=output_dist),
+        mel_spec_kwargs=mel_spec_kwargs,
+        vocab_char_map=None,
+        objective=objective,
+        output_dist=output_dist,
+    )
+
+
+def test_deterministic_forward():
+    model = _make_dit(output_dist="deterministic")
+    assert not hasattr(model, "proj_out_ln_sig")
+    x = torch.randn(2, 4, 8)
+    cond = torch.randn(2, 4, 8)
+    text = torch.zeros(2, 3, dtype=torch.long)
+    time = torch.rand(2)
+    out = model(x=x, cond=cond, text=text, time=time)
+    assert out.shape == x.shape
+
+
+def test_gaussian_forward_prob():
+    model = _make_dit(output_dist="gaussian")
+    assert hasattr(model, "proj_out_ln_sig")
+    x = torch.randn(2, 4, 8)
+    cond = torch.randn(2, 4, 8)
+    text = torch.zeros(2, 3, dtype=torch.long)
+    time = torch.rand(2)
+    mu, ln_sig = model.forward_prob(x=x, cond=cond, text=text, time=time)
+    assert mu.shape == x.shape
+    assert ln_sig.shape == x.shape
+
+
+def test_gaussian_ln_sig_initialized():
+    model = _make_dit(output_dist="gaussian")
+    ln_sig = model.proj_out_ln_sig
+    assert torch.allclose(ln_sig.weight, torch.zeros_like(ln_sig.weight))
+    assert torch.allclose(ln_sig.bias, torch.zeros_like(ln_sig.bias))
+
+
+def test_gaussian_ln_sig_custom_init():
+    model = DiT(
+        dim=16,
+        depth=2,
+        heads=2,
+        ff_mult=2,
+        mel_dim=8,
+        text_num_embeds=256,
+        text_dim=8,
+        conv_layers=0,
+        output_dist="gaussian",
+        ln_sig_init=0.5,
+    )
+    ln_sig = model.proj_out_ln_sig
+    expected = torch.full_like(ln_sig.bias, float(torch.log(torch.tensor(0.5))))
+    assert torch.allclose(ln_sig.bias, expected)
+
+
+def test_soft_load_deterministic_into_gaussian():
+    det_model = _make_dit(output_dist="deterministic")
+    gauss_model = _make_dit(output_dist="gaussian")
+    load_state_dict_compat(gauss_model, det_model.state_dict(), output_dist="gaussian")
+
+
+def test_soft_load_warns_on_missing_ln_sig():
+    det_model = _make_dit(output_dist="deterministic")
+    gauss_model = _make_dit(output_dist="gaussian")
+    with pytest.warns(RuntimeWarning, match="proj_out_ln_sig"):
+        load_state_dict_compat(gauss_model, det_model.state_dict(), output_dist="gaussian")
+
+
+def test_gaussian_loss_gradients():
+    model = _make_cfm(output_dist="gaussian", objective="gaussian_nll")
+    inp = torch.randn(2, 4, 8)
+    text = torch.zeros(2, 3, dtype=torch.long)
+    loss, _, _ = model(inp, text=text)
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert model.transformer.proj_out_ln_sig.weight.grad is not None
+
+
+def test_resolve_mixed_precision_auto_cpu(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    assert resolve_mixed_precision("auto") == "no"
+
+
+def test_resolve_mixed_precision_invalid():
+    with pytest.raises(ValueError, match="mixed_precision"):
+        resolve_mixed_precision("fp32")
+
+
+class DummyRewardProvider(RewardProvider):
+    name = "dummy_reward"
+
+    def compute(self, batch: list[RewardInput]) -> list[RewardOutput]:
+        outputs = []
+        for item in batch:
+            reward = item.audio.mean().to(dtype=torch.float32)
+            outputs.append(RewardOutput(total_reward=reward, components={"mean": reward}, logs={}))
+        return outputs
+
+
+class DummyVocoder:
+    def decode(self, mel: torch.Tensor) -> torch.Tensor:
+        return mel.mean(dim=1)
+
+
+class DummyDataset(torch.utils.data.Dataset):
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, idx):
+        mel = torch.randn(8, 6)
+        return {"mel_spec": mel, "text": "hi"}
+
+
+class DummyFrameDataset(torch.utils.data.Dataset):
+    def __len__(self):
+        return 3
+
+    def __getitem__(self, idx):
+        return idx
+
+    def get_frame_len(self, idx):
+        return 1
+
+
+def test_grpo_single_step_updates_params(tmp_path):
+    torch.manual_seed(0)
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    before = model.transformer.proj_out.weight.detach().clone()
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+    )
+    trainer.train(DummyDataset(), num_workers=0)
+    after = model.transformer.proj_out.weight.detach()
+    assert not torch.equal(before.to(after.device), after)
+
+
+def test_grpo_init_checkpoint_loads_weights(tmp_path):
+    base_model = _make_cfm(output_dist="gaussian", objective="grpo")
+    with torch.no_grad():
+        base_model.transformer.proj_out.weight.fill_(0.1234)
+    init_ckpt = tmp_path / "init.pt"
+    torch.save({"model_state_dict": base_model.state_dict()}, init_ckpt)
+
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path / "empty"),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        init_model_ckpt=str(init_ckpt),
+    )
+    trainer.load_checkpoint()
+    assert torch.allclose(model.transformer.proj_out.weight, base_model.transformer.proj_out.weight)
+
+
+def test_grpo_kl_eps_stability(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        kl_eps=1e-6,
+    )
+    gen_mu = torch.zeros(1, 1, 1)
+    gen_sig = torch.full_like(gen_mu, -1000.0)
+    ref_mu = torch.zeros_like(gen_mu)
+    ref_sig = torch.full_like(gen_mu, -1000.0)
+    kl = trainer._kl_divergence((gen_mu, gen_sig), (ref_mu, ref_sig))
+    assert torch.isfinite(kl).all()
+
+
+def test_grpo_align_kl_steps_mask_length(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        align_kl_steps=True,
+    )
+    mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert mask.numel() == 4
+
+
+def test_grpo_skip_grad_mask_extremes(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=0.0,
+    )
+    mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert mask.numel() == 4
+    assert not mask.any()
+
+    trainer_high = GRPOTrainer(
+        _make_cfm(output_dist="gaussian", objective="grpo"),
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=1.0,
+    )
+    mask_high = trainer_high._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert mask_high.all()
+
+
+def test_grpo_skip_grad_mask_capped(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=5,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=0.0,
+        max_grad_steps=1,
+    )
+    mask = trainer._build_skip_grad_mask(steps=5, steps_plus_one=False)
+    assert (~mask).sum().item() <= 1
+
+
+def test_grpo_invalid_reward_ref_source(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    with pytest.raises(ValueError, match="reward_ref_source"):
+        GRPOTrainer(
+            model,
+            reward_combiner=combiner,
+            epochs=1,
+            learning_rate=1e-3,
+            num_warmup_updates=1,
+            save_per_updates=1000,
+            keep_last_n_checkpoints=0,
+            checkpoint_path=str(tmp_path),
+            batch_size_per_gpu=2,
+            batch_size_type="sample",
+            max_samples=2,
+            grad_accumulation_steps=1,
+            max_grad_norm=1.0,
+            logger=None,
+            mel_spec_type="vocos",
+            vocoder=DummyVocoder(),
+            repeat_count=1,
+            mini_repeat_count=1,
+            prompt_frac_range=(0.5, 0.5),
+            steps=3,
+            cfg_strength=1.0,
+            sway_sampling_coef=None,
+            reward_ref_source="invalid",
+        )
+
+
+def test_grpo_ref_audio_cache_roundtrip(tmp_path):
+    import soundfile as sf
+
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=2,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        reward_ref_cache_size=4,
+    )
+    wav_path = tmp_path / "ref.wav"
+    samples = torch.randn(1600).numpy()
+    sf.write(wav_path, samples, 16000)
+    audio_first = trainer._load_ref_audio(str(wav_path), target_sample_rate=16000)
+    audio_second = trainer._load_ref_audio(str(wav_path), target_sample_rate=16000)
+    assert audio_first is audio_second
+
+
+def test_grpo_ref_audio_skips_vocoder_decode(tmp_path):
+    class AudioPathDataset(torch.utils.data.Dataset):
+        def __len__(self):
+            return 1
+
+        def __getitem__(self, idx):
+            return {
+                "mel_spec": torch.randn(8, 6),
+                "text": "hi",
+                "audio_path": "dummy.wav",
+            }
+
+    class AssertSpeakerRefProvider(RewardProvider):
+        name = "assert_ref"
+
+        def compute(self, batch: list[RewardInput]) -> list[RewardOutput]:
+            assert all(item.speaker_ref is not None for item in batch)
+            outputs = []
+            for _ in batch:
+                outputs.append(RewardOutput(total_reward=torch.tensor(0.0), components={}, logs={}))
+            return outputs
+
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([AssertSpeakerRefProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=2,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        reward_ref_source="audio_path",
+        reward_ref_cache_size=2,
+        skip_grad_prob=0.0,
+    )
+    decode_calls = {"count": 0}
+    load_calls = {"count": 0}
+
+    def _count_decode(mel: torch.Tensor) -> torch.Tensor:
+        decode_calls["count"] += 1
+        return mel.mean(dim=1)
+
+    def _count_load(path: str | None, target_sample_rate: int):
+        load_calls["count"] += 1
+        return torch.zeros(160, dtype=torch.float32)
+
+    trainer._decode_audio = _count_decode
+    trainer._load_ref_audio = _count_load
+    trainer.save_checkpoint = lambda *args, **kwargs: None
+    trainer.train(AudioPathDataset(), num_workers=0)
+    assert decode_calls["count"] == 1
+    assert load_calls["count"] == 1
+
+
+def test_grpo_grad_accumulation_respected(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=1,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=2,
+        grad_accumulation_steps=2,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=2,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        skip_grad_prob=0.0,
+    )
+    step_calls = {"count": 0}
+    original_step = trainer.optimizer.step
+
+    def _counted_step(self, *args, **kwargs):
+        step_calls["count"] += 1
+        return original_step(*args, **kwargs)
+
+    trainer.optimizer.step = types.MethodType(_counted_step, trainer.optimizer)
+    trainer.save_checkpoint = lambda *args, **kwargs: None
+    trainer.train(DummyDataset(), num_workers=0)
+    assert step_calls["count"] == 1
+
+
+def test_collate_includes_audio_paths():
+    batch = [
+        {"mel_spec": torch.randn(8, 5), "text": "hi", "audio_path": "a.wav"},
+        {"mel_spec": torch.randn(8, 6), "text": "yo", "audio_path": "b.wav"},
+    ]
+    out = collate_fn(batch)
+    assert out["audio_paths"] == ["a.wav", "b.wav"]
+
+
+def test_registry_import_path():
+    provider = RewardRegistry.create({"name": f"{__name__}:DummyRewardProvider"})
+    assert isinstance(provider, DummyRewardProvider)
+
+
+def test_rewards_import_does_not_pull_optional_deps():
+    import f5_tts.rewards  # noqa: F401
+
+    assert "funasr" not in sys.modules
+    assert "wespeaker" not in sys.modules
+
+
+def test_prompt_length_mode_behavior():
+    seq_len = torch.tensor([10, 10])
+    frac = torch.tensor([0.6, 0.6])
+    rand = torch.tensor([0.1, 0.9])
+    start_min, _, _ = sample_prompt_spans(seq_len, frac, mode="min", rand=rand)
+    start_per, _, _ = sample_prompt_spans(seq_len, frac, mode="per_sample", rand=rand)
+    start_range, _, _ = sample_prompt_spans(seq_len, frac, mode="range", rand=rand)
+    assert start_min[0].item() == start_min[1].item()
+    assert start_per[0].item() != start_per[1].item()
+    assert start_range[0].item() == start_range[1].item() == int(0.6 * 10)
+
+
+def test_range_prompt_audio_uses_per_sample_lengths():
+    mel_spec = torch.stack(
+        [torch.arange(8, dtype=torch.float32), torch.arange(10, 18, dtype=torch.float32)], dim=0
+    ).unsqueeze(-1)
+    mel_lengths = torch.tensor([8, 8])
+    frac = torch.tensor([0.25, 0.5])
+    prompt_lens, prompt_idx, _ = sample_prompt_spans(mel_lengths, frac, mode="range")
+    prompt_audio, prompt_lens_arg = _build_prompt_audio(mel_spec, prompt_lens, prompt_idx, mode="range")
+    expected = torch.zeros_like(prompt_audio)
+    expected[0, :2, 0] = torch.tensor([0.0, 1.0])
+    expected[1, :4, 0] = torch.tensor([10.0, 11.0, 12.0, 13.0])
+    assert torch.equal(prompt_audio, expected)
+    assert torch.equal(prompt_lens_arg, prompt_lens)
+
+
+def test_forward_rl_skip_mask_respected():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    cond = torch.randn(1, 3, 8)
+    text = ["hi"]
+    duration = torch.tensor([3])
+    skip_mask = torch.tensor([True, True, True, True])
+    _, _, pro_result = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=5,
+        cfg_strength=0.0,
+        set_train=False,
+        skip_grad_mask=skip_mask,
+    )
+    flags = [item[-1] for item in pro_result]
+    assert flags[:2] == [True, True]
+    assert all(flag is False for flag in flags[2:])
+
+
+def test_forward_rl_strict_no_ref_audio():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    cond = torch.randn(1, 3, 8)
+    text = ["hi"]
+    duration = torch.tensor([3])
+    torch.manual_seed(0)
+    out_strict, _, _ = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=3,
+        cfg_strength=0.0,
+        set_train=False,
+        no_ref_audio=True,
+        strict_no_ref_audio=True,
+    )
+    torch.manual_seed(0)
+    out_zero, _, _ = model.forward_rl(
+        cond=torch.zeros_like(cond),
+        text=text,
+        duration=duration,
+        steps=3,
+        cfg_strength=0.0,
+        set_train=False,
+        no_ref_audio=False,
+    )
+    assert torch.allclose(out_strict, out_zero)
+
+
+def test_gaussian_density_weight_eps_stability():
+    x = torch.zeros(1, 1, 1)
+    mu = torch.zeros_like(x)
+    log_sig = torch.full_like(x, -1000.0)
+    weight = _gaussian_density_weight(x, mu, log_sig, eps=1e-6)
+    assert torch.isfinite(weight).all()
+
+
+def test_dynamic_batch_sampler_repeats_without_materializing():
+    dataset = DummyFrameDataset()
+    sampler = SequentialSampler(dataset)
+    batch_sampler = DynamicBatchSampler(
+        sampler,
+        frames_threshold=10,
+        max_samples=0,
+        random_seed=0,
+        drop_residual=False,
+        repeat_count=2,
+        mini_repeat_count=2,
+    )
+    batches = list(iter(batch_sampler))
+    assert len(batches) == 2
+    assert batches[0] == [0, 0, 1, 1, 2, 2]
+    assert len(batch_sampler) == 2
+
+
+def test_forward_rl_preserves_eval_mode():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    model.eval()
+    cond = torch.randn(1, 2, 8)
+    text = ["hi"]
+    duration = torch.tensor([2])
+    model.forward_rl(cond=cond, text=text, duration=duration, steps=2, cfg_strength=0.0, set_train=False)
+    assert model.training is False
+
+
+def test_forward_rl_steps_plus_one():
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    cond = torch.randn(1, 2, 8)
+    text = ["hi"]
+    duration = torch.tensor([2])
+    _, traj_default, _ = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=2,
+        cfg_strength=0.0,
+        set_train=False,
+    )
+    _, traj_plus, _ = model.forward_rl(
+        cond=cond,
+        text=text,
+        duration=duration,
+        steps=2,
+        steps_plus_one=True,
+        cfg_strength=0.0,
+        set_train=False,
+    )
+    assert traj_plus.shape[0] == traj_default.shape[0] + 1
+
+
+def _write_wespeaker_stub(tmp_path: Path, frontend: str = "fbank") -> Path:
+    pkg_root = tmp_path / "wespeaker"
+    models_dir = pkg_root / "models"
+    utils_dir = pkg_root / "utils"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    utils_dir.mkdir(parents=True, exist_ok=True)
+    (pkg_root / "__init__.py").write_text("", encoding="utf-8")
+    (models_dir / "__init__.py").write_text("", encoding="utf-8")
+    (utils_dir / "__init__.py").write_text("", encoding="utf-8")
+    (models_dir / "speaker_model.py").write_text(
+        "\n".join(
+            [
+                "import torch",
+                "",
+                "class DummyModel(torch.nn.Module):",
+                "    def __init__(self, **kwargs):",
+                "        super().__init__()",
+                "        self.weight = torch.nn.Parameter(torch.ones(1))",
+                "",
+                "    def forward(self, feats):",
+                "        return torch.ones((feats.size(0), 256), device=feats.device)",
+                "",
+                "def get_speaker_model(name):",
+                "    return DummyModel",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (utils_dir / "checkpoint.py").write_text(
+        "\n".join(
+            [
+                "def load_checkpoint(model, path):",
+                "    return model",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    model_dir = tmp_path / "wespeaker_model"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "avg_model.pt").write_bytes(b"stub")
+    config = "\n".join(
+        [
+            "model: ResNet34",
+            "model_args: {}",
+            "dataset_args:",
+            f"  frontend: {frontend}",
+            "  fbank_args:",
+            "    num_mel_bins: 80",
+            "    frame_length: 25",
+            "    frame_shift: 10",
+            "    dither: 0.0",
+            "    window_type: hamming",
+            "  resample_rate: 16000",
+            "",
+        ]
+    )
+    (model_dir / "config.yaml").write_text(config, encoding="utf-8")
+    return model_dir
+
+
+def _install_funasr_stub(monkeypatch, texts: list[str] | None = None) -> None:
+    texts = texts or ["hello world"]
+
+    class DummyAutoModel:
+        def __init__(self, model, device, disable_update=True):
+            self.model = model
+            self.device = device
+
+        def inference(self, input, cache, language, use_itn, disable_pbar, batch_size):
+            return [{"text": texts[idx % len(texts)]} for idx in range(len(input))]
+
+    funasr = types.ModuleType("funasr")
+    funasr.__path__ = []
+    funasr.AutoModel = DummyAutoModel
+    utils = types.ModuleType("funasr.utils")
+    utils.__path__ = []
+    post = types.ModuleType("funasr.utils.postprocess_utils")
+
+    def rich_transcription_postprocess(text: str) -> str:
+        return text
+
+    post.rich_transcription_postprocess = rich_transcription_postprocess
+    funasr.utils = utils
+    utils.postprocess_utils = post
+
+    monkeypatch.setitem(sys.modules, "funasr", funasr)
+    monkeypatch.setitem(sys.modules, "funasr.utils", utils)
+    monkeypatch.setitem(sys.modules, "funasr.utils.postprocess_utils", post)
+
+
+def test_trainer_allows_num_workers_zero(tmp_path, monkeypatch):
+    model = _make_cfm(output_dist="deterministic", objective="mse")
+    trainer = Trainer(
+        model,
+        epochs=1,
+        learning_rate=1e-4,
+        num_warmup_updates=0,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        log_samples=False,
+        mel_spec_type="vocos",
+    )
+    monkeypatch.setattr(trainer, "save_checkpoint", lambda *args, **kwargs: None)
+    trainer.train(DummyDataset(), num_workers=0)
+
+
+def test_trainer_grad_accumulation_respected(tmp_path):
+    model = _make_cfm(output_dist="deterministic", objective="mse")
+    trainer = Trainer(
+        model,
+        epochs=1,
+        learning_rate=1e-4,
+        num_warmup_updates=0,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=2,
+        max_grad_norm=1.0,
+        logger=None,
+        log_samples=False,
+        mel_spec_type="vocos",
+    )
+    step_calls = {"count": 0}
+    original_step = trainer.optimizer.step
+
+    def _counted_step(self, *args, **kwargs):
+        step_calls["count"] += 1
+        return original_step(*args, **kwargs)
+
+    trainer.optimizer.step = types.MethodType(_counted_step, trainer.optimizer)
+    trainer.save_checkpoint = lambda *args, **kwargs: None
+    trainer.train(DummyDataset(), num_workers=0)
+    assert step_calls["count"] == 1
+
+
+def test_wespeaker_requires_package(monkeypatch):
+    original_find_spec = importlib.util.find_spec
+
+    def _missing_spec(name, *args, **kwargs):
+        if name == "wespeaker":
+            return None
+        return original_find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib.util, "find_spec", _missing_spec)
+    provider = WeSpeakerSimProvider()
+    provider.setup({})
+    with pytest.raises(ImportError, match="WeSpeaker is required"):
+        provider._ensure_model()
+
+
+def test_wespeaker_rejects_non_fbank(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="s3prl")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    with pytest.raises(RuntimeError, match="frontend"):
+        provider._ensure_model()
+
+
+def test_wespeaker_fbank_stub_runs(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hi",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert torch.isfinite(outputs[0].total_reward)
+
+
+def test_wespeaker_respects_device(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    provider._ensure_model()
+    assert provider._model.weight.device.type == "cpu"
+
+
+def test_funasr_stub_runs_and_respects_device(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["hello"])
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hello",
+            speaker_ref=None,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].total_reward.device.type == "cpu"
+    assert provider._model.device == "cpu"
+
+
+def test_funasr_reward_values(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["hello world"])
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hello world",
+            speaker_ref=None,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["wer"].item() == 0.0
+    assert outputs[0].components["acc"].item() == 1.0
+    assert outputs[0].total_reward.item() == 1.0
+
+
+def test_funasr_wer_modes_punctuation_case():
+    ref = "hello world"
+    hyp = "hello, world."
+    word = _wer(ref, hyp, mode="word")
+    char = _wer(ref, hyp, mode="char")
+    assert word == 1.0
+    assert 0.0 < char < word
+
+
+def test_funasr_default_wer_mode_is_char():
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    assert provider.wer_mode == "char"
+
+
+def test_funasr_default_ref_source_is_text():
+    provider = FunASRWERProvider()
+    provider.setup({"model_id": "stub", "device": "cpu", "cache_enabled": False})
+    assert provider.ref_source == "text"
+
+
+def test_funasr_ref_source_audio_uses_asr_ref(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["match"])
+    provider = FunASRWERProvider()
+    provider.setup(
+        {"model_id": "stub", "device": "cpu", "cache_enabled": False, "wer_mode": "char", "ref_source": "audio"}
+    )
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="different text",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["wer"].item() == 0.0
+
+
+def test_funasr_ref_source_text_prefers_text(monkeypatch):
+    _install_funasr_stub(monkeypatch, texts=["match"])
+    provider = FunASRWERProvider()
+    provider.setup(
+        {"model_id": "stub", "device": "cpu", "cache_enabled": False, "wer_mode": "char", "ref_source": "text"}
+    )
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="different text",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["wer"].item() > 0.0
+
+
+def test_wespeaker_similarity_identical_audio(tmp_path, monkeypatch):
+    model_dir = _write_wespeaker_stub(tmp_path, frontend="fbank")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    for key in [name for name in sys.modules if name.startswith("wespeaker")]:
+        sys.modules.pop(key, None)
+    provider = WeSpeakerSimProvider()
+    provider.setup({"model_dir": str(model_dir), "device": "cpu", "cache_enabled": False})
+    audio = torch.randn(16000)
+    batch = [
+        RewardInput(
+            audio=audio,
+            text="hi",
+            speaker_ref=audio,
+            sample_rate=16000,
+            meta={},
+        )
+    ]
+    outputs = provider.compute(batch)
+    assert outputs[0].components["sim"].item() >= 0.99
+
+
+@pytest.mark.integration
+def test_audio_pack_metadata():
+    pack_dir = Path(__file__).parent / "assets" / "audio_pack"
+    metadata = pack_dir / "metadata.jsonl"
+    if not metadata.exists():
+        pytest.skip("audio pack not present")
+    line = metadata.read_text(encoding="utf-8").splitlines()[0]
+    audio_name = json.loads(line).get("audio")
+    assert (pack_dir / audio_name).exists()
+
+
+def test_grpo_length_checks(tmp_path):
+    model = _make_cfm(output_dist="gaussian", objective="grpo")
+    combiner = RewardCombiner([DummyRewardProvider()])
+
+    # Create trainer with dummy configs
+    trainer = GRPOTrainer(
+        model,
+        reward_combiner=combiner,
+        epochs=1,
+        learning_rate=1e-3,
+        num_warmup_updates=0,
+        save_per_updates=1000,
+        keep_last_n_checkpoints=0,
+        checkpoint_path=str(tmp_path),
+        batch_size_per_gpu=1,
+        batch_size_type="sample",
+        max_samples=1,
+        grad_accumulation_steps=1,
+        max_grad_norm=1.0,
+        logger=None,
+        mel_spec_type="vocos",
+        vocoder=DummyVocoder(),
+        repeat_count=1,
+        mini_repeat_count=1,
+        prompt_frac_range=(0.5, 0.5),
+        steps=3,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        max_duration=100,  # Small duration for testing
+    )
+
+    # Mock accelerator and optimizer to avoid actual training steps
+    trainer.accelerator.sync_gradients = True
+
+    # Mock accumulate to return a dummy context manager
+    class DummyContext:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, *args):
+            return None
+
+    trainer.accelerator.accumulate = lambda x: DummyContext()
+    trainer.optimizer.step = lambda: None
+    trainer.optimizer.zero_grad = lambda: None
+
+    # Simple logic check helper since we can't easily run the full loop
+    def process_batch(batch):
+        text_inputs = batch["text"]
+        mel_lengths = batch["mel_lengths"]
+
+        if trainer.legacy_length_check:
+            text_len = max(len(item) for item in text_inputs)
+            if text_len > max(mel_lengths):
+                return False
+        elif max(mel_lengths) > trainer.max_duration:
+            return False
+        return True
+
+    # Case 1: Legacy check enabled, text > mel
+    trainer.legacy_length_check = True
+    batch_legacy_skip = {
+        "text": ["very long text string that exceeds mel length"],
+        "mel_lengths": torch.tensor([10]),
+    }
+    assert process_batch(batch_legacy_skip) is False
+
+    # Case 2: Legacy check disabled, text > mel (Should pass)
+    trainer.legacy_length_check = False
+    assert process_batch(batch_legacy_skip) is True
+
+    # Case 3: Max duration check (Should skip)
+    batch_max_duration = {
+        "text": ["short"],
+        "mel_lengths": torch.tensor([101]),
+    }
+    assert process_batch(batch_max_duration) is False

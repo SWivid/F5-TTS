@@ -34,7 +34,13 @@ class F5TTS:
     ):
         model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
         model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
-        model_arc = model_cfg.model.arch
+        model_arc = OmegaConf.to_container(model_cfg.model.arch, resolve=True)
+        output_dist = model_cfg.model.get("output_dist", "deterministic")
+        sample_from_dist = model_cfg.model.get("sample_from_dist", False)
+        if "output_dist" not in model_arc:
+            model_arc["output_dist"] = output_dist
+        if "use_rl_head" not in model_arc and "use_rl_head" in model_cfg.model:
+            model_arc["use_rl_head"] = model_cfg.model.use_rl_head
 
         self.mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
         self.target_sample_rate = model_cfg.model.mel_spec.target_sample_rate
@@ -80,7 +86,16 @@ class F5TTS:
                 cached_path(f"hf://SWivid/{repo_name}/{model}/model_{ckpt_step}.{ckpt_type}", cache_dir=hf_cache_dir)
             )
         self.ema_model = load_model(
-            model_cls, model_arc, ckpt_file, self.mel_spec_type, vocab_file, self.ode_method, self.use_ema, self.device
+            model_cls,
+            model_arc,
+            ckpt_file,
+            self.mel_spec_type,
+            vocab_file,
+            self.ode_method,
+            self.use_ema,
+            self.device,
+            output_dist=output_dist,
+            sample_from_dist=sample_from_dist,
         )
 
     def transcribe(self, ref_audio, language=None):

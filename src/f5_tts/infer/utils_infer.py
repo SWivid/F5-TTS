@@ -29,7 +29,7 @@ from transformers import pipeline
 from vocos import Vocos
 
 from f5_tts.model import CFM
-from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
+from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer, load_state_dict_compat
 
 
 _ref_audio_cache = {}
@@ -185,7 +185,7 @@ def transcribe(ref_audio, language=None):
 # load model checkpoint for inference
 
 
-def load_checkpoint(model, ckpt_path, device: str, dtype=None, use_ema=True):
+def load_checkpoint(model, ckpt_path, device: str, dtype=None, use_ema=True, allow_extra_keys: bool = False):
     if dtype is None:
         dtype = (
             torch.float16
@@ -218,11 +218,11 @@ def load_checkpoint(model, ckpt_path, device: str, dtype=None, use_ema=True):
             if key in checkpoint["model_state_dict"]:
                 del checkpoint["model_state_dict"][key]
 
-        model.load_state_dict(checkpoint["model_state_dict"])
+        load_state_dict_compat(model, checkpoint["model_state_dict"], allow_extra_keys=allow_extra_keys)
     else:
         if ckpt_type == "safetensors":
             checkpoint = {"model_state_dict": checkpoint}
-        model.load_state_dict(checkpoint["model_state_dict"])
+        load_state_dict_compat(model, checkpoint["model_state_dict"], allow_extra_keys=allow_extra_keys)
 
     del checkpoint
     torch.cuda.empty_cache()
@@ -242,6 +242,9 @@ def load_model(
     ode_method=ode_method,
     use_ema=True,
     device=device,
+    output_dist: str | None = None,
+    sample_from_dist: bool = False,
+    allow_extra_keys: bool = False,
 ):
     if vocab_file == "":
         vocab_file = str(files("f5_tts").joinpath("infer/examples/vocab.txt"))
@@ -252,8 +255,11 @@ def load_model(
     print("model : ", ckpt_path, "\n")
 
     vocab_char_map, vocab_size = get_tokenizer(vocab_file, tokenizer)
+    model_arc = dict(model_cfg)
+    if output_dist is not None and "output_dist" not in model_arc:
+        model_arc["output_dist"] = output_dist
     model = CFM(
-        transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+        transformer=model_cls(**model_arc, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=dict(
             n_fft=n_fft,
             hop_length=hop_length,
@@ -266,10 +272,12 @@ def load_model(
             method=ode_method,
         ),
         vocab_char_map=vocab_char_map,
+        output_dist=output_dist if output_dist is not None else model_arc.get("output_dist"),
+        sample_from_dist=sample_from_dist,
     ).to(device)
 
     dtype = torch.float32 if mel_spec_type == "bigvgan" else None
-    model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema)
+    model = load_checkpoint(model, ckpt_path, device, dtype=dtype, use_ema=use_ema, allow_extra_keys=allow_extra_keys)
 
     return model
 

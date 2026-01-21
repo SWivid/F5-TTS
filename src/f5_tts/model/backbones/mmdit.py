@@ -96,6 +96,8 @@ class MMDiT(nn.Module):
         text_num_embeds=256,
         text_mask_padding=True,
         qk_norm=None,
+        output_dist: str = "deterministic",
+        use_rl_head: bool | None = None,
     ):
         super().__init__()
 
@@ -125,6 +127,13 @@ class MMDiT(nn.Module):
         )
         self.norm_out = AdaLayerNorm_Final(dim)  # final modulation
         self.proj_out = nn.Linear(dim, mel_dim)
+        if use_rl_head is not None:
+            output_dist = "gaussian" if use_rl_head else "deterministic"
+        if output_dist not in ("deterministic", "gaussian"):
+            raise ValueError(f"output_dist must be 'deterministic' or 'gaussian', got {output_dist}")
+        self.output_dist = output_dist
+        if self.output_dist == "gaussian":
+            self.proj_out_ln_sig = nn.Linear(dim, mel_dim)
 
         self.initialize_weights()
 
@@ -169,7 +178,7 @@ class MMDiT(nn.Module):
     def clear_cache(self):
         self.text_cond, self.text_uncond = None, None
 
-    def forward(
+    def _forward_backbone(
         self,
         x: float["b n d"],  # nosied input audio
         cond: float["b n d"],  # masked cond audio
@@ -208,6 +217,60 @@ class MMDiT(nn.Module):
             c, x = block(x, c, t, mask=mask, rope=rope_audio, c_rope=rope_text)
 
         x = self.norm_out(x, t)
-        output = self.proj_out(x)
 
+        return x
+
+    def forward(
+        self,
+        x: float["b n d"],  # nosied input audio
+        cond: float["b n d"],  # masked cond audio
+        text: int["b nt"],  # text
+        time: float["b"] | float[""],  # time step
+        mask: bool["b n"] | None = None,
+        drop_audio_cond: bool = False,  # cfg for cond audio
+        drop_text: bool = False,  # cfg for text
+        cfg_infer: bool = False,  # cfg inference, pack cond & uncond forward
+        cache: bool = False,
+    ):
+        x = self._forward_backbone(
+            x,
+            cond,
+            text,
+            time,
+            mask=mask,
+            drop_audio_cond=drop_audio_cond,
+            drop_text=drop_text,
+            cfg_infer=cfg_infer,
+            cache=cache,
+        )
+        output = self.proj_out(x)
         return output
+
+    def forward_prob(
+        self,
+        x: float["b n d"],
+        cond: float["b n d"],
+        text: int["b nt"],
+        time: float["b"] | float[""],
+        mask: bool["b n"] | None = None,
+        drop_audio_cond: bool = False,
+        drop_text: bool = False,
+        cfg_infer: bool = False,
+        cache: bool = False,
+    ):
+        if self.output_dist != "gaussian":
+            raise RuntimeError("forward_prob requires output_dist='gaussian'")
+        x = self._forward_backbone(
+            x,
+            cond,
+            text,
+            time,
+            mask=mask,
+            drop_audio_cond=drop_audio_cond,
+            drop_text=drop_text,
+            cfg_infer=cfg_infer,
+            cache=cache,
+        )
+        mu = self.proj_out(x)
+        ln_sig = self.proj_out_ln_sig(x)
+        return mu, ln_sig

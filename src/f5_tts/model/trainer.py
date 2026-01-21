@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from f5_tts.model import CFM
 from f5_tts.model.dataset import DynamicBatchSampler, collate_fn
-from f5_tts.model.utils import default, exists
+from f5_tts.model.utils import default, exists, load_state_dict_compat
 
 
 # trainer
@@ -53,21 +53,32 @@ class Trainer:
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
         model_cfg_dict: dict = dict(),  # training config
+        allow_extra_keys: bool = False,
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
-        if logger == "wandb" and not wandb.api.api_key:
-            logger = None
+        self.logger = logger
+        self._trackio = None
+        if self.logger == "trackio":
+            try:
+                import trackio as trackio_module
+            except Exception as exc:  # noqa: BLE001
+                raise ImportError(
+                    "Trackio is required for logger='trackio'. Install with: pip install f5-tts[trackio]"
+                ) from exc
+            self._trackio = trackio_module
+        elif self.logger == "wandb" and not wandb.api.api_key:
+            self.logger = None
         self.log_samples = log_samples
 
         self.accelerator = Accelerator(
-            log_with=logger if logger == "wandb" else None,
+            log_with=self.logger if self.logger == "wandb" else None,
             kwargs_handlers=[ddp_kwargs],
             gradient_accumulation_steps=grad_accumulation_steps,
             **accelerate_kwargs,
         )
 
-        self.logger = logger
+        self.writer = None
         if self.logger == "wandb":
             if exists(wandb_resume_id):
                 init_kwargs = {"wandb": {"resume": "allow", "name": wandb_run_name, "id": wandb_resume_id}}
@@ -92,6 +103,28 @@ class Trainer:
                 init_kwargs=init_kwargs,
                 config=model_cfg_dict,
             )
+        elif self.logger == "trackio":
+            if not model_cfg_dict:
+                model_cfg_dict = {
+                    "epochs": epochs,
+                    "learning_rate": learning_rate,
+                    "num_warmup_updates": num_warmup_updates,
+                    "batch_size_per_gpu": batch_size_per_gpu,
+                    "batch_size_type": batch_size_type,
+                    "max_samples": max_samples,
+                    "grad_accumulation_steps": grad_accumulation_steps,
+                    "max_grad_norm": max_grad_norm,
+                    "noise_scheduler": noise_scheduler,
+                }
+            model_cfg_dict["gpus"] = self.accelerator.num_processes
+            self._trackio.init(
+                project=wandb_project,
+                name=wandb_run_name,
+                config=model_cfg_dict,
+                space_id=os.getenv("TRACKIO_SPACE_ID"),
+                dataset_id=os.getenv("TRACKIO_DATASET_ID"),
+                embed=False,
+            )
 
         elif self.logger == "tensorboard":
             from torch.utils.tensorboard import SummaryWriter
@@ -104,7 +137,7 @@ class Trainer:
             self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
             self.ema_model.to(self.accelerator.device)
 
-            print(f"Using logger: {logger}")
+            print(f"Using logger: {self.logger}")
             if grad_accumulation_steps > 1:
                 print(
                     "Gradient accumulation checkpointing with per_updates now, old logic per_steps used with before f992c4e"
@@ -131,10 +164,15 @@ class Trainer:
         self.noise_scheduler = noise_scheduler
 
         self.duration_predictor = duration_predictor
+        self.allow_extra_keys = allow_extra_keys
 
         if bnb_optimizer:
-            import bitsandbytes as bnb
-
+            try:
+                import bitsandbytes as bnb
+            except Exception as exc:  # noqa: BLE001
+                raise ImportError(
+                    "bitsandbytes is required for bnb_optimizer. Install with: pip install bitsandbytes"
+                ) from exc
             self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
         else:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -143,6 +181,25 @@ class Trainer:
     @property
     def is_main(self):
         return self.accelerator.is_main_process
+
+    def _log(self, payload: dict[str, float], step: int) -> None:
+        if self.logger == "wandb":
+            if self.accelerator.trackers:
+                self.accelerator.log(payload, step=step)
+                return
+            try:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb.log(payload, step=step)
+            except Exception:
+                # Avoid breaking training if wandb is unavailable or misconfigured.
+                pass
+        elif self.logger == "trackio":
+            self._trackio.log(payload, step=step)
+        elif self.logger == "tensorboard":
+            for key, value in payload.items():
+                self.writer.add_scalar(key, value, step)
 
     def save_checkpoint(self, update, last=False):
         self.accelerator.wait_for_everyone()
@@ -225,8 +282,14 @@ class Trainer:
             if key in checkpoint["ema_model_state_dict"]:
                 del checkpoint["ema_model_state_dict"][key]
 
+        output_dist = getattr(self.accelerator.unwrap_model(self.model).transformer, "output_dist", "deterministic")
         if self.is_main:
-            self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
+            load_state_dict_compat(
+                self.ema_model,
+                checkpoint["ema_model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
 
         if "update" in checkpoint or "step" in checkpoint:
             # patch for backward compatibility, with before f992c4e
@@ -241,7 +304,12 @@ class Trainer:
                 if key in checkpoint["model_state_dict"]:
                     del checkpoint["model_state_dict"][key]
 
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+            load_state_dict_compat(
+                self.accelerator.unwrap_model(self.model),
+                checkpoint["model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
@@ -252,7 +320,12 @@ class Trainer:
                 for k, v in checkpoint["ema_model_state_dict"].items()
                 if k not in ["initted", "update", "step"]
             }
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+            load_state_dict_compat(
+                self.accelerator.unwrap_model(self.model),
+                checkpoint["model_state_dict"],
+                allow_extra_keys=self.allow_extra_keys,
+                output_dist=output_dist,
+            )
             update = 0
 
         del checkpoint
@@ -282,7 +355,7 @@ class Trainer:
                 collate_fn=collate_fn,
                 num_workers=num_workers,
                 pin_memory=True,
-                persistent_workers=True,
+                persistent_workers=num_workers > 0,
                 batch_size=self.batch_size_per_gpu,
                 shuffle=True,
                 generator=generator,
@@ -302,7 +375,7 @@ class Trainer:
                 collate_fn=collate_fn,
                 num_workers=num_workers,
                 pin_memory=True,
-                persistent_workers=True,
+                persistent_workers=num_workers > 0,
                 batch_sampler=batch_sampler,
             )
         else:
@@ -366,7 +439,7 @@ class Trainer:
                     # TODO. add duration predictor training
                     if self.duration_predictor is not None and self.accelerator.is_local_main_process:
                         dur_loss = self.duration_predictor(mel_spec, lens=batch.get("durations"))
-                        self.accelerator.log({"duration loss": dur_loss.item()}, step=global_update)
+                        self._log({"duration loss": dur_loss.item()}, step=global_update)
 
                     loss, cond, pred = self.model(
                         mel_spec, text=text_inputs, lens=mel_lengths, noise_scheduler=self.noise_scheduler
@@ -376,9 +449,10 @@ class Trainer:
                     if self.max_grad_norm > 0 and self.accelerator.sync_gradients:
                         self.accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
-                    self.optimizer.step()
-                    self.scheduler.step()
-                    self.optimizer.zero_grad()
+                    if self.accelerator.sync_gradients:
+                        self.optimizer.step()
+                        self.scheduler.step()
+                        self.optimizer.zero_grad()
 
                 if self.accelerator.sync_gradients:
                     if self.is_main:
@@ -388,13 +462,8 @@ class Trainer:
                     progress_bar.update(1)
                     progress_bar.set_postfix(update=str(global_update), loss=loss.item())
 
-                if self.accelerator.is_local_main_process:
-                    self.accelerator.log(
-                        {"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update
-                    )
-                    if self.logger == "tensorboard":
-                        self.writer.add_scalar("loss", loss.item(), global_update)
-                        self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_update)
+                if self.accelerator.is_local_main_process and self.accelerator.sync_gradients:
+                    self._log({"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update, last=True)
@@ -432,8 +501,20 @@ class Trainer:
                         torchaudio.save(
                             f"{log_samples_path}/update_{global_update}_ref.wav", ref_audio, target_sample_rate
                         )
+                        if self.logger == "wandb" and wandb.run is not None:
+                            gen_np = gen_audio.squeeze().cpu().numpy()
+                            ref_np = ref_audio.squeeze().cpu().numpy()
+                            wandb.log(
+                                {
+                                    "samples/gen": wandb.Audio(gen_np, sample_rate=target_sample_rate),
+                                    "samples/ref": wandb.Audio(ref_np, sample_rate=target_sample_rate),
+                                },
+                                step=global_update,
+                            )
                         self.model.train()
 
         self.save_checkpoint(global_update, last=True)
 
         self.accelerator.end_training()
+        if self.logger == "trackio":
+            self._trackio.finish()

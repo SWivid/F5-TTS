@@ -159,6 +159,7 @@ class CustomDataset(Dataset):
         return {
             "mel_spec": mel_spec,
             "text": text,
+            "audio_path": audio_path,
         }
 
 
@@ -173,15 +174,24 @@ class DynamicBatchSampler(Sampler[list[int]]):
     """
 
     def __init__(
-        self, sampler: Sampler[int], frames_threshold: int, max_samples=0, random_seed=None, drop_residual: bool = False
+        self,
+        sampler: Sampler[int],
+        frames_threshold: int,
+        max_samples=0,
+        random_seed=None,
+        drop_residual: bool = False,
+        repeat_count: int = 1,
+        mini_repeat_count: int = 1,
     ):
         self.sampler = sampler
         self.frames_threshold = frames_threshold
         self.max_samples = max_samples
         self.random_seed = random_seed
         self.epoch = 0
+        self.repeat_count = repeat_count
+        self.mini_repeat_count = mini_repeat_count
 
-        indices, batches = [], []
+        indices, base_batches = [], []
         data_source = self.sampler.data_source
 
         for idx in tqdm(
@@ -200,7 +210,7 @@ class DynamicBatchSampler(Sampler[list[int]]):
                 batch_frames += frame_len
             else:
                 if len(batch) > 0:
-                    batches.append(batch)
+                    base_batches.append(batch)
                 if frame_len <= self.frames_threshold:
                     batch = [idx]
                     batch_frames = frame_len
@@ -209,10 +219,10 @@ class DynamicBatchSampler(Sampler[list[int]]):
                     batch_frames = 0
 
         if not drop_residual and len(batch) > 0:
-            batches.append(batch)
+            base_batches.append(batch)
 
         del indices
-        self.batches = batches
+        self.base_batches = base_batches
 
         # Ensure even batches with accelerate BatchSamplerShard cls under frame_per_batch setting
         self.drop_last = True
@@ -227,14 +237,26 @@ class DynamicBatchSampler(Sampler[list[int]]):
             g = torch.Generator()
             g.manual_seed(self.random_seed + self.epoch)
             # Use PyTorch's random permutation for better reproducibility across PyTorch versions
-            indices = torch.randperm(len(self.batches), generator=g).tolist()
-            batches = [self.batches[i] for i in indices]
+            indices = torch.randperm(len(self.base_batches), generator=g).tolist()
+            batches = [self.base_batches[i] for i in indices]
         else:
-            batches = self.batches
-        return iter(batches)
+            batches = self.base_batches
+        if self.repeat_count == 1 and self.mini_repeat_count == 1:
+            return iter(batches)
+
+        def _repeated_gen():
+            for chunk in batches:
+                for _ in range(self.repeat_count):
+                    batch_sub = []
+                    for index in chunk:
+                        for _ in range(self.mini_repeat_count):
+                            batch_sub.append(index)
+                    yield batch_sub
+
+        return _repeated_gen()
 
     def __len__(self):
-        return len(self.batches)
+        return len(self.base_batches) * self.repeat_count
 
 
 # Load dataset
@@ -321,10 +343,12 @@ def collate_fn(batch):
 
     text = [item["text"] for item in batch]
     text_lengths = torch.LongTensor([len(item) for item in text])
+    audio_paths = [item.get("audio_path") for item in batch]
 
     return dict(
         mel=mel_specs,
         mel_lengths=mel_lengths,  # records for padding mask
         text=text,
         text_lengths=text_lengths,
+        audio_paths=audio_paths,
     )
