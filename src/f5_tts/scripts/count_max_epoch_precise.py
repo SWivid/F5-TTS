@@ -20,13 +20,14 @@ batch_sampler = DynamicBatchSampler(
     random_seed=666,
     drop_residual=False,
 )
+updates_per_epoch = int(len(batch_sampler) / gpus)
 
 print(
-    f"One epoch has {len(batch_sampler) / gpus} updates if gpus={gpus}, with "
+    f"One epoch has {updates_per_epoch} updates if gpus={gpus}, with "
     f"batch_size_per_gpu={batch_size_per_gpu} (frames) & "
     f"max_samples_per_gpu={max_samples_per_gpu}."
 )
 print(
     f"If gpus={gpus}, for max_updates={max_updates} "
-    f"should set epoch={math.ceil(max_updates / len(batch_sampler) * gpus)}."
+    f"should set epoch={math.ceil(max_updates / updates_per_epoch)}."
 )
