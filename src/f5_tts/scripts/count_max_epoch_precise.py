@@ -27,7 +27,4 @@ print(
     f"batch_size_per_gpu={batch_size_per_gpu} (frames) & "
     f"max_samples_per_gpu={max_samples_per_gpu}."
 )
-print(
-    f"If gpus={gpus}, for max_updates={max_updates} "
-    f"should set epoch={math.ceil(max_updates / updates_per_epoch)}."
-)
+print(f"If gpus={gpus}, for max_updates={max_updates} should set epoch={math.ceil(max_updates / updates_per_epoch)}.")
