@@ -27,11 +27,12 @@ python src/f5_tts/train/datasets/prepare_libritts.py
 python src/f5_tts/train/datasets/prepare_ljspeech.py
 ```
 
-### 2. Create custom dataset with metadata.csv
+### 2. Create custom dataset with CSV
+Prepare a CSV with two columns using a required header: `audio_file|text`. Audio paths must be absolute.
 Use guidance see [#57 here](https://github.com/SWivid/F5-TTS/discussions/57#discussioncomment-10959029).
 
 ```bash
-python src/f5_tts/train/datasets/prepare_csv_wavs.py
+python src/f5_tts/train/datasets/prepare_csv_wavs.py /path/to/metadata.csv /path/to/output
 ```
 
 ## Training & Finetuning
