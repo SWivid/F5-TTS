@@ -96,7 +96,9 @@ class Trainer:
         elif self.logger == "tensorboard":
             from torch.utils.tensorboard import SummaryWriter
 
-            self.writer = SummaryWriter(log_dir=f"runs/{wandb_run_name}")
+            self.writer = None
+            if self.accelerator.is_main_process:
+                self.writer = SummaryWriter(log_dir=f"runs/{wandb_run_name}")
 
         self.model = model
 
@@ -392,9 +394,9 @@ class Trainer:
                     self.accelerator.log(
                         {"loss": loss.item(), "lr": self.scheduler.get_last_lr()[0]}, step=global_update
                     )
-                    if self.logger == "tensorboard":
-                        self.writer.add_scalar("loss", loss.item(), global_update)
-                        self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_update)
+                if self.logger == "tensorboard" and self.accelerator.is_main_process:
+                    self.writer.add_scalar("loss", loss.item(), global_update)
+                    self.writer.add_scalar("lr", self.scheduler.get_last_lr()[0], global_update)
 
                 if global_update % self.last_per_updates == 0 and self.accelerator.sync_gradients:
                     self.save_checkpoint(global_update, last=True)
