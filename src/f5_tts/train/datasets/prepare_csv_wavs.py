@@ -92,7 +92,11 @@ def process_audio_file(audio_path, text, polyphone):
 def batch_convert_texts(texts, polyphone, batch_size=BATCH_SIZE):
     """Convert a list of texts to pinyin in batches."""
     converted_texts = []
-    for i in range(0, len(texts), batch_size):
+    for i in tqdm(
+        range(0, len(texts), batch_size),
+        total=(len(texts) + batch_size - 1) // batch_size,
+        desc="Converting texts to pinyin",
+    ):
         batch = texts[i : i + batch_size]
         converted_batch = convert_char_to_pinyin(batch, polyphone=polyphone)
         converted_texts.extend(converted_batch)
