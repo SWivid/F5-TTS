@@ -92,7 +92,7 @@ class CFM(nn.Module):
         cfg_strength=1.0,
         sway_sampling_coef=None,
         seed: int | None = None,
-        max_duration=4096,
+        max_duration=65536,
         vocoder: Callable[[float["b d n"]], float["b nw"]] | None = None,
         use_epss=True,
         no_ref_audio=False,
