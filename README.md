@@ -35,12 +35,16 @@
 
 ### 🔊 Вариант 1: Использование `ruaccent` для ударений
 
+Разработка блокнота временно заморожена. 
+
 [![Open In Colab F5-TTS (ruaccent)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mikhail2013ru/ESPEECH_TTS_INFER/blob/main/notebooks/ESPEECH_TTS_INFER_2.2_ruaccent.ipynb)
 
 👉 Этот ноутбук использует библиотеку `ruaccent` для расстановки ударений.  
 Модель загружается **один раз**, затем можно генерировать несколько аудио.
 
 ### 🔊 Вариант 2: Использование `silero-stress` для ударений
+
+Поддерживается в актуальном состоянии.
 
 [![Open In Colab F5-TTS (silero-stress)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mikhail2013ru/ESPEECH_TTS_INFER/blob/main/notebooks/ESPEECH_TTS_INFER_2.2_Silero-stress.ipynb)
 
