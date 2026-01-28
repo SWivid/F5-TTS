@@ -7,6 +7,12 @@ Install packages for evaluation:
 pip install -e .[eval]
 ```
 
+> [!IMPORTANT]
+> For [faster-whisper](https://github.com/SYSTRAN/faster-whisper), for various compatibilities:   
+> `pip install ctranslate2==4.5.0` if CUDA 12 and cuDNN 9;  
+> `pip install ctranslate2==4.4.0` if CUDA 12 and cuDNN 8;  
+> `pip install ctranslate2==3.24.0` if CUDA 11 and cuDNN 8.
+
 ## Generating Samples for Evaluation
 
 ### Prepare Test Datasets
