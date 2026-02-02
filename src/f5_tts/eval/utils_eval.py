@@ -324,7 +324,7 @@ def run_asr_wer(args):
     punctuation_all = punctuation + string.punctuation
     wer_results = []
 
-    from jiwer import compute_measures
+    from jiwer import process_words
 
     for gen_wav, prompt_wav, truth in tqdm(test_set):
         if lang == "zh":
@@ -354,13 +354,13 @@ def run_asr_wer(args):
             truth = truth.lower()
             hypo = hypo.lower()
 
-        measures = compute_measures(truth, hypo)
-        wer = measures["wer"]
+        measures = process_words(truth, hypo)
+        wer = measures.wer
 
         # ref_list = truth.split(" ")
-        # subs = measures["substitutions"] / len(ref_list)
-        # dele = measures["deletions"] / len(ref_list)
-        # inse = measures["insertions"] / len(ref_list)
+        # subs = measures.substitutions / len(ref_list)
+        # dele = measures.deletions / len(ref_list)
+        # inse = measures.insertions / len(ref_list)
 
         wer_results.append(
             {
