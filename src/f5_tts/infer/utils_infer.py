@@ -303,15 +303,21 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
 
     global _ref_audio_cache
 
+    # Track if audio was clipped and the clip ratio
+    audio_was_clipped = False
+    clip_ratio = 1.0
+
     if audio_hash in _ref_audio_cache:
         show_info("Using cached preprocessed reference audio...")
-        ref_audio = _ref_audio_cache[audio_hash]
+        ref_audio, clip_ratio = _ref_audio_cache[audio_hash]
+        audio_was_clipped = clip_ratio < 1.0
 
     else:  # first pass, do preprocess
         with tempfile.NamedTemporaryFile(suffix=".wav", **tempfile_kwargs) as f:
             temp_path = f.name
 
         aseg = AudioSegment.from_file(ref_audio_orig)
+        original_duration = len(aseg)
 
         # 1. try to find long silence for clipping
         non_silent_segs = silence.split_on_silence(
@@ -321,6 +327,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         for non_silent_seg in non_silent_segs:
             if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 12000:
                 show_info("Audio is over 12s, clipping short. (1)")
+                audio_was_clipped = True
                 break
             non_silent_wave += non_silent_seg
 
@@ -333,6 +340,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
             for non_silent_seg in non_silent_segs:
                 if len(non_silent_wave) > 6000 and len(non_silent_wave + non_silent_seg) > 12000:
                     show_info("Audio is over 12s, clipping short. (2)")
+                    audio_was_clipped = True
                     break
                 non_silent_wave += non_silent_seg
 
@@ -342,13 +350,20 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         if len(aseg) > 12000:
             aseg = aseg[:12000]
             show_info("Audio is over 12s, clipping short. (3)")
+            audio_was_clipped = True
 
         aseg = remove_silence_edges(aseg) + AudioSegment.silent(duration=50)
         aseg.export(temp_path, format="wav")
         ref_audio = temp_path
 
-        # Cache the processed reference audio
-        _ref_audio_cache[audio_hash] = ref_audio
+        # Calculate clip ratio for text trimming
+        if original_duration > 0:
+            clip_ratio = len(aseg) / original_duration
+        else:
+            clip_ratio = 1.0
+
+        # Cache the processed reference audio along with clip ratio
+        _ref_audio_cache[audio_hash] = (ref_audio, clip_ratio)
 
     if not ref_text.strip():
         global _ref_text_cache
@@ -363,6 +378,10 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
             _ref_text_cache[audio_hash] = ref_text
     else:
         show_info("Using custom reference text...")
+        # If audio was clipped and custom text provided, trim text proportionally
+        if audio_was_clipped and clip_ratio < 1.0:
+            ref_text = _clip_text_proportionally(ref_text, clip_ratio)
+            show_info(f"Reference text clipped to match audio (ratio: {clip_ratio:.2f})")
 
     # Ensure ref_text ends with a proper sentence-ending punctuation
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
@@ -374,6 +393,43 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
     print("\nref_text  ", ref_text)
 
     return ref_audio, ref_text
+
+
+def _clip_text_proportionally(text, ratio):
+    """
+    Clip text proportionally based on the audio clip ratio.
+    Tries to clip at word/sentence boundaries for better results.
+    """
+    if ratio >= 1.0:
+        return text
+
+    # Calculate target length
+    target_len = int(len(text) * ratio)
+    if target_len >= len(text):
+        return text
+
+    # Try to find a good break point (sentence or word boundary)
+    clipped = text[:target_len]
+
+    # Look for sentence boundaries (Chinese and English)
+    sentence_ends = ["。", ".", "!", "?", "！", "？"]
+    best_break = -1
+    for end in sentence_ends:
+        pos = clipped.rfind(end)
+        if pos > best_break:
+            best_break = pos
+
+    # If found a sentence boundary in the last 30% of clipped text, use it
+    if best_break > target_len * 0.7:
+        return text[: best_break + 1]
+
+    # Otherwise, try to find a word boundary (space for English, or just clip for Chinese)
+    space_pos = clipped.rfind(" ")
+    if space_pos > target_len * 0.8:
+        return text[:space_pos]
+
+    # Fallback: just clip at target length
+    return clipped
 
 
 # infer process: chunk text -> infer batches [i.e. infer_batch_process()]
