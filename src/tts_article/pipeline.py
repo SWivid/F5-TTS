@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Dict
@@ -90,6 +91,18 @@ class GenerationPipeline:
         self.concater = FileConcatenator()
         self.voices = config.voices
         self._gpu_lock = threading.Lock()  # Protect GPU inference on Metal
+
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration in seconds to human-readable string."""
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = seconds % 60
+        if hours > 0:
+            return f"{hours}h {minutes}m {secs:.2f}s"
+        elif minutes > 0:
+            return f"{minutes}m {secs:.2f}s"
+        else:
+            return f"{secs:.2f}s"
 
     def _load_article(self) -> str:
         path = Path(self.config.input_article)
@@ -186,6 +199,7 @@ class GenerationPipeline:
             raise
 
     def run(self) -> Tuple[str, str]:
+        total_start_time = time.time()
         article_text = self._load_article()
         segments = self.splitter.split(article_text)
         if not segments:
@@ -343,5 +357,11 @@ class GenerationPipeline:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
         print(f"Metadata saved to: {metadata_path}")
+
+        # Print total generation time
+        total_time = time.time() - total_start_time
+        print(f"\n========================================")
+        print(f"Total generation time: {self._format_duration(total_time)}")
+        print("========================================")
 
         return str(final_audio), ""

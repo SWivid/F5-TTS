@@ -134,7 +134,7 @@ speed = 1.0
 [voices."man.surprise"]
 ref_audio = "voices/man/surprise.wav"
 ref_text = ""
-speed = 1.2
+speed = 1.1
 
 [voices."man.control"]
 ref_audio = "voices/man/control.wav"

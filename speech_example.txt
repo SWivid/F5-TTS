@@ -1,4 +1,4 @@
-{"name": "man.surprise", "seed": -1, "speed": 0.7}
+{"name": "man.surprise", "seed": -1, "speed": 1.2}
 未明子的主义主义在思想市场上扮演着一个尖锐的观察者与审判官角色。
-{"name": "happy", "seed": -1, "speed": 0.9}
+{"name": "happy", "seed": -1, "speed": 1.0}
 它试图为所有哲学与思潮建立一套诊断标准，其核心操作在于为每一个成体系的理论指认一个明确的第一性本体论承诺，例如自由、理性或上帝。
