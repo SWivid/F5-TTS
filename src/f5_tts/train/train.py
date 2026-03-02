@@ -21,8 +21,12 @@ def main(model_cfg):
     tokenizer = model_cfg.model.tokenizer
     mel_spec_type = model_cfg.model.mel_spec.mel_spec_type
 
-    exp_name = f"{model_cfg.model.name}_{mel_spec_type}_{model_cfg.model.tokenizer}_{model_cfg.datasets.name}"
-    wandb_resume_id = None
+    wandb_project = model_cfg.ckpts.get("wandb_project", "CFM-TTS")
+    wandb_run_name = model_cfg.ckpts.get(
+        "wandb_run_name",
+        f"{model_cfg.model.name}_{mel_spec_type}_{model_cfg.model.tokenizer}_{model_cfg.datasets.name}",
+    )
+    wandb_resume_id = model_cfg.ckpts.get("wandb_resume_id", None)
 
     # set text tokenizer
     if tokenizer != "custom":
@@ -53,8 +57,8 @@ def main(model_cfg):
         grad_accumulation_steps=model_cfg.optim.grad_accumulation_steps,
         max_grad_norm=model_cfg.optim.max_grad_norm,
         logger=model_cfg.ckpts.logger,
-        wandb_project="CFM-TTS",
-        wandb_run_name=exp_name,
+        wandb_project=wandb_project,
+        wandb_run_name=wandb_run_name,
         wandb_resume_id=wandb_resume_id,
         last_per_updates=model_cfg.ckpts.last_per_updates,
         log_samples=model_cfg.ckpts.log_samples,

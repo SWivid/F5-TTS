@@ -42,6 +42,9 @@ model:
 
 ckpts:
   logger: wandb  # wandb | tensorboard | null
+  wandb_project: CFM-TTS  # wandb project name
+  wandb_run_name: ${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}  # wandb run name
+  wandb_resume_id: null  # wandb run id for resuming, null to auto-detect from checkpoint
   log_samples: True  # infer random sample per save checkpoint. wip, normal to fail with extra long samples
   save_per_updates: 50000  # save checkpoint per updates
   keep_last_n_checkpoints: -1  # -1 to keep all, 0 to not save intermediate, > 0 to keep last N checkpoints
