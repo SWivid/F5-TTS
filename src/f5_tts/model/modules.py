@@ -11,6 +11,7 @@ d - dimension
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Optional
 
 import torch
@@ -452,6 +453,12 @@ class AttnProcessor:
     ):
         if attn_backend == "flash_attn":
             assert is_package_available("flash_attn"), "Please install flash-attn first."
+        if attn_backend == "torch" and attn_mask_enabled:
+            warnings.warn(
+                "attn_mask_enabled=True with attn_backend='torch' can consume large GPU memory. "
+                "Please switch attn_backend to 'flash_attn'.",
+                UserWarning,
+            )
 
         self.pe_attn_head = pe_attn_head
         self.attn_backend = attn_backend
@@ -557,6 +564,12 @@ class JointAttnProcessor:
     ):
         if attn_backend == "flash_attn":
             assert is_package_available("flash_attn"), "Please install flash-attn first."
+        if attn_backend == "torch" and attn_mask_enabled:
+            warnings.warn(
+                "attn_mask_enabled=True with attn_backend='torch' can consume large GPU memory. "
+                "Please switch attn_backend to 'flash_attn'.",
+                UserWarning,
+            )
 
         self.attn_backend = attn_backend
         self.attn_mask_enabled = attn_mask_enabled

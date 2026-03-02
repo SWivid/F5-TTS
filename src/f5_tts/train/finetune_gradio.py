@@ -79,6 +79,7 @@ def save_settings(
     mixed_precision,
     logger,
     ch_8bit_adam,
+    use_fused_adamw,
 ):
     path_project = os.path.join(path_project_ckpts, project_name)
     os.makedirs(path_project, exist_ok=True)
@@ -104,6 +105,7 @@ def save_settings(
         "mixed_precision": mixed_precision,
         "logger": logger,
         "bnb_optimizer": ch_8bit_adam,
+        "use_fused_adamw": use_fused_adamw,
     }
     with open(file_setting, "w") as f:
         json.dump(settings, f, indent=4)
@@ -137,6 +139,7 @@ def load_settings(project_name):
         "mixed_precision": "fp16",
         "logger": "none",
         "bnb_optimizer": False,
+        "use_fused_adamw": True,
     }
     if device == "mps":
         default_settings["mixed_precision"] = "none"
@@ -168,6 +171,7 @@ def load_settings(project_name):
         default_settings["mixed_precision"],
         default_settings["logger"],
         default_settings["bnb_optimizer"],
+        default_settings["use_fused_adamw"],
     )
 
 
@@ -345,6 +349,7 @@ def start_training(
     stream,
     logger,
     ch_8bit_adam,
+    use_fused_adamw,
 ):
     global training_process, tts_api, stop_signal
 
@@ -374,6 +379,14 @@ def start_training(
     # Check if a training process is already running
     if training_process is not None:
         return "Train run already!", gr.update(interactive=False), gr.update(interactive=True)
+
+    if ch_8bit_adam and use_fused_adamw:
+        yield (
+            "Cannot enable both 8-bit Adam optimizer and fused AdamW. Please choose only one.",
+            gr.update(interactive=True),
+            gr.update(interactive=False),
+        )
+        return
 
     yield "start train", gr.update(interactive=False), gr.update(interactive=False)
 
@@ -428,6 +441,8 @@ def start_training(
 
     if ch_8bit_adam:
         cmd += " --bnb_optimizer"
+    if use_fused_adamw:
+        cmd += " --use_fused_adamw"
 
     print("run command : \n" + cmd + "\n")
 
@@ -452,6 +467,7 @@ def start_training(
         mixed_precision,
         logger,
         ch_8bit_adam,
+        use_fused_adamw,
     )
 
     try:
@@ -1573,6 +1589,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
+                ch_fused_adamw = gr.Checkbox(label="Use fused AdamW optimizer", value=True)
                 mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"])
                 cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"])
                 with gr.Column():
@@ -1600,6 +1617,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     mixed_precision_value,
                     logger_value,
                     bnb_optimizer_value,
+                    use_fused_adamw_value,
                 ) = load_settings(projects_selelect)
 
                 # Assigning values to the respective components
@@ -1622,6 +1640,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 mixed_precision.value = mixed_precision_value
                 cd_logger.value = logger_value
                 ch_8bit_adam.value = bnb_optimizer_value
+                ch_fused_adamw.value = use_fused_adamw_value
 
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Textbox(label="Info", value="")
@@ -1682,6 +1701,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     ch_stream,
                     cd_logger,
                     ch_8bit_adam,
+                    ch_fused_adamw,
                 ],
                 outputs=[txt_info_train, start_button, stop_button],
             )
@@ -1734,6 +1754,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     mixed_precision,
                     cd_logger,
                     ch_8bit_adam,
+                    ch_fused_adamw,
                 ]
                 return output_components
 

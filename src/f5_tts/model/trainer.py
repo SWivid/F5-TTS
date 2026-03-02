@@ -49,6 +49,7 @@ class Trainer:
         accelerate_kwargs: dict = dict(),
         ema_kwargs: dict = dict(),
         bnb_optimizer: bool = False,
+        use_fused_adamw: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
@@ -85,6 +86,8 @@ class Trainer:
                     "grad_accumulation_steps": grad_accumulation_steps,
                     "max_grad_norm": max_grad_norm,
                     "noise_scheduler": noise_scheduler,
+                    "bnb_optimizer": bnb_optimizer,
+                    "use_fused_adamw": use_fused_adamw,
                 }
             model_cfg_dict["gpus"] = self.accelerator.num_processes
             self.accelerator.init_trackers(
@@ -134,10 +137,15 @@ class Trainer:
 
         self.duration_predictor = duration_predictor
 
+        if bnb_optimizer and use_fused_adamw:
+            raise ValueError("`bnb_optimizer` and `use_fused_adamw` cannot both be enabled. Please choose only one.")
+
         if bnb_optimizer:
             import bitsandbytes as bnb
 
             self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
+        elif use_fused_adamw:
+            self.optimizer = AdamW(model.parameters(), lr=learning_rate, fused=True)
         else:
             self.optimizer = AdamW(model.parameters(), lr=learning_rate)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
