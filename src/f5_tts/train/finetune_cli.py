@@ -71,11 +71,6 @@ def parse_args():
         action="store_true",
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
-    parser.add_argument(
-        "--use_fused_adamw",
-        action="store_true",
-        help="Use torch.optim.AdamW with fused=True",
-    )
 
     return parser.parse_args()
 
@@ -85,9 +80,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-
-    if args.bnb_optimizer and args.use_fused_adamw:
-        raise ValueError("`--bnb_optimizer` and `--use_fused_adamw` cannot be used together.")
 
     checkpoint_path = str(files("f5_tts").joinpath(f"../../ckpts/{args.dataset_name}"))
 
@@ -208,7 +200,6 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
-        use_fused_adamw=args.use_fused_adamw,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

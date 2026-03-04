@@ -63,7 +63,6 @@ def main(model_cfg):
         last_per_updates=model_cfg.ckpts.last_per_updates,
         log_samples=model_cfg.ckpts.log_samples,
         bnb_optimizer=model_cfg.optim.bnb_optimizer,
-        use_fused_adamw=model_cfg.optim.use_fused_adamw,
         mel_spec_type=mel_spec_type,
         is_local_vocoder=model_cfg.model.vocoder.is_local,
         local_vocoder_path=model_cfg.model.vocoder.local_path,

@@ -16,7 +16,6 @@ optim:
   grad_accumulation_steps: 1  # note: updates = steps / grad_accumulation_steps
   max_grad_norm: 1.0  # gradient clipping
   bnb_optimizer: False  # use bnb 8bit AdamW optimizer or not
-  use_fused_adamw: True  # use torch AdamW fused implementation or not
 
 model:
   name: E2TTS_Base
