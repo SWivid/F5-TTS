@@ -25,7 +25,6 @@ dependencies = [
     "librosa",
     "matplotlib",
     "numpy<=1.26.4; python_version<='3.10'",
-    "pydantic<=2.10.6",
     "pydub",
     "pypinyin",
     "rjieba",
