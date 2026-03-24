@@ -2,7 +2,6 @@
 # Make adjustments inside functions, and consider both gradio and cli scripts if need to change func output format
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
@@ -523,14 +522,10 @@ def infer_batch_process(
             for chunk in process_batch(gen_text):
                 yield chunk
     else:
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(process_batch, gen_text) for gen_text in gen_text_batches]
-            for future in progress.tqdm(futures) if progress is not None else futures:
-                result = future.result()
-                if result:
-                    generated_wave, generated_mel_spec = next(result)
-                    generated_waves.append(generated_wave)
-                    spectrograms.append(generated_mel_spec)
+        for gen_text in progress.tqdm(gen_text_batches) if progress is not None else gen_text_batches:
+            generated_wave, generated_mel_spec = next(process_batch(gen_text))
+            generated_waves.append(generated_wave)
+            spectrograms.append(generated_mel_spec)
 
         if generated_waves:
             if cross_fade_duration <= 0:
