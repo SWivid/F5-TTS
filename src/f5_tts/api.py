@@ -119,7 +119,7 @@ class F5TTS:
         seed_everything(seed)
         self.seed = seed
 
-        ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text)
+        ref_file, ref_text = preprocess_ref_audio_text(ref_file, ref_text, show_info=show_info)
 
         wav, sr, spec = infer_process(
             ref_file,

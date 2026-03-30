@@ -17,6 +17,8 @@
 ### Supported Languages
 - [Multilingual](#multilingual)
     - [F5-TTS v1 v0 Base @ zh \& en @ F5-TTS](#f5-tts-v1-v0-base--zh--en--f5-tts)
+- [Arabic](#arabic)
+    - [F5-TTS Small @ ar & en @ SILMA AI](#f5-tts-small--ar--en--silma-ai)
 - [English](#english)
 - [Finnish](#finnish)
     - [F5-TTS Base @ fi @ AsmoKoskinen](#f5-tts-base--fi--asmokoskinen)
@@ -64,6 +66,17 @@ Config: {"dim": 1024, "depth": 22, "heads": 16, "ff_mult": 2, "text_dim": 512, "
 ```
 
 *Other infos, e.g. Author info, Github repo, Link to some sampled results, Usage instruction, Tutorial (Blog, Video, etc.) ...*
+
+
+## Arabic
+
+#### F5-TTS Small @ ar & en @ SILMA AI
+|Model|🤗Hugging Face|Data (Hours)|Model License|
+|:---:|:------------:|:-----------:|:-------------:|
+|F5-TTS Small|[ckpt & vocab](https://huggingface.co/silma-ai/silma-tts)| Tens of thousands EN/AR |Apache-2.0|
+
+- Pretrained by [SILMA.AI](https://silma.ai)
+- [GitHub repo](https://github.com/SILMA-AI/silma-tts), Inference code
 
 
 ## English
