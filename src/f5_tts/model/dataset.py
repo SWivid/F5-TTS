@@ -37,6 +37,7 @@ class HFDataset(Dataset):
             target_sample_rate=target_sample_rate,
             mel_spec_type=mel_spec_type,
         )
+        self._resamplers = {}
 
     def get_frame_len(self, index):
         row = self.data[index]
@@ -51,8 +52,6 @@ class HFDataset(Dataset):
         row = self.data[index]
         audio = row["audio"]["array"]
 
-        # logger.info(f"Audio shape: {audio.shape}")
-
         sample_rate = row["audio"]["sampling_rate"]
         duration = audio.shape[-1] / sample_rate
 
@@ -62,8 +61,9 @@ class HFDataset(Dataset):
         audio_tensor = torch.from_numpy(audio).float()
 
         if sample_rate != self.target_sample_rate:
-            resampler = torchaudio.transforms.Resample(sample_rate, self.target_sample_rate)
-            audio_tensor = resampler(audio_tensor)
+            if sample_rate not in self._resamplers:
+                self._resamplers[sample_rate] = torchaudio.transforms.Resample(sample_rate, self.target_sample_rate)
+            audio_tensor = self._resamplers[sample_rate](audio_tensor)
 
         audio_tensor = audio_tensor.unsqueeze(0)  # 't -> 1 t')
 
@@ -114,6 +114,7 @@ class CustomDataset(Dataset):
                     mel_spec_type=mel_spec_type,
                 ),
             )
+        self._resamplers = {}
 
     def get_frame_len(self, index):
         if (
@@ -149,8 +150,11 @@ class CustomDataset(Dataset):
 
             # resample if necessary
             if source_sample_rate != self.target_sample_rate:
-                resampler = torchaudio.transforms.Resample(source_sample_rate, self.target_sample_rate)
-                audio = resampler(audio)
+                if source_sample_rate not in self._resamplers:
+                    self._resamplers[source_sample_rate] = torchaudio.transforms.Resample(
+                        source_sample_rate, self.target_sample_rate
+                    )
+                audio = self._resamplers[source_sample_rate](audio)
 
             # to mel spectrogram
             mel_spec = self.mel_spectrogram(audio)
