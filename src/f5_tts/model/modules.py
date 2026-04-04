@@ -29,6 +29,7 @@ from f5_tts.model.utils import is_package_available
 
 mel_basis_cache = {}
 hann_window_cache = {}
+vocos_mel_stft_cache = {}
 
 
 def get_bigvgan_mel_spectrogram(
@@ -84,23 +85,26 @@ def get_vocos_mel_spectrogram(
     hop_length=256,
     win_length=1024,
 ):
-    mel_stft = torchaudio.transforms.MelSpectrogram(
-        sample_rate=target_sample_rate,
-        n_fft=n_fft,
-        win_length=win_length,
-        hop_length=hop_length,
-        n_mels=n_mel_channels,
-        power=1,
-        center=True,
-        normalized=False,
-        norm=None,
-    ).to(waveform.device)
+    device = waveform.device
+    key = f"{n_fft}_{n_mel_channels}_{target_sample_rate}_{hop_length}_{win_length}_{device}"
+    if key not in vocos_mel_stft_cache:
+        vocos_mel_stft_cache[key] = torchaudio.transforms.MelSpectrogram(
+            sample_rate=target_sample_rate,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            n_mels=n_mel_channels,
+            power=1,
+            center=True,
+            normalized=False,
+            norm=None,
+        ).to(device)
     if len(waveform.shape) == 3:
         waveform = waveform.squeeze(1)  # 'b 1 nw -> b nw'
 
     assert len(waveform.shape) == 2
 
-    mel = mel_stft(waveform)
+    mel = vocos_mel_stft_cache[key](waveform)
     mel = mel.clamp(min=1e-5).log()
     return mel
 
