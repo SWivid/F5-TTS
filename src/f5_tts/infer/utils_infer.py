@@ -537,14 +537,22 @@ def infer_batch_process(
             for chunk in infer_single_process_streaming(gen_text):
                 yield chunk
     else:
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(infer_single_process, gen_text) for gen_text in gen_text_batches]
-            for future in progress.tqdm(futures) if progress is not None else futures:
-                result = future.result()
-                if result:
-                    generated_wave, generated_mel_spec = result
-                    generated_waves.append(generated_wave)
-                    spectrograms.append(generated_mel_spec)
+        # NOTE: Do NOT use ThreadPoolExecutor here — the model's transformer
+        # has a shared text-embedding cache (text_cond / text_uncond) that is
+        # populated inside model.sample() and read on every ODE-step call to
+        # get_input_embed().  Running multiple sample() calls concurrently on
+        # the same model causes cache races: Thread-B overwrites the cached
+        # text_embed while Thread-A is still iterating through odeint steps,
+        # leading to shape mismatches like:
+        #   RuntimeError: Sizes of tensors must match except in dimension 2.
+        #   Expected size 1757 but got size 1733
+        # See: https://github.com/SWivid/F5-TTS/issues/1287
+        for gen_text in gen_text_batches:
+            result = infer_single_process(gen_text)
+            if result:
+                generated_wave, generated_mel_spec = result
+                generated_waves.append(generated_wave)
+                spectrograms.append(generated_mel_spec)
 
         if generated_waves:
             if cross_fade_duration <= 0:
