@@ -10,6 +10,7 @@ d - dimension
 
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 import torch
@@ -134,7 +135,7 @@ class UNetT(nn.Module):
         self.text_embed = TextEmbedding(
             text_num_embeds, text_dim, mask_padding=text_mask_padding, conv_layers=conv_layers
         )
-        self.text_cond, self.text_uncond = None, None  # text cache
+        self._cache_local = threading.local()  # thread-local storage for cache
         self.input_embed = InputEmbedding(mel_dim, text_dim, dim)
 
         self.rotary_embed = RotaryEmbedding(dim_head)
@@ -184,6 +185,22 @@ class UNetT(nn.Module):
 
         self.norm_out = RMSNorm(dim)
         self.proj_out = nn.Linear(dim, mel_dim)
+
+    @property
+    def text_cond(self):
+        return getattr(self._cache_local, "text_cond", None)
+
+    @text_cond.setter
+    def text_cond(self, value):
+        self._cache_local.text_cond = value
+
+    @property
+    def text_uncond(self):
+        return getattr(self._cache_local, "text_uncond", None)
+
+    @text_uncond.setter
+    def text_uncond(self, value):
+        self._cache_local.text_uncond = value
 
     def get_input_embed(
         self,
