@@ -20,7 +20,7 @@ dependencies = [
     "click",
     "datasets",
     "ema_pytorch>=0.5.2",
-    "gradio>=6.0.0",
+    "gradio>=6.0.0,<6.11",
     "hydra-core>=1.3.0",
     "librosa",
     "matplotlib",
