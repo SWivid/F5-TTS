@@ -99,6 +99,7 @@ class MMDiT(nn.Module):
         text_mask_padding=True,
         qk_norm=None,
         checkpoint_activations=False,
+        gc_checkpoint_interval: int = 1,
         attn_backend="torch",
         attn_mask_enabled=False,
     ):
@@ -133,6 +134,8 @@ class MMDiT(nn.Module):
         self.proj_out = nn.Linear(dim, mel_dim)
 
         self.checkpoint_activations = checkpoint_activations
+        # Selective GC: when checkpoint_activations=True, checkpoint every Nth block (default 1 = every).
+        self.gc_checkpoint_interval = max(1, int(gc_checkpoint_interval))
 
         self.initialize_weights()
 
@@ -248,8 +251,9 @@ class MMDiT(nn.Module):
         rope_audio = self.rotary_embed.forward_from_seq_len(seq_len)
         rope_text = self.rotary_embed.forward_from_seq_len(text_len)
 
-        for block in self.transformer_blocks:
-            if self.checkpoint_activations:
+        for i, block in enumerate(self.transformer_blocks):
+            do_ckpt = self.checkpoint_activations and (i % self.gc_checkpoint_interval == 0)
+            if do_ckpt:
                 c, x = torch.utils.checkpoint.checkpoint(
                     self.ckpt_wrapper(block), x, c, t, mask, rope_audio, rope_text, c_mask, use_reentrant=False
                 )
