@@ -53,6 +53,7 @@ class Trainer:
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
         model_cfg_dict: dict = dict(),  # training config
+        peft_config: object | None = None,  # peft.PeftConfig instance (LoraConfig / LoHaConfig); None disables PEFT
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -103,10 +104,24 @@ class Trainer:
 
         self.model = model
 
-        if self.is_main:
+        # PEFT (LoRA / LoHa) wrap. Frozen base + small trainable adapter. EMA disabled under PEFT —
+        # tracking ema across base+adapter bloats state and degrades adapter learning.
+        self.peft_enabled = peft_config is not None
+        if self.peft_enabled:
+            from peft import get_peft_model
+
+            self.model = get_peft_model(self.model, peft_config)
+
+        if self.is_main and not self.peft_enabled:
             self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
             self.ema_model.to(self.accelerator.device)
+        elif self.is_main:
+            self.ema_model = None
 
+        if self.is_main:
+            if self.peft_enabled:
+                # peft helper prints "trainable params: X || all params: Y || trainable%: Z"
+                self.model.print_trainable_parameters()
             print(f"Using logger: {logger}")
             if grad_accumulation_steps > 1:
                 print(
@@ -135,12 +150,14 @@ class Trainer:
 
         self.duration_predictor = duration_predictor
 
+        # Use self.model.parameters() so PEFT-wrapped runs see only trainable adapter params.
+        # For non-PEFT runs this matches the prior behavior (all params trainable).
         if bnb_optimizer:
             import bitsandbytes as bnb
 
-            self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
+            self.optimizer = bnb.optim.AdamW8bit(self.model.parameters(), lr=learning_rate)
         else:
-            self.optimizer = AdamW(model.parameters(), lr=learning_rate, fused=True)
+            self.optimizer = AdamW(self.model.parameters(), lr=learning_rate, fused=True)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
     @property
@@ -153,12 +170,17 @@ class Trainer:
             checkpoint = dict(
                 model_state_dict=self.accelerator.unwrap_model(self.model).state_dict(),
                 optimizer_state_dict=self.optimizer.state_dict(),
-                ema_model_state_dict=self.ema_model.state_dict(),
                 scheduler_state_dict=self.scheduler.state_dict(),
                 update=update,
             )
+            if self.ema_model is not None:
+                checkpoint["ema_model_state_dict"] = self.ema_model.state_dict()
             if not os.path.exists(self.checkpoint_path):
                 os.makedirs(self.checkpoint_path)
+            # PEFT: also save adapter-only safetensors directory for portability (~MB vs GB)
+            if self.peft_enabled:
+                adapter_dir = f"{self.checkpoint_path}/adapter_{'last' if last else update}"
+                self.accelerator.unwrap_model(self.model).save_pretrained(adapter_dir)
             if last:
                 self.accelerator.save(checkpoint, f"{self.checkpoint_path}/model_last.pt")
                 print(f"Saved last checkpoint at update {update}")
@@ -224,11 +246,12 @@ class Trainer:
             )
 
         # patch for backward compatibility, 305e3ea
-        for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
-            if key in checkpoint["ema_model_state_dict"]:
-                del checkpoint["ema_model_state_dict"][key]
+        if "ema_model_state_dict" in checkpoint:
+            for key in ["ema_model.mel_spec.mel_stft.mel_scale.fb", "ema_model.mel_spec.mel_stft.spectrogram.window"]:
+                if key in checkpoint["ema_model_state_dict"]:
+                    del checkpoint["ema_model_state_dict"][key]
 
-        if self.is_main:
+        if self.is_main and self.ema_model is not None and "ema_model_state_dict" in checkpoint:
             self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
 
         if "update" in checkpoint or "step" in checkpoint:
@@ -249,13 +272,19 @@ class Trainer:
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             update = checkpoint["update"]
-        else:
+        elif "ema_model_state_dict" in checkpoint:
             checkpoint["model_state_dict"] = {
                 k.replace("ema_model.", ""): v
                 for k, v in checkpoint["ema_model_state_dict"].items()
                 if k not in ["initted", "update", "step"]
             }
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+            # PEFT-wrapped model has prefixed keys (base_model.model.…); pretrained ckpts don't.
+            # Load non-strict and rely on CLI-level pre-load when PEFT enabled (see finetune_cli.py).
+            self.accelerator.unwrap_model(self.model).load_state_dict(
+                checkpoint["model_state_dict"], strict=not self.peft_enabled
+            )
+            update = 0
+        else:
             update = 0
 
         del checkpoint
@@ -384,7 +413,7 @@ class Trainer:
                     self.optimizer.zero_grad()
 
                 if self.accelerator.sync_gradients:
-                    if self.is_main:
+                    if self.is_main and self.ema_model is not None:
                         self.ema_model.update()
 
                     global_update += 1
