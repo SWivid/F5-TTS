@@ -211,6 +211,10 @@ f5-tts_infer-cli -c custom.toml
 f5-tts_infer-cli -c src/f5_tts/infer/examples/multi/story.toml
 ```
 
+> **Note:** pass `--ref_audio` (and other file-path arguments) as an **absolute path**. Relative paths are
+> resolved against the installed `f5_tts` package directory, not your current working directory, and can
+> raise a confusing `FileNotFoundError` with a doubled path.
+
 
 ## Training
 
