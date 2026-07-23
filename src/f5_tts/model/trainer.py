@@ -53,6 +53,7 @@ class Trainer:
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
         model_cfg_dict: dict = dict(),  # training config
+        torch_compile_mode: str | None = None,  # None | "default" | "reduce-overhead" | "max-autotune"
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
@@ -102,6 +103,18 @@ class Trainer:
                 self.writer = SummaryWriter(log_dir=f"runs/{wandb_run_name}")
 
         self.model = model
+
+        # torch.compile (PyTorch 2.x). Applied BEFORE accelerator.prepare so DDP wraps the
+        # compiled module. Variable mel-frame counts trigger recompiles — keep cache size
+        # generous and prefer "default" mode unless seq-lens are bucketed externally.
+        if torch_compile_mode is not None:
+            try:
+                import torch._dynamo as _dynamo  # noqa: F401
+
+                torch._dynamo.config.cache_size_limit = max(64, torch._dynamo.config.cache_size_limit)
+            except Exception:
+                pass
+            self.model = torch.compile(self.model, mode=torch_compile_mode)
 
         if self.is_main:
             self.ema_model = EMA(model, include_online_model=False, **ema_kwargs)
