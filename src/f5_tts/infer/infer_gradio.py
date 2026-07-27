@@ -1018,14 +1018,41 @@ If you're having issues, try converting your reference audio to WAV or MP3, clip
                 choices=[DEFAULT_TTS_MODEL, "E2-TTS"], label="Choose TTS Model", value=DEFAULT_TTS_MODEL
             )
         custom_ckpt_path = gr.Dropdown(
-            choices=[DEFAULT_TTS_MODEL_CFG[0]],
+            choices=[
+                DEFAULT_TTS_MODEL_CFG[0],
+                # Community models from SHARED.md
+                "hf://SWivid/F5-TTS/F5TTS_v1_Base_no_zero_init/model_1250000.safetensors",  # zh & en (variant)
+                "hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.safetensors",  # zh & en (v0)
+                "hf://AsmoKoskinen/F5-TTS_Finnish_Model/model_common_voice_fi_vox_populi_fi_20241206.safetensors",  # fi
+                "hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/model_last_reduced.pt",  # fr
+                "hf://hvoss-techfak/F5-TTS-German/model_f5tts_german.pt",  # de
+                "hf://SPRINGLab/F5-Hindi-24KHz/model_2500000.safetensors",  # hi
+                "hf://alien79/F5-TTS-italian/model_159600.safetensors",  # it
+                "hf://Jmica/F5TTS/JA_21999120/model_21999120.pt",  # ja
+                "hf://RaivisDejus/F5-TTS-Latvian/model.safetensors",  # lv
+                "hf://hotstone228/F5-TTS-Russian/model_last.safetensors",  # ru
+                "hf://jpgallegoar/F5-Spanish/model_1250000.safetensors",  # es
+            ],
             value=load_last_used_custom()[0],
             allow_custom_value=True,
             label="Model: local_path | hf://user_id/repo_id/model_ckpt",
             visible=False,
         )
         custom_vocab_path = gr.Dropdown(
-            choices=[DEFAULT_TTS_MODEL_CFG[1]],
+            choices=[
+                DEFAULT_TTS_MODEL_CFG[1],
+                # Community vocabs from SHARED.md
+                "hf://SWivid/F5-TTS/F5TTS_Base/vocab.txt",  # zh & en (v0)
+                "hf://AsmoKoskinen/F5-TTS_Finnish_Model/vocab.txt",  # fi
+                "hf://RASPIAUDIO/F5-French-MixedSpeakers-reduced/vocab.txt",  # fr
+                "hf://hvoss-techfak/F5-TTS-German/vocab.txt",  # de
+                "hf://SPRINGLab/F5-Hindi-24KHz/vocab.txt",  # hi
+                "hf://alien79/F5-TTS-italian/vocab.txt",  # it
+                "hf://Jmica/F5TTS/JA_21999120/vocab_japanese.txt",  # ja
+                "hf://RaivisDejus/F5-TTS-Latvian/vocab.txt",  # lv
+                "hf://hotstone228/F5-TTS-Russian/vocab.txt",  # ru
+                "hf://jpgallegoar/F5-Spanish/vocab.txt",  # es
+            ],
             value=load_last_used_custom()[1],
             allow_custom_value=True,
             label="Vocab: local_path | hf://user_id/repo_id/vocab_file",
