@@ -296,7 +296,9 @@ def load_asr_model(lang, ckpt_dir=""):
         from faster_whisper import WhisperModel
 
         model_size = "large-v3" if ckpt_dir == "" else ckpt_dir
-        model = WhisperModel(model_size, device="cuda", compute_type="float16")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        compute_type = "float16" if torch.cuda.is_available() else "int8"
+        model = WhisperModel(model_size, device=device, compute_type=compute_type)
     return model
 
 
