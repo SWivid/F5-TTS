@@ -132,9 +132,20 @@ class CFM(nn.Module):
         if isinstance(duration, int):
             duration = torch.full((batch,), duration, device=device, dtype=torch.long)
 
-        duration = torch.maximum(
-            torch.maximum((text != -1).sum(dim=-1), lens) + 1, duration
-        )  # duration at least text/audio prompt length plus one token, so something is generated
+        # --- FIX START ---
+        # Disable automatic forcing of duration based on text length.
+        # This was causing issues where text with extra symbols ('+') forced audio to be too long.
+        # We respect the passed 'duration' calculation.
+        
+        # Original code (commented out):
+        # duration = torch.maximum(
+        #     torch.maximum((text != -1).sum(dim=-1), lens) + 1, duration
+        # )
+        
+        # New code: ensure duration is at least 1 (safety) and clamp max
+        duration = torch.maximum(duration, torch.ones_like(duration))
+        # --- FIX END ---
+        
         duration = duration.clamp(max=max_duration)
         max_duration = duration.amax()
 
