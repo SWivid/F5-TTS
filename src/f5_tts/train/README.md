@@ -64,6 +64,23 @@ If use tensorboard as logger, install it first with `pip install tensorboard`.
 
 <ins>The `use_ema = True` might be harmful for early-stage finetuned checkpoints</ins> (which goes just few updates, thus ema weights still dominated by pretrained ones), try turn it off with finetune gradio option or `load_model(..., use_ema=False)`, see if offer better results.
 
+### ⚠️ Note on Custom Checkpoint Loading
+
+The published base checkpoints (e.g., `model_1250000.safetensors`) store weights exclusively under the Exponential Moving Average (EMA) shadow key prefix (`ema_model.transformer.*`).
+
+If you bypass the built-in API wrapper and write a custom state-dict loader, a naive load will cause the model to fall back to random initialization silently. You must invert your filter to strip the prefix:
+
+```python
+from safetensors.torch import load_file
+
+state = load_file("model_1250000.safetensors")
+# Strip the EMA prefix to map directly to standard transformer keys
+cleaned_state = {k[len("ema_model.transformer."):]: v
+                 for k, v in state.items()
+                 if k.startswith("ema_model.transformer.")}
+model.load_state_dict(cleaned_state, strict=False)
+```
+
 ### 3. W&B Logging
 
 The `wandb/` dir will be created under path you run training/finetuning scripts.
