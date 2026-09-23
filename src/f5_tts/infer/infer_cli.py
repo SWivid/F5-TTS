@@ -214,10 +214,18 @@ load_vocoder_from_local = args.load_vocoder_from_local or config.get("load_vocod
 
 vocoder_name = args.vocoder_name or config.get("vocoder_name", mel_spec_type)
 target_rms = args.target_rms or config.get("target_rms", target_rms)
-cross_fade_duration = args.cross_fade_duration or config.get("cross_fade_duration", cross_fade_duration)
+cross_fade_duration = (
+    args.cross_fade_duration
+    if args.cross_fade_duration is not None
+    else config.get("cross_fade_duration", cross_fade_duration)
+)
 nfe_step = args.nfe_step or config.get("nfe_step", nfe_step)
-cfg_strength = args.cfg_strength or config.get("cfg_strength", cfg_strength)
-sway_sampling_coef = args.sway_sampling_coef or config.get("sway_sampling_coef", sway_sampling_coef)
+cfg_strength = args.cfg_strength if args.cfg_strength is not None else config.get("cfg_strength", cfg_strength)
+sway_sampling_coef = (
+    args.sway_sampling_coef
+    if args.sway_sampling_coef is not None
+    else config.get("sway_sampling_coef", sway_sampling_coef)
+)
 speed = args.speed or config.get("speed", speed)
 fix_duration = args.fix_duration or config.get("fix_duration", fix_duration)
 device = args.device or config.get("device", device)
