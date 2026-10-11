@@ -18,7 +18,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 def seed_everything(seed=0):
     random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed % 2**32)  # force uint32 range
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
