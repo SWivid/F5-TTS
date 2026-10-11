@@ -18,10 +18,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 def seed_everything(seed=0):
     random.seed(seed)
-    # PYTHONHASHSEED is only read by CPython at startup and must be "random" or an integer in
-    # [0, 2**32 - 1]. A 64-bit seed (e.g. from random.randint(0, sys.maxsize) in api.py) would
-    # make every child Python process inheriting this environment abort at pre-initialization.
-    os.environ["PYTHONHASHSEED"] = str(seed % 2**32)
+    os.environ["PYTHONHASHSEED"] = str(seed % 2**32)  # force uint32 range
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
