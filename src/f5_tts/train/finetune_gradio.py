@@ -405,47 +405,59 @@ def start_training(
 
     dataset_name = dataset_name.replace("_pinyin", "").replace("_char", "")
 
+    cmd = ["accelerate", "launch"]
     if mixed_precision != "none":
-        fp16 = f"--mixed_precision={mixed_precision}"
-    else:
-        fp16 = ""
-
-    cmd = (
-        f'accelerate launch {fp16} "{file_train}" --exp_name {exp_name}'
-        f" --learning_rate {learning_rate}"
-        f" --batch_size_per_gpu {batch_size_per_gpu}"
-        f" --batch_size_type {batch_size_type}"
-        f" --max_samples {max_samples}"
-        f" --grad_accumulation_steps {grad_accumulation_steps}"
-        f" --max_grad_norm {max_grad_norm}"
-        f" --epochs {epochs}"
-        f" --num_warmup_updates {num_warmup_updates}"
-        f" --save_per_updates {save_per_updates}"
-        f" --keep_last_n_checkpoints {keep_last_n_checkpoints}"
-        f" --last_per_updates {last_per_updates}"
-        f" --dataset_name {dataset_name}"
-    )
+        cmd.append(f"--mixed_precision={mixed_precision}")
+    cmd += [
+        file_train,
+        "--exp_name",
+        str(exp_name),
+        "--learning_rate",
+        str(learning_rate),
+        "--batch_size_per_gpu",
+        str(batch_size_per_gpu),
+        "--batch_size_type",
+        str(batch_size_type),
+        "--max_samples",
+        str(max_samples),
+        "--grad_accumulation_steps",
+        str(grad_accumulation_steps),
+        "--max_grad_norm",
+        str(max_grad_norm),
+        "--epochs",
+        str(epochs),
+        "--num_warmup_updates",
+        str(num_warmup_updates),
+        "--save_per_updates",
+        str(save_per_updates),
+        "--keep_last_n_checkpoints",
+        str(keep_last_n_checkpoints),
+        "--last_per_updates",
+        str(last_per_updates),
+        "--dataset_name",
+        dataset_name,
+    ]
 
     if finetune:
-        cmd += " --finetune"
+        cmd.append("--finetune")
 
     if file_checkpoint_train != "":
-        cmd += f' --pretrain "{file_checkpoint_train}"'
+        cmd += ["--pretrain", file_checkpoint_train]
 
     if tokenizer_file != "":
-        cmd += f" --tokenizer_path {tokenizer_file}"
+        cmd += ["--tokenizer_path", tokenizer_file]
 
-    cmd += f" --tokenizer {tokenizer_type}"
+    cmd += ["--tokenizer", tokenizer_type]
 
     if logger != "none":
-        cmd += f" --logger {logger}"
+        cmd += ["--logger", logger]
 
-    cmd += " --log_samples"
+    cmd.append("--log_samples")
 
     if ch_8bit_adam:
-        cmd += " --bnb_optimizer"
+        cmd.append("--bnb_optimizer")
 
-    print("run command : \n" + cmd + "\n")
+    print("run command : \n" + " ".join(cmd) + "\n")
 
     save_settings(
         dataset_name,
@@ -473,7 +485,7 @@ def start_training(
     try:
         if not stream:
             # Start the training process
-            training_process = subprocess.Popen(cmd, shell=True)
+            training_process = subprocess.Popen(cmd)
 
             time.sleep(5)
             yield "train start", gr.update(interactive=False), gr.update(interactive=True)
@@ -495,7 +507,7 @@ def start_training(
             env["PYTHONUNBUFFERED"] = "1"
 
             training_process = subprocess.Popen(
-                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, env=env
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, env=env
             )
             yield "Training started ...", gr.update(interactive=False), gr.update(interactive=True)
 
