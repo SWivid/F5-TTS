@@ -32,6 +32,11 @@ class F5TTS:
         device=None,
         hf_cache_dir=None,
     ):
+        """
+        Note: The official pre-trained checkpoints contain ONLY Exponential Moving Average (EMA)
+        weights under the `ema_model.transformer.` prefix. If writing a custom loader bypassing
+        this API, ensure you strip this prefix to avoid silent random initialization.
+        """
         model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
         model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
         model_arc = model_cfg.model.arch
