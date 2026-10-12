@@ -71,6 +71,34 @@ def parse_args():
         action="store_true",
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
+    parser.add_argument(
+        "--peft_method",
+        type=str,
+        default="none",
+        choices=["none", "lora", "loha"],
+        help="Parameter-efficient finetune adapter (frozen base, trainable adapter). 'none' = full finetune.",
+    )
+    parser.add_argument(
+        "--peft_rank",
+        type=int,
+        default=8,
+        help="Adapter rank r. Sensible: LoRA r=16-32, LoHa r=4-8 (LyCORIS rule r<=sqrt(dim)).",
+    )
+    parser.add_argument(
+        "--peft_alpha",
+        type=int,
+        default=8,
+        help="Adapter scaling alpha. Common choice: alpha = r (LoRA) or alpha = r (LoHa).",
+    )
+    parser.add_argument(
+        "--peft_target_modules",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated module name suffixes to adapt. "
+            "Default targets DiT/UNetT attention+FFN linears: 'to_q,to_k,to_v,to_out.0,ff.ff.0.0,ff.ff.2'."
+        ),
+    )
 
     return parser.parse_args()
 
@@ -138,7 +166,10 @@ def main():
             else:
                 ckpt_path = args.pretrain
 
-    if args.finetune:
+    # PEFT runs need the base loaded INTO the bare model before adapter wrap (handled below).
+    # Skip the pretrained-copy mechanic: load_checkpoint would otherwise try to load the
+    # un-prefixed pretrained state into the PEFT-wrapped (prefixed) model.
+    if args.finetune and args.peft_method == "none":
         if not os.path.isdir(checkpoint_path):
             os.makedirs(checkpoint_path, exist_ok=True)
 
@@ -180,6 +211,73 @@ def main():
         vocab_char_map=vocab_char_map,
     )
 
+    # --- PEFT: build adapter config + pre-load base weights ---
+    peft_config = None
+    if args.peft_method != "none":
+        if args.peft_target_modules:
+            targets = [s.strip() for s in args.peft_target_modules.split(",")]
+        else:
+            # DiT/UNetT share attention (to_q/k/v/out.0) and FFN (ff.ff.0.0 / ff.ff.2) module naming.
+            targets = ["to_q", "to_k", "to_v", "to_out.0", "ff.ff.0.0", "ff.ff.2"]
+        # Always exclude AdaLN-Zero modulation + final zero-init linears — adapting them breaks
+        # F5-TTS init contract (NaN within first steps).
+        excludes = [
+            "attn_norm",
+            "ff_norm",
+            "norm_out",
+            "proj_out",
+            "time_embed",
+            "text_embed",
+            "input_embed",
+            "long_skip_connection",
+        ]
+        if args.peft_method == "lora":
+            from peft import LoraConfig
+
+            peft_config = LoraConfig(
+                r=args.peft_rank,
+                lora_alpha=args.peft_alpha,
+                target_modules=targets,
+                exclude_modules=excludes,
+                lora_dropout=0.0,
+                bias="none",
+            )
+        elif args.peft_method == "loha":
+            from peft import LoHaConfig
+
+            peft_config = LoHaConfig(
+                r=args.peft_rank,
+                alpha=args.peft_alpha,
+                target_modules=targets,
+                exclude_modules=excludes,
+                rank_dropout=0.0,
+                module_dropout=0.0,
+                use_effective_conv2d=False,
+            )
+
+        if args.finetune:
+            import torch
+            from safetensors.torch import load_file as _load_safetensors
+
+            if ckpt_path.endswith(".safetensors"):
+                sd = _load_safetensors(ckpt_path)
+            else:
+                sd_pt = torch.load(ckpt_path, weights_only=True, map_location="cpu")
+                if "ema_model_state_dict" in sd_pt:
+                    sd = {
+                        k.replace("ema_model.", ""): v
+                        for k, v in sd_pt["ema_model_state_dict"].items()
+                        if k not in ("initted", "update", "step")
+                    }
+                elif "model_state_dict" in sd_pt:
+                    sd = sd_pt["model_state_dict"]
+                else:
+                    sd = sd_pt
+            for k in ("mel_spec.mel_stft.mel_scale.fb", "mel_spec.mel_stft.spectrogram.window"):
+                sd.pop(k, None)
+            missing, unexpected = model.load_state_dict(sd, strict=False)
+            print(f"PEFT pretrain loaded from {ckpt_path}: missing={len(missing)} unexpected={len(unexpected)}")
+
     trainer = Trainer(
         model,
         args.epochs,
@@ -200,6 +298,7 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
+        peft_config=peft_config,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
