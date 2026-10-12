@@ -5,7 +5,7 @@ if [ -z "$model" ]; then
     model=F5TTS_v1_Base
 fi
 echo "Start stage: $stage, Stop stage: $stop_stage, Model: $model"
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=0,1
 
 CKPT_DIR=../../../../ckpts
 TRTLLM_CKPT_DIR=$CKPT_DIR/$model/trtllm_ckpt
