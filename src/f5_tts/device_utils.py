@@ -28,7 +28,7 @@ def get_default_device() -> str:
     accelerator = getattr(torch, "accelerator", None)
     if accelerator is not None and hasattr(accelerator, "current_accelerator"):
         try:
-            current = accelerator.current_accelerator()
+            current = accelerator.current_accelerator(check_available=True)
         except RuntimeError:  # no accelerator available in this build
             current = None
         if current is not None:
