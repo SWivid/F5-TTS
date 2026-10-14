@@ -29,6 +29,7 @@ from safetensors.torch import load_file, save_file
 from scipy.io import wavfile
 
 from f5_tts.api import F5TTS
+from f5_tts.device_utils import get_default_device
 from f5_tts.infer.utils_infer import transcribe
 from f5_tts.model.utils import convert_char_to_pinyin
 
@@ -62,15 +63,7 @@ path_data = str(files("f5_tts").joinpath("../../data"))
 path_project_ckpts = str(files("f5_tts").joinpath("../../ckpts"))
 file_train = str(files("f5_tts").joinpath("train/finetune_cli.py"))
 
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "xpu"
-    if torch.xpu.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
+device = get_default_device()
 
 
 # Save settings from a JSON file

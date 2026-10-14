@@ -16,6 +16,7 @@ from huggingface_hub import hf_hub_download
 from hydra.utils import get_class
 from omegaconf import OmegaConf
 
+from f5_tts.device_utils import get_default_device
 from f5_tts.infer.utils_infer import (
     chunk_text,
     infer_batch_process,
@@ -71,15 +72,7 @@ class AudioFileWriterThread(threading.Thread):
 
 class TTSStreamingProcessor:
     def __init__(self, model, ckpt_file, vocab_file, ref_audio, ref_text, device=None, dtype=torch.float32):
-        self.device = device or (
-            "cuda"
-            if torch.cuda.is_available()
-            else "xpu"
-            if torch.xpu.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
-        )
+        self.device = device or get_default_device()
         model_cfg = OmegaConf.load(str(files("f5_tts").joinpath(f"configs/{model}.yaml")))
         self.model_cls = get_class(f"f5_tts.model.{model_cfg.model.backbone}")
         self.model_arc = model_cfg.model.arch

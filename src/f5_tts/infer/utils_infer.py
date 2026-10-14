@@ -28,6 +28,7 @@ from pydub import AudioSegment, silence
 from transformers import pipeline
 from vocos import Vocos
 
+from f5_tts.device_utils import get_default_device
 from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
@@ -35,15 +36,7 @@ from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 _ref_audio_cache = {}
 _ref_text_cache = {}
 
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "xpu"
-    if torch.xpu.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
+device = get_default_device()
 
 tempfile_kwargs = {"delete_on_close": False} if sys.version_info >= (3, 12) else {"delete": False}
 
