@@ -12,20 +12,13 @@ from cached_path import cached_path
 from hydra.utils import get_class
 from omegaconf import OmegaConf
 
+from f5_tts.device_utils import get_default_device
 from f5_tts.infer.utils_infer import load_checkpoint, load_vocoder, save_spectrogram
 from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
 
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "xpu"
-    if torch.xpu.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
+device = get_default_device()
 
 
 # ---------------------- infer setting ---------------------- #

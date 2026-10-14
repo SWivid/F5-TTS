@@ -6,6 +6,8 @@ import librosa
 import torch
 from tqdm import tqdm
 
+from f5_tts.device_utils import get_default_device
+
 
 def main():
     parser = argparse.ArgumentParser(description="UTMOS Evaluation")
@@ -13,7 +15,7 @@ def main():
     parser.add_argument("--ext", type=str, default="wav", help="Audio extension.")
     args = parser.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "xpu" if torch.xpu.is_available() else "cpu"
+    device = get_default_device()
 
     predictor = torch.hub.load("tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True)
     predictor = predictor.to(device)
