@@ -84,17 +84,19 @@ def chunk_text(text, max_chars=135):
     chunks = []
     current_chunk = ""
     # Split the text into sentences based on punctuation followed by whitespace
-    sentences = re.split(r"(?<=[;:,.!?])\s+|(?<=[；：，。！？])", text)
+    # (Devanagari danda । and ॥ are space-separated like Latin punctuation)
+    sentences = re.split(r"(?<=[;:,.!?।॥])\s+|(?<=[；：，。！？])", text)
 
     for sentence in sentences:
         if not sentence:
             continue
+        needs_space = sentence[-1] not in "；：，。！？"
         if len(current_chunk.encode("utf-8")) + len(sentence.encode("utf-8")) <= max_chars:
-            current_chunk += sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
+            current_chunk += sentence + " " if needs_space else sentence
         else:
             if current_chunk:
                 chunks.append(current_chunk.strip())
-            current_chunk = sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
+            current_chunk = sentence + " " if needs_space else sentence
 
     if current_chunk:
         chunks.append(current_chunk.strip())
@@ -368,7 +370,7 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
 
     # Ensure ref_text ends with a proper sentence-ending punctuation
     if not ref_text.endswith(". ") and not ref_text.endswith("。"):
-        if ref_text.endswith("."):
+        if ref_text.endswith((".", "।", "॥")):
             ref_text += " "
         else:
             ref_text += ". "
