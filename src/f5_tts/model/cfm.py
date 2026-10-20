@@ -99,6 +99,8 @@ class CFM(nn.Module):
         duplicate_test=False,
         t_inter=0.1,
         edit_mask=None,
+        cfg_zero_init_steps: int = 0,
+        cfg_zero_star_velocity: bool = False,
     ):
         self.eval()
         # raw wave
@@ -159,36 +161,58 @@ class CFM(nn.Module):
 
         # neural ode
 
-        def fn(t, x):
-            # at each step, conditioning is fixed
-            # step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))
+        # CFG-Zero* (https://arxiv.org/abs/2503.18886): zero-init the first N solver steps
+        # (no DiT forward; integrator stays at x0) and optionally replace fixed cfg_strength
+        # with the optimized projection scalar α* per step. Drop-in inference-time only;
+        # no retrain. Composes with EPSS — zero-init skips the cheapest early-noise steps.
+        # `zero_init_threshold` is computed against the t schedule below.
 
-            # predict flow (cond)
-            if cfg_strength < 1e-5:
-                pred = self.transformer(
+        def make_fn(zero_init_threshold: float):
+            def fn(t_scalar, x):
+                if zero_init_threshold > -1.0 and float(t_scalar) < zero_init_threshold:
+                    return torch.zeros_like(x)
+
+                # at each step, conditioning is fixed
+                # step_cond = torch.where(cond_mask, cond, torch.zeros_like(cond))
+
+                # predict flow (cond)
+                if cfg_strength < 1e-5:
+                    pred = self.transformer(
+                        x=x,
+                        cond=step_cond,
+                        text=text,
+                        time=t_scalar,
+                        mask=mask,
+                        drop_audio_cond=False,
+                        drop_text=False,
+                        cache=True,
+                    )
+                    return pred
+
+                # predict flow (cond and uncond), for classifier-free guidance
+                pred_cfg = self.transformer(
                     x=x,
                     cond=step_cond,
                     text=text,
-                    time=t,
+                    time=t_scalar,
                     mask=mask,
-                    drop_audio_cond=False,
-                    drop_text=False,
+                    cfg_infer=True,
                     cache=True,
                 )
-                return pred
+                pred, null_pred = torch.chunk(pred_cfg, 2, dim=0)
 
-            # predict flow (cond and uncond), for classifier-free guidance
-            pred_cfg = self.transformer(
-                x=x,
-                cond=step_cond,
-                text=text,
-                time=t,
-                mask=mask,
-                cfg_infer=True,
-                cache=True,
-            )
-            pred, null_pred = torch.chunk(pred_cfg, 2, dim=0)
-            return pred + (pred - null_pred) * cfg_strength
+                if cfg_zero_star_velocity:
+                    # Optimized scale α* = <pred, null_pred> / ||null_pred||² per-batch.
+                    pos = pred.reshape(pred.shape[0], -1)
+                    neg = null_pred.reshape(null_pred.shape[0], -1)
+                    dot = (pos * neg).sum(dim=1, keepdim=True)
+                    sq_norm = (neg * neg).sum(dim=1, keepdim=True).clamp_min(1e-8)
+                    alpha = (dot / sq_norm).view(pred.shape[0], 1, 1)
+                    return null_pred * alpha + cfg_strength * (pred - null_pred * alpha)
+
+                return pred + (pred - null_pred) * cfg_strength
+
+            return fn
 
         # noise input
         # to make sure batch inference result is same with different batch size, and for sure single inference
@@ -214,6 +238,12 @@ class CFM(nn.Module):
             t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
+
+        if cfg_zero_init_steps > 0 and cfg_zero_init_steps < t.numel():
+            zero_init_threshold = float(t[cfg_zero_init_steps].item())
+        else:
+            zero_init_threshold = -1.0
+        fn = make_fn(zero_init_threshold)
 
         trajectory = odeint(fn, y0, t, **self.odeint_kwargs)
         self.transformer.clear_cache()
