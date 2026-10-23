@@ -483,11 +483,12 @@ def infer_batch_process(
         local_speed = speed
         # Short chunks need a longer target duration when they are generated one
         # at a time for the streaming server. This must not override the speed a
-        # caller asked for anywhere else: the clamp was written for the streaming
-        # helper and only applies to the batch path because the two helpers were
-        # merged into this one.
+        # caller asked for anywhere else: the slower default was written for the
+        # streaming helper and only applies to the batch path because the two
+        # helpers were merged into this one. Keep it proportional to the caller's
+        # speed instead of pinning it to a fixed value.
         if streaming and len(gen_text.encode("utf-8")) < 10:
-            local_speed = 0.3
+            local_speed = speed * 0.3
 
         # Prepare the text
         text_list = [ref_text + gen_text]
