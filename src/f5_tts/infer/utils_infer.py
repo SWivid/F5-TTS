@@ -482,7 +482,7 @@ def infer_batch_process(
     def _infer_basic(gen_text, fix_dur):
         local_speed = speed
         if len(gen_text.encode("utf-8")) < 10:
-            local_speed = 0.3
+            local_speed = speed * 0.3
 
         # Prepare the text
         text_list = [ref_text + gen_text]
