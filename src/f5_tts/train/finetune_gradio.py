@@ -1035,6 +1035,7 @@ def vocab_extend(project_name, symbols, model_type):
         if item in vocab_check:
             continue
         miss_symbols.append(item)
+        vocab_check.add(item)
 
     if miss_symbols == []:
         return "Symbols are okay no need to extend."
