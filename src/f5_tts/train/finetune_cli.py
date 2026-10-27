@@ -71,6 +71,23 @@ def parse_args():
         action="store_true",
         help="Use 8-bit Adam optimizer from bitsandbytes",
     )
+    parser.add_argument(
+        "--torch_compile",
+        type=str,
+        default=None,
+        choices=[None, "default", "reduce-overhead", "max-autotune"],
+        help="torch.compile() mode for the training model. None disables (default).",
+    )
+    parser.add_argument(
+        "--gc_checkpoint_interval",
+        type=int,
+        default=0,
+        help=(
+            "Gradient-checkpointing interval. 0 disables (default). 1 = checkpoint every transformer "
+            "block (max memory savings). 2 = every 2nd block (~50%% activation mem at ~10%% throughput "
+            "cost — often net positive once batch size is doubled). DiT/MMDiT/UNetT only."
+        ),
+    )
 
     return parser.parse_args()
 
@@ -174,6 +191,19 @@ def main():
         mel_spec_type=mel_spec_type,
     )
 
+    # Forward optional gradient-checkpointing flags to the transformer __init__.
+    # UNetT doesn't expose checkpoint_activations yet — guard via signature inspection.
+    if args.gc_checkpoint_interval > 0:
+        import inspect
+
+        params = inspect.signature(model_cls.__init__).parameters
+        if "checkpoint_activations" in params:
+            model_cfg["checkpoint_activations"] = True
+        if "gc_checkpoint_interval" in params:
+            model_cfg["gc_checkpoint_interval"] = args.gc_checkpoint_interval
+        if "checkpoint_activations" not in params:
+            print(f"warning: {model_cls.__name__} does not support --gc_checkpoint_interval; flag ignored")
+
     model = CFM(
         transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
         mel_spec_kwargs=mel_spec_kwargs,
@@ -200,6 +230,7 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
+        torch_compile_mode=args.torch_compile,
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
