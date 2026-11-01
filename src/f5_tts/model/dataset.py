@@ -282,6 +282,10 @@ def load_dataset(
         )
 
     elif dataset_type == "CustomDatasetPath":
+        # This path loads a preprocessed raw-audio dataset; unlike the "CustomDataset"
+        # branch it never set preprocessed_mel, so referencing it below raised
+        # UnboundLocalError and the whole CustomDatasetPath option was unusable.
+        preprocessed_mel = False
         try:
             train_dataset = load_from_disk(f"{dataset_name}/raw")
         except:  # noqa: E722
