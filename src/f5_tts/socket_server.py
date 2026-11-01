@@ -130,6 +130,11 @@ class TTSStreamingProcessor:
 
     def generate_stream(self, text, conn):
         text_batches = chunk_text(text, max_chars=self.max_chars)
+        if not text_batches:
+            # Empty/whitespace-only input (e.g. a client sends "\n") -> chunk_text() returns
+            # [], and the first-package split below indexes text_batches[0] -> IndexError,
+            # which tears down the connection. Nothing to synthesize, so just return.
+            return
         if self.first_package:
             text_batches = chunk_text(text_batches[0], max_chars=self.few_chars) + text_batches[1:]
             text_batches = chunk_text(text_batches[0], max_chars=self.min_chars) + text_batches[1:]
