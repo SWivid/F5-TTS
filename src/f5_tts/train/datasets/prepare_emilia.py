@@ -21,6 +21,15 @@ from tqdm import tqdm
 from f5_tts.model.utils import convert_char_to_pinyin, repetition_found
 
 
+# Worker-process config. Must be module-scope so it is defined when this module is
+# re-imported under the "spawn" start method (the default on macOS and Windows), where
+# the __main__ block below does not run. deal_with_audio_dir() reads these in each
+# ProcessPoolExecutor worker; defining them only under __main__ raised
+# NameError: name 'tokenizer' is not defined in every worker under spawn.
+tokenizer = "pinyin"  # "pinyin" | "char"
+polyphone = True
+
+
 out_zh = {
     "ZH_B00041_S06226",
     "ZH_B00042_S09204",
@@ -206,9 +215,6 @@ def main():
 
 if __name__ == "__main__":
     max_workers = 32
-
-    tokenizer = "pinyin"  # "pinyin" | "char"
-    polyphone = True
 
     langs = ["ZH", "EN"]
     dataset_dir = "<SOME_PATH>/Emilia_Dataset/raw"
