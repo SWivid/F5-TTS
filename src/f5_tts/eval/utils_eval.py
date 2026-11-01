@@ -110,7 +110,8 @@ def get_inference_prompt(
         # Audio
         ref_audio, ref_sr = torchaudio.load(prompt_wav)
         ref_rms = torch.sqrt(torch.mean(torch.square(ref_audio)))
-        if ref_rms < target_rms:
+        # Skip when ref_rms == 0 (silent clip) to avoid a divide-by-zero that yields NaN audio.
+        if 0 < ref_rms < target_rms:
             ref_audio = ref_audio * target_rms / ref_rms
         assert ref_audio.shape[-1] > 5000, f"Empty prompt wav: {prompt_wav}, or torchaudio backend issue."
         if ref_sr != target_sample_rate:

@@ -132,7 +132,8 @@ audio, sr = torchaudio.load(audio_to_edit)
 if audio.shape[0] > 1:
     audio = torch.mean(audio, dim=0, keepdim=True)
 rms = torch.sqrt(torch.mean(torch.square(audio)))
-if rms < target_rms:
+# Skip when rms == 0 (silent clip) to avoid a divide-by-zero that yields NaN audio.
+if 0 < rms < target_rms:
     audio = audio * target_rms / rms
 if sr != target_sample_rate:
     resampler = torchaudio.transforms.Resample(sr, target_sample_rate)
