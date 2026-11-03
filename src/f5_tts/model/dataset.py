@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 from datasets import Dataset as Dataset_
+from datasets import load_dataset as load_hf_dataset
 from datasets import load_from_disk
 from torch import nn
 from torch.utils.data import Dataset, Sampler
@@ -301,7 +302,9 @@ def load_dataset(
         )
         pre, post = dataset_name.split("_")
         train_dataset = HFDataset(
-            load_dataset(f"{pre}/{pre}", split=f"train.{post}", cache_dir=str(files("f5_tts").joinpath("../../data"))),
+            load_hf_dataset(
+                f"{pre}/{pre}", split=f"train.{post}", cache_dir=str(files("f5_tts").joinpath("../../data"))
+            ),
         )
 
     return train_dataset
