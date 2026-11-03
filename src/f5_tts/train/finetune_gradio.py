@@ -1227,7 +1227,8 @@ def get_checkpoints_project(project_name, is_gradio=True):
     project_name = project_name.replace("_pinyin", "").replace("_char", "")
 
     if os.path.isdir(path_project_ckpts):
-        files_checkpoints = glob(os.path.join(path_project_ckpts, project_name, "*.pt"))
+        project_path = _safe_project_path(path_project_ckpts, project_name)
+        files_checkpoints = glob(os.path.join(project_path, "*.pt"))
         # Separate pretrained and regular checkpoints
         pretrained_checkpoints = [f for f in files_checkpoints if "pretrained_" in os.path.basename(f)]
         regular_checkpoints = [
@@ -1261,7 +1262,8 @@ def get_audio_project(project_name, is_gradio=True):
     project_name = project_name.replace("_pinyin", "").replace("_char", "")
 
     if os.path.isdir(path_project_ckpts):
-        files_audios = glob(os.path.join(path_project_ckpts, project_name, "samples", "*.wav"))
+        project_path = _safe_project_path(path_project_ckpts, project_name)
+        files_audios = glob(os.path.join(project_path, "samples", "*.wav"))
         files_audios = sorted(files_audios, key=lambda x: int(os.path.basename(x).split("_")[1].split(".")[0]))
 
         files_audios = [item.replace("_gen.wav", "") for item in files_audios if item.endswith("_gen.wav")]
