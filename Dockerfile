@@ -19,7 +19,10 @@ WORKDIR /workspace
 RUN git clone https://github.com/SWivid/F5-TTS.git \
     && cd F5-TTS \
     && git submodule update --init --recursive \
-    && pip install -e . --no-cache-dir
+    && pip install -e . --no-cache-dir \
+        "torch==2.8.0" \
+        "torchaudio==2.8.0" \
+        "torchcodec==0.7.0"
 
 ENV SHELL=/bin/bash
 
