@@ -1131,7 +1131,7 @@ def get_random_sample_prepare(project_name):
     return text, audio_path
 
 
-def get_random_sample_transcribe(project_name):
+def get_random_sample_transcribe(project_name, max_duration=None):
     name_project = project_name
     path_project = _safe_project_path(path_data, name_project)
     file_metadata = os.path.join(path_project, "metadata.csv")
@@ -1156,12 +1156,19 @@ def get_random_sample_transcribe(project_name):
         return "", None
 
     random_item = random.choice(list_data)
+    if max_duration is not None:
+        random.shuffle(list_data)
+        for item in list_data:
+            if get_audio_duration(item[0]) <= max_duration:
+                random_item = item
+                break
 
     return random_item[1], random_item[0]
 
 
 def get_random_sample_infer(project_name):
-    text, audio = get_random_sample_transcribe(project_name)
+    # preprocess_ref_audio_text in utils_infer clips references over 12 seconds.
+    text, audio = get_random_sample_transcribe(project_name, max_duration=12)
     return (
         text,
         text,
