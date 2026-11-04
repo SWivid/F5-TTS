@@ -106,7 +106,7 @@ class F5TTS(PretrainedModel):
         max_batch_size = kwargs["max_batch_size"]
         batch_size_range = [2, 2, max_batch_size]
         mel_size = self.config.mel_dim
-        max_seq_len = 3000  # 4096
+        max_seq_len = 4096  # 4096
         num_frames_range = [mel_size * 2, max_seq_len * 2, max_seq_len * max_batch_size]
         concat_feature_dim = mel_size + self.config.text_dim
         freq_embed_dim = 256  # Warning: hard coding 256 here

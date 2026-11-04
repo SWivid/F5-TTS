@@ -79,3 +79,9 @@ instance_group [
     kind: KIND_GPU
   }
 ]
+parameters: {
+  key: "gpu_device_ids"
+  value: {
+    string_value: "0;1"
+  }
+}
