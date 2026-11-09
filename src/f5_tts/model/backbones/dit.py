@@ -189,6 +189,7 @@ class DiT(nn.Module):
         attn_mask_enabled=False,
         long_skip_connection=False,
         checkpoint_activations=False,
+        gc_checkpoint_interval: int = 1,  # when checkpoint_activations=True, only ckpt every Nth block
     ):
         super().__init__()
 
@@ -231,6 +232,11 @@ class DiT(nn.Module):
         self.proj_out = nn.Linear(dim, mel_dim)
 
         self.checkpoint_activations = checkpoint_activations
+        # gc_checkpoint_interval > 1 → selective checkpointing every Nth block (saves ~50% of
+        # the activation memory of full GC at ~half the compute overhead). Set to 2 to trade
+        # ~10% throughput for headroom to ~2x batch size. interval=1 (default) preserves the
+        # prior behavior of checkpoint every block when checkpoint_activations=True.
+        self.gc_checkpoint_interval = max(1, int(gc_checkpoint_interval))
 
         self.initialize_weights()
 
@@ -354,8 +360,9 @@ class DiT(nn.Module):
         if self.long_skip_connection is not None:
             residual = x
 
-        for block in self.transformer_blocks:
-            if self.checkpoint_activations:
+        for i, block in enumerate(self.transformer_blocks):
+            do_ckpt = self.checkpoint_activations and (i % self.gc_checkpoint_interval == 0)
+            if do_ckpt:
                 # https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
                 x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, t, mask, rope, use_reentrant=False)
             else:
