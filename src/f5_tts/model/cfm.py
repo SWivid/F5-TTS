@@ -208,10 +208,12 @@ class CFM(nn.Module):
             y0 = (1 - t_start) * y0 + t_start * test_cond
             steps = int(steps * (1 - t_start))
 
+        # Sway sampling can round adjacent times to the same value in fp16 or bf16.
+        time_dtype = torch.promote_types(step_cond.dtype, torch.float32)
         if t_start == 0 and use_epss:  # use Empirically Pruned Step Sampling for low NFE
-            t = get_epss_timesteps(steps, device=self.device, dtype=step_cond.dtype)
+            t = get_epss_timesteps(steps, device=self.device, dtype=time_dtype)
         else:
-            t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype)
+            t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=time_dtype)
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
