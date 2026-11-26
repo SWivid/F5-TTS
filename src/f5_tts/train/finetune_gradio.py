@@ -760,7 +760,7 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     text_vocab_set = set()
     for line in progress.tqdm(data.split("\n"), total=count):
         sp_line = line.split("|")
-        if len(sp_line) != 2:
+        if len(sp_line) < 2:  # accept optional extra columns (e.g. duration), as prepare_csv_wavs does
             continue
         name_audio, text = sp_line[:2]
 
@@ -1096,7 +1096,7 @@ def vocab_check(project_name, tokenizer_type):
     miss_symbols_keep = {}
     for item in data.split("\n"):
         sp = item.split("|")
-        if len(sp) != 2:
+        if len(sp) < 2:  # accept optional extra columns (e.g. duration), as prepare_csv_wavs does
             continue
 
         text = sp[1].strip()
@@ -1145,7 +1145,7 @@ def get_random_sample_transcribe(project_name):
     list_data = []
     for item in data.split("\n"):
         sp = item.split("|")
-        if len(sp) != 2:
+        if len(sp) < 2:  # accept optional extra columns (e.g. duration), as prepare_csv_wavs does
             continue
 
         # fixed audio when it is absolute
