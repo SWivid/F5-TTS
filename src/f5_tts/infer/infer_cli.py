@@ -203,7 +203,7 @@ output_file = args.output_file or config.get(
 )
 
 save_chunk = args.save_chunk or config.get("save_chunk", False)
-use_legacy_text = args.no_legacy_text or config.get("no_legacy_text", False)  # no_legacy_text is a store_false arg
+use_legacy_text = args.no_legacy_text and not config.get("no_legacy_text", False)  # no_legacy_text is a store_false arg
 if save_chunk and use_legacy_text:
     print(
         "\nWarning to --save_chunk: lossy ASCII transliterations of unicode text for legacy (.wav) file names, --no_legacy_text to disable.\n"
