@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 from torch import nn
+from x_transformers.x_transformers import RotaryEmbedding as XRotaryEmbedding
 from x_transformers.x_transformers import apply_rotary_pos_emb
 
 from f5_tts.model.utils import is_package_available
@@ -202,6 +203,19 @@ class ConvPositionEmbedding(nn.Module):
 
 
 # rotary positional embedding related
+
+
+class RotaryEmbedding(XRotaryEmbedding):
+    def _apply(self, fn, *args, **kwargs):
+        # x-transformers uses the inverse frequency dtype for position indices too.
+        # Keep both in fp32 when the rest of the model is cast to half precision.
+        def convert(buffer):
+            converted = fn(buffer)
+            if converted.dtype in (torch.float16, torch.bfloat16):
+                return buffer.to(device=converted.device, dtype=torch.float32)
+            return converted
+
+        return super()._apply(convert, *args, **kwargs)
 
 
 def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_rescale_factor=1.0):

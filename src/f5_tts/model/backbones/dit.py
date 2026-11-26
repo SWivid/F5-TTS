@@ -15,13 +15,13 @@ import threading
 import torch
 import torch.nn.functional as F
 from torch import nn
-from x_transformers.x_transformers import RotaryEmbedding
 
 from f5_tts.model.modules import (
     AdaLayerNorm_Final,
     ConvNeXtV2Block,
     ConvPositionEmbedding,
     DiTBlock,
+    RotaryEmbedding,
     TimestepEmbedding,
     precompute_freqs_cis,
 )
