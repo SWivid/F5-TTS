@@ -77,17 +77,18 @@ def chunk_text(text, max_chars=135):
     chunks = []
     current_chunk = ""
     # Split the text into sentences based on punctuation followed by whitespace
-    sentences = re.split(r"(?<=[;:,.!?])\s+|(?<=[；：，。！？])", text)
+    sentences = re.split(r"(?<=[;:,.!?،؛؟۔])\s+|(?<=[；：，。！？])", text)
 
     for sentence in sentences:
         if not sentence:
             continue
+        trailing_space = " " if sentence and (len(sentence[-1].encode("utf-8")) == 1 or sentence[-1] in "،؛؟۔") else ""
         if len(current_chunk.encode("utf-8")) + len(sentence.encode("utf-8")) <= max_chars:
-            current_chunk += sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
+            current_chunk += sentence + trailing_space
         else:
             if current_chunk:
                 chunks.append(current_chunk.strip())
-            current_chunk = sentence + " " if sentence and len(sentence[-1].encode("utf-8")) == 1 else sentence
+            current_chunk = sentence + trailing_space
 
     if current_chunk:
         chunks.append(current_chunk.strip())
