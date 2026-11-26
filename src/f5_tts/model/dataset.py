@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 from datasets import Dataset as Dataset_
+from datasets import load_dataset as load_hf_dataset
 from datasets import load_from_disk
 from torch import nn
 from torch.utils.data import Dataset, Sampler
@@ -24,18 +25,23 @@ class HFDataset(Dataset):
         n_fft=1024,
         win_length=1024,
         mel_spec_type="vocos",
+        mel_spec_module: nn.Module | None = None,
     ):
         self.data = hf_dataset
         self.target_sample_rate = target_sample_rate
         self.hop_length = hop_length
 
-        self.mel_spectrogram = MelSpec(
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            n_mel_channels=n_mel_channels,
-            target_sample_rate=target_sample_rate,
-            mel_spec_type=mel_spec_type,
+        self.mel_spectrogram = (
+            mel_spec_module
+            if mel_spec_module is not None
+            else MelSpec(
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                n_mel_channels=n_mel_channels,
+                target_sample_rate=target_sample_rate,
+                mel_spec_type=mel_spec_type,
+            )
         )
         self._resamplers = {}
 
@@ -129,7 +135,6 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         while True:
             row = self.data[index]
-            audio_path = row["audio_path"]
             text = row["text"]
             duration = row["duration"]
 
@@ -142,7 +147,7 @@ class CustomDataset(Dataset):
         if self.preprocessed_mel:
             mel_spec = torch.tensor(row["mel_spec"])
         else:
-            audio, source_sample_rate = torchaudio.load(audio_path)
+            audio, source_sample_rate = torchaudio.load(row["audio_path"])
 
             # make sure mono input
             if audio.shape[0] > 1:
@@ -255,56 +260,45 @@ def load_dataset(
     """
     dataset_type    - "CustomDataset" if you want to use tokenizer name and default data path to load for train_dataset
                     - "CustomDatasetPath" if you just want to pass the full path to a preprocessed dataset without relying on tokenizer
+                    - "HFDataset" to load "<corpus>_<subset>" from "<corpus>/<corpus>", split "train.<subset>"
     """
 
     print("Loading dataset ...")
 
-    if dataset_type == "CustomDataset":
-        rel_data_path = str(files("f5_tts").joinpath(f"../../data/{dataset_name}_{tokenizer}"))
+    if dataset_type in ("CustomDataset", "CustomDatasetPath"):
+        data_path = dataset_name
+        if dataset_type == "CustomDataset":
+            data_path = str(files("f5_tts").joinpath(f"../../data/{dataset_name}_{tokenizer}"))
         if audio_type == "raw":
             try:
-                train_dataset = load_from_disk(f"{rel_data_path}/raw")
-            except:  # noqa: E722
-                train_dataset = Dataset_.from_file(f"{rel_data_path}/raw.arrow")
-            preprocessed_mel = False
+                train_dataset = load_from_disk(f"{data_path}/raw")
+            except Exception:
+                train_dataset = Dataset_.from_file(f"{data_path}/raw.arrow")
         elif audio_type == "mel":
-            train_dataset = Dataset_.from_file(f"{rel_data_path}/mel.arrow")
-            preprocessed_mel = True
-        with open(f"{rel_data_path}/duration.json", "r", encoding="utf-8") as f:
+            train_dataset = Dataset_.from_file(f"{data_path}/mel.arrow")
+        else:
+            raise ValueError(f"Unsupported audio_type: {audio_type}")
+        with open(f"{data_path}/duration.json", encoding="utf-8") as f:
             data_dict = json.load(f)
-        durations = data_dict["duration"]
-        train_dataset = CustomDataset(
+        return CustomDataset(
             train_dataset,
-            durations=durations,
-            preprocessed_mel=preprocessed_mel,
+            durations=data_dict["duration"],
+            preprocessed_mel=audio_type == "mel",
             mel_spec_module=mel_spec_module,
             **mel_spec_kwargs,
         )
 
-    elif dataset_type == "CustomDatasetPath":
-        try:
-            train_dataset = load_from_disk(f"{dataset_name}/raw")
-        except:  # noqa: E722
-            train_dataset = Dataset_.from_file(f"{dataset_name}/raw.arrow")
-
-        with open(f"{dataset_name}/duration.json", "r", encoding="utf-8") as f:
-            data_dict = json.load(f)
-        durations = data_dict["duration"]
-        train_dataset = CustomDataset(
-            train_dataset, durations=durations, preprocessed_mel=preprocessed_mel, **mel_spec_kwargs
+    if dataset_type == "HFDataset":
+        pre, post = dataset_name.split("_", 1)
+        return HFDataset(
+            load_hf_dataset(
+                f"{pre}/{pre}", split=f"train.{post}", cache_dir=str(files("f5_tts").joinpath("../../data"))
+            ),
+            mel_spec_module=mel_spec_module,
+            **mel_spec_kwargs,
         )
 
-    elif dataset_type == "HFDataset":
-        print(
-            "Should manually modify the path of huggingface dataset to your need.\n"
-            + "May also the corresponding script cuz different dataset may have different format."
-        )
-        pre, post = dataset_name.split("_")
-        train_dataset = HFDataset(
-            load_dataset(f"{pre}/{pre}", split=f"train.{post}", cache_dir=str(files("f5_tts").joinpath("../../data"))),
-        )
-
-    return train_dataset
+    raise ValueError(f"Unsupported dataset_type: {dataset_type}")
 
 
 # collation

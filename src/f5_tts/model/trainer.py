@@ -12,7 +12,7 @@ from accelerate.utils import DistributedDataParallelKwargs
 from ema_pytorch import EMA
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
-from torch.utils.data import DataLoader, Dataset, SequentialSampler
+from torch.utils.data import DataLoader, Dataset, DistributedSampler, SequentialSampler
 from tqdm import tqdm
 
 from f5_tts.model import CFM
@@ -182,7 +182,7 @@ class Trainer:
                         os.remove(os.path.join(self.checkpoint_path, oldest_checkpoint))
                         print(f"Removed old checkpoint: {oldest_checkpoint}")
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, batches_per_epoch: int | None = None):
         if (
             not exists(self.checkpoint_path)
             or not os.path.exists(self.checkpoint_path)
@@ -234,7 +234,13 @@ class Trainer:
         if "update" in checkpoint or "step" in checkpoint:
             # patch for backward compatibility, with before f992c4e
             if "step" in checkpoint:
-                checkpoint["update"] = checkpoint["step"] // self.grad_accumulation_steps
+                steps = checkpoint["step"]
+                if batches_per_epoch:
+                    epochs, steps = divmod(steps, batches_per_epoch)
+                    checkpoint["update"] = epochs * math.ceil(batches_per_epoch / self.grad_accumulation_steps)
+                else:
+                    checkpoint["update"] = 0
+                checkpoint["update"] += steps // self.grad_accumulation_steps
                 if self.grad_accumulation_steps > 1 and self.is_main:
                     print(
                         "F5-TTS WARNING: Loading checkpoint saved with per_steps logic (before f992c4e), will convert to per_updates according to grad_accumulation_steps setting, may have unexpected behaviour."
@@ -273,13 +279,13 @@ class Trainer:
             log_samples_path = f"{self.checkpoint_path}/samples"
             os.makedirs(log_samples_path, exist_ok=True)
 
-        if exists(resumable_with_seed):
-            generator = torch.Generator()
-            generator.manual_seed(resumable_with_seed)
-        else:
-            generator = None
-
+        epoch_sampler = None
         if self.batch_size_type == "sample":
+            generator = None
+            if exists(resumable_with_seed):
+                generator = torch.Generator().manual_seed(resumable_with_seed)
+                # Produce one epoch-specific permutation. Accelerate shards its batches across ranks.
+                epoch_sampler = DistributedSampler(train_dataset, num_replicas=1, rank=0, seed=resumable_with_seed)
             train_dataloader = DataLoader(
                 train_dataset,
                 collate_fn=collate_fn,
@@ -287,17 +293,19 @@ class Trainer:
                 pin_memory=True,
                 persistent_workers=True,
                 batch_size=self.batch_size_per_gpu,
-                shuffle=True,
+                shuffle=epoch_sampler is None,
+                sampler=epoch_sampler,
                 generator=generator,
             )
         elif self.batch_size_type == "frame":
             self.accelerator.even_batches = False
             sampler = SequentialSampler(train_dataset)
-            batch_sampler = DynamicBatchSampler(
+            epoch_sampler = DynamicBatchSampler(
                 sampler,
                 self.batch_size_per_gpu,
                 max_samples=self.max_samples,
-                random_seed=resumable_with_seed,  # This enables reproducible shuffling
+                # All ranks need the same permutation before Accelerate shards the batches.
+                random_seed=default(resumable_with_seed, 0),
                 drop_residual=False,
             )
             train_dataloader = DataLoader(
@@ -306,7 +314,7 @@ class Trainer:
                 num_workers=num_workers,
                 pin_memory=True,
                 persistent_workers=True,
-                batch_sampler=batch_sampler,
+                batch_sampler=epoch_sampler,
             )
         else:
             raise ValueError(f"batch_size_type must be either 'sample' or 'frame', but received {self.batch_size_type}")
@@ -327,37 +335,36 @@ class Trainer:
         train_dataloader, self.scheduler = self.accelerator.prepare(
             train_dataloader, self.scheduler
         )  # actual multi_gpu updates = single_gpu updates / gpu nums
-        start_update = self.load_checkpoint()
+        batches_per_epoch = len(train_dataloader)
+        if not batches_per_epoch:
+            raise ValueError("The training dataloader has no batches on this process.")
+        updates_per_epoch = math.ceil(batches_per_epoch / self.grad_accumulation_steps)
+        start_update = self.load_checkpoint(batches_per_epoch)
         global_update = start_update
 
+        start_epoch = updates_in_epoch = 0
         if exists(resumable_with_seed):
-            orig_epoch_step = len(train_dataloader)
-            start_step = start_update * self.grad_accumulation_steps
-            skipped_epoch = int(start_step // orig_epoch_step)
-            skipped_batch = start_step % orig_epoch_step
-            skipped_dataloader = self.accelerator.skip_first_batches(train_dataloader, num_batches=skipped_batch)
-        else:
-            skipped_epoch = 0
+            # Accelerate flushes a partial accumulation window at the end of each epoch.
+            start_epoch, updates_in_epoch = divmod(start_update, updates_per_epoch)
 
-        for epoch in range(skipped_epoch, self.epochs):
+        for epoch in range(start_epoch, self.epochs):
             self.model.train()
-            if exists(resumable_with_seed) and epoch == skipped_epoch:
-                progress_bar_initial = math.ceil(skipped_batch / self.grad_accumulation_steps)
-                current_dataloader = skipped_dataloader
-            else:
-                progress_bar_initial = 0
-                current_dataloader = train_dataloader
-
-            # Set epoch for the batch sampler if it exists
-            if hasattr(train_dataloader, "batch_sampler") and hasattr(train_dataloader.batch_sampler, "set_epoch"):
-                train_dataloader.batch_sampler.set_epoch(epoch)
+            current_dataloader = train_dataloader
+            completed_updates = updates_in_epoch if epoch == start_epoch else 0
+            if completed_updates:
+                skipped_batches = completed_updates * self.grad_accumulation_steps
+                current_dataloader = self.accelerator.skip_first_batches(train_dataloader, num_batches=skipped_batches)
+            current_dataloader.set_epoch(epoch)
+            # Sharding and skipping can wrap the sampler without forwarding set_epoch.
+            if epoch_sampler is not None:
+                epoch_sampler.set_epoch(epoch)
 
             progress_bar = tqdm(
-                range(math.ceil(len(train_dataloader) / self.grad_accumulation_steps)),
+                range(updates_per_epoch),
                 desc=f"Epoch {epoch + 1}/{self.epochs}",
                 unit="update",
                 disable=not self.accelerator.is_local_main_process,
-                initial=progress_bar_initial,
+                initial=completed_updates,
             )
 
             for batch in current_dataloader:
