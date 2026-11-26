@@ -217,8 +217,10 @@ class CFM(nn.Module):
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
-        trajectory = odeint(fn, y0, t, **self.odeint_kwargs)
-        self.transformer.clear_cache()
+        try:
+            trajectory = odeint(fn, y0, t, **self.odeint_kwargs)
+        finally:
+            self.transformer.clear_cache()
 
         sampled = trajectory[-1]
         out = sampled

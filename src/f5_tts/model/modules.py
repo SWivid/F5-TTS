@@ -218,14 +218,16 @@ class RotaryEmbedding(XRotaryEmbedding):
         return super()._apply(convert, *args, **kwargs)
 
 
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_rescale_factor=1.0):
+def precompute_freqs_cis(
+    dim: int, end: int, theta: float = 10000.0, theta_rescale_factor=1.0, *, start: int = 0, device=None
+):
     # proposed by reddit user bloc97, to rescale rotary embeddings to longer sequence length without fine-tuning
     # has some connection to NTK literature
     # https://www.reddit.com/r/LocalLLaMA/comments/14lz7j5/ntkaware_scaled_rope_allows_llama_models_to_have/
     # https://github.com/lucidrains/rotary-embedding-torch/blob/main/rotary_embedding_torch/rotary_embedding_torch.py
     theta *= theta_rescale_factor ** (dim / (dim - 2))
-    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
-    t = torch.arange(end, device=freqs.device)  # type: ignore
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2, device=device)[: (dim // 2)].float() / dim))
+    t = torch.arange(start, end, device=freqs.device)
     freqs = torch.outer(t, freqs).float()  # type: ignore
     freqs_cos = torch.cos(freqs)  # real part
     freqs_sin = torch.sin(freqs)  # imaginary part
