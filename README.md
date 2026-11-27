@@ -1,5 +1,7 @@
 # F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 
+В данный форк добавлены исправления для работы с ударениями в русском языке. Любые конструктивные предложения также по доработкам для русского языка приветствуются. Репозиторий синхронизирован с оригинальным кодом SWivid/F5-TTS
+
 [![python](https://img.shields.io/badge/Python-3.10-brightgreen)](https://github.com/SWivid/F5-TTS)
 [![arXiv](https://img.shields.io/badge/arXiv-2410.06885-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2410.06885)
 [![demo](https://img.shields.io/badge/GitHub-Demo-orange.svg)](https://swivid.github.io/F5-TTS/)
@@ -23,6 +25,49 @@
 - **2024/10/08**: F5-TTS & E2 TTS base models on [🤗 Hugging Face](https://huggingface.co/SWivid/F5-TTS), [🤖 Model Scope](https://www.modelscope.cn/models/SWivid/F5-TTS_Emilia-ZH-EN), [🟣 Wisemodel](https://wisemodel.cn/models/SJTU_X-LANCE/F5-TTS_Emilia-ZH-EN).
 
 ## Installation
+
+## Запуск в Google Colab
+
+> ⚠️ **Важно**: Для работы приложения требуется **GPU**.  
+> После запуска ноутбука в Colab:  
+> 1. Перейдите в `Runtime` → `Change runtime type`  
+> 2. Выберите `Hardware accelerator: GPU` (например, `T4` или выше)
+
+### 🔊 Использование `silero-stress + ruaccent-predictor`
+
+[![Open In Colab F5-TTS](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mikhail2013ru/ESPEECH_TTS_INFER/blob/main/notebooks/ESPEECH_TTS_INFER_2.2_Silero-stress.ipynb)
+
+👉 Этот ноутбук использует библиотеку `silero-stress` только для ёфикации и ruaccent-predictor для расстановки ударений.  
+Всё происходит в автоматическом режиме при нажатии на кнопку "Нормализовать". 
+
+---
+
+## 🧰 Что внутри?
+
+- **F5-TTS** — современная модель синтеза речи
+- **Gradio** — веб-интерфейс
+- **runorm** — нормализация текста
+- **ruaccent / silero-stress** — расстановка ударений
+- **Whisper** — распознавание референсного аудио (опционально)
+
+---
+
+## 🚀 Как использовать?
+
+1. Нажми на **кнопку "Open in Colab"**.
+2. Установи **GPU** в настройках времени выполнения.
+3. Запусти ячейки по очереди (`Ctrl+F9` или `Cmd+Enter`).
+4. Дождись gradio ссылки (это может занять 2-5 минут).
+5. Используй Gradio-интерфейс для синтеза речи.
+
+---
+
+## ⚠️ Ограничения
+
+- Требуется **GPU** (CUDA).
+- Модели **занимают много VRAM** (~3-6 ГБ).
+- Длительность генерации напрямую зависит от количества знаков в тексте **На colab не рекомендуется озвучивать за раз более 10 тыс. знаков**.
+
 
 ### Create a separate environment if needed
 
