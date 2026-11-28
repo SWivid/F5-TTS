@@ -53,6 +53,9 @@ eval = [
     "zhconv",
     "zhon",
 ]
+peft = [
+    "peft>=0.14.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/SWivid/F5-TTS"
